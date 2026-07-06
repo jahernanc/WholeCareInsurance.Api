@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.VisualStudio.JavaScript.Sdk/1.0.5171056">
+  <PropertyGroup>
+    <StartProgram>node</StartProgram>
+    <StartArguments>node_modules/vite/bin/vite.js dev</StartArguments>
+    <WorkingDirectory>$(ProjectDir)</WorkingDirectory>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,21 @@
+# Build outputs
+bin/
+obj/
+dist/
+
+# Dependencies
+node_modules/
+
+# User-specific files
+*.user
+*.suo
+.vs/
+
+# Secrets / environment overrides
+appsettings.Development.json
+*.env
+.env*
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="wholecare-admin-vs/wholecare-admin-vs.esproj">
+    <BuildDependency Project="WholeCareInsurance.api/WholeCareInsurance.api.csproj" />
+    <Build />
+    <Deploy Solution="Release|*" />
+  </Project>
+  <Project Path="WholeCareInsurance.api/WholeCareInsurance.api.csproj" />
+</Solution>

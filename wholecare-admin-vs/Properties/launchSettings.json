@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Vite": {
+      "commandName": "Executable",
+      "executablePath": "node",
+      "commandLineArgs": "node_modules/vite/bin/vite.js dev",
+      "workingDirectory": "."
+    }
+  }
+}
