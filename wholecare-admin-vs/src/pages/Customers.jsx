@@ -1,299 +1,238 @@
 import { useEffect, useState } from "react";
 
+const API = "http://localhost:5279/api/customers";
+const MIGRATION_STATUSES = [
+    "Permiso de trabajo",
+    "Residente permanente",
+    "Ciudadano",
+    "Otro",
+];
+
+const emptyForm = {
+    socialSecurityNumber: "",
+    firstName: "",
+    lastName: "",
+    dateOfBirth: "",
+    email: "",
+    address: "",
+    phone: "",
+    migrationStatus: "",
+};
+
 function Customers() {
     const [customers, setCustomers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
-
-    const [name, setName] = useState("");
-    const [email, setEmail] = useState("");
-    const [documentNumber, setDocumentNumber] = useState("");
-
+    const [form, setForm] = useState(emptyForm);
+    const [editingId, setEditingId] = useState(null);
     const [formError, setFormError] = useState("");
     const [submitting, setSubmitting] = useState(false);
 
     const token = localStorage.getItem("accessToken");
-    const [editingId, setEditingId] = useState(null);
 
-    
+    const headers = {
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/json",
+    };
 
     const loadCustomers = async () => {
         try {
             setLoading(true);
-
-            const response = await fetch("http://localhost:5279/api/customers", {
-                headers: {
-                    Authorization: "Bearer " + token,
-                },
-            });
-
-            if (!response.ok) {
-                throw new Error("Could not load customers");
-            }
-
-            const data = await response.json();
-            setCustomers(data);
-        } catch (error) {
-            console.error(error);
+            const res = await fetch(API, { headers: { Authorization: "Bearer " + token } });
+            if (!res.ok) throw new Error();
+            setCustomers(await res.json());
+        } catch {
+            console.error("No se pudieron cargar los clientes");
         } finally {
             setLoading(false);
         }
     };
-    const handleEdit = (customer) => {
-        setEditingId(customer.id);
 
-        setName(customer.name);
-        setEmail(customer.email);
-        setDocumentNumber(customer.documentNumber);
+    useEffect(() => { loadCustomers(); }, []);
 
+    const handleField = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+
+    const openCreate = () => {
+        setEditingId(null);
+        setForm(emptyForm);
+        setFormError("");
         setShowForm(true);
     };
 
-    useEffect(() => {
-        if (!token) return;
-
-        const fetchCustomers = async () => {
-            try {
-                setLoading(true);
-
-                const response = await fetch("http://localhost:5279/api/customers", {
-                    headers: {
-                        Authorization: "Bearer " + token,
-                    },
-                });
-
-                if (!response.ok) {
-                    throw new Error("Could not load customers");
-                }
-
-                const data = await response.json();
-                setCustomers(data);
-            } catch (error) {
-                console.error(error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchCustomers();
-    }, [token]);
-    
-
+    const handleEdit = (c) => {
+        setEditingId(c.id);
+        setForm({
+            socialSecurityNumber: c.socialSecurityNumber,
+            firstName: c.firstName,
+            lastName: c.lastName,
+            dateOfBirth: c.dateOfBirth?.substring(0, 10) ?? "",
+            email: c.email,
+            address: c.address,
+            phone: c.phone,
+            migrationStatus: c.migrationStatus,
+        });
+        setFormError("");
+        setShowForm(true);
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setFormError("");
 
-        if (!name.trim() || !email.trim() || !documentNumber.trim()) {
-            setFormError("All fields are required");
-            return;
-        }
+        const url = editingId ? `${API}/${editingId}` : API;
+        const method = editingId ? "PUT" : "POST";
 
         try {
             setSubmitting(true);
-
-            const url = editingId
-                ? `http://localhost:5279/api/customers/${editingId}`
-                : "http://localhost:5279/api/customers";
-
-            const method = editingId ? "PUT" : "POST";
-
-            const response = await fetch(url, {
-                method: method,
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: "Bearer " + token,
-                },
-                body: JSON.stringify({
-                    name,
-                    email,
-                    documentNumber,
-                }),
+            const res = await fetch(url, {
+                method,
+                headers,
+                body: JSON.stringify(form),
             });
 
-            if (!response.ok) {
-                throw new Error("Error saving customer");
+            if (!res.ok) {
+                const err = await res.json().catch(() => null);
+                setFormError(err?.title ?? "Error al guardar el cliente");
+                return;
             }
 
-            // reset form
-            setName("");
-            setEmail("");
-            setDocumentNumber("");
-            setEditingId(null);
-
-            await loadCustomers();
             setShowForm(false);
-
-
-        } catch (error) {
-            console.error(error);
-            setFormError("Error saving customer");
+            setForm(emptyForm);
+            setEditingId(null);
+            await loadCustomers();
+        } catch {
+            setFormError("Error al guardar el cliente");
         } finally {
             setSubmitting(false);
         }
     };
 
-
     const handleDelete = async (id) => {
-        if (!confirm("Are you sure you want to delete this customer?")) return;
-
+        if (!confirm("¿Eliminar este cliente?")) return;
         try {
-            const response = await fetch(
-                `http://localhost:5279/api/customers/${id}`,
-                {
-                    method: "DELETE",
-                    headers: {
-                        Authorization: "Bearer " + token,
-                    },
-                }
-            );
-
-            if (!response.ok) {
-                throw new Error("Could not delete customer");
-            }
-
-            await loadCustomers(); // 🔥 refresca lista
-
-        } catch (error) {
-            console.error(error);
-            alert("Error deleting customer");
+            const res = await fetch(`${API}/${id}`, {
+                method: "DELETE",
+                headers: { Authorization: "Bearer " + token },
+            });
+            if (!res.ok) throw new Error();
+            await loadCustomers();
+        } catch {
+            alert("Error al eliminar el cliente");
         }
     };
 
+    const inputStyle = { width: "100%", padding: "7px 10px", marginTop: 4, boxSizing: "border-box", borderRadius: 5, border: "1px solid #ccc" };
+    const labelStyle = { fontWeight: 500, fontSize: 13 };
+
     return (
         <div>
-            <h2 style={{ marginBottom: 20 }}>Customers</h2>
+            <h2 style={{ marginBottom: 20 }}>Clientes</h2>
 
             <button
-                onClick={() => setShowForm(!showForm)}
+                onClick={showForm ? () => setShowForm(false) : openCreate}
                 type="button"
-                style={{
-                    marginBottom: 20,
-                    background: "#2563eb",
-                    color: "white",
-                    padding: "8px 12px",
-                    border: "none",
-                    borderRadius: 6,
-                    cursor: "pointer"
-                }}
+                style={{ marginBottom: 20, background: "#2563eb", color: "white", padding: "8px 14px", border: "none", borderRadius: 6, cursor: "pointer" }}
             >
-                {showForm ? "Close Form" : "+ Create Customer"}
+                {showForm ? "Cerrar formulario" : "+ Nuevo cliente"}
             </button>
 
-            {/* Formulario */}
-            {
-                showForm && (
-                    <div
-                        style={{
-                            border: "1px solid #ddd",
-                            borderRadius: 10,
-                            padding: 20,
-                            marginBottom: 30,
-                            background: "#fafafa",
-                            maxWidth: 500,
-                        }}
-                    >
-                        <h3 style={{ marginTop: 0 }}>Create Customer</h3>
+            {showForm && (
+                <div style={{ border: "1px solid #ddd", borderRadius: 10, padding: 24, marginBottom: 30, background: "#fafafa", maxWidth: 560 }}>
+                    <h3 style={{ marginTop: 0 }}>{editingId ? "Editar cliente" : "Nuevo cliente"}</h3>
 
-                        <form onSubmit={handleSubmit}>
-                            <div style={{ marginBottom: 12 }}>
-                                <label>Name</label>
-                                <input
-                                    type="text"
-                                    value={name}
-                                    onChange={(e) => setName(e.target.value)}
-                                    style={{ width: "100%", padding: 8, marginTop: 4 }}
-                                />
+                    <form onSubmit={handleSubmit}>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+
+                            <div>
+                                <label style={labelStyle}>Número de seguro social</label>
+                                <input name="socialSecurityNumber" value={form.socialSecurityNumber} onChange={handleField} required style={inputStyle} />
                             </div>
 
-                            <div style={{ marginBottom: 12 }}>
-                                <label>Email</label>
-                                <input
-                                    type="email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    style={{ width: "100%", padding: 8, marginTop: 4 }}
-                                />
+                            <div>
+                                <label style={labelStyle}>Fecha de nacimiento</label>
+                                <input type="date" name="dateOfBirth" value={form.dateOfBirth} onChange={handleField} required style={inputStyle} />
                             </div>
 
-                            <div style={{ marginBottom: 12 }}>
-                                <label>Document Number</label>
-                                <input
-                                    type="text"
-                                    value={documentNumber}
-                                    onChange={(e) => setDocumentNumber(e.target.value)}
-                                    style={{ width: "100%", padding: 8, marginTop: 4 }}
-                                />
+                            <div>
+                                <label style={labelStyle}>Nombre</label>
+                                <input name="firstName" value={form.firstName} onChange={handleField} required style={inputStyle} />
                             </div>
 
-                            {formError && (
-                                <p style={{ color: "red", marginBottom: 12 }}>{formError}</p>
-                            )}
+                            <div>
+                                <label style={labelStyle}>Apellido</label>
+                                <input name="lastName" value={form.lastName} onChange={handleField} required style={inputStyle} />
+                            </div>
 
-                            <button type="submit" disabled={submitting}>
-                                {editingId
-                                    ? (submitting ? "Updating..." : "Update Customer")
-                                    : (submitting ? "Creating..." : "Create Customer")}
-                            </button>
+                            <div style={{ gridColumn: "1 / -1" }}>
+                                <label style={labelStyle}>Correo electrónico</label>
+                                <input type="email" name="email" value={form.email} onChange={handleField} required style={inputStyle} />
+                            </div>
 
-                        </form>
-                    </div>
-                )
-            }
+                            <div style={{ gridColumn: "1 / -1" }}>
+                                <label style={labelStyle}>Dirección</label>
+                                <input name="address" value={form.address} onChange={handleField} required style={inputStyle} />
+                            </div>
 
-            {/* Lista */}
+                            <div>
+                                <label style={labelStyle}>Teléfono</label>
+                                <input name="phone" value={form.phone} onChange={handleField} required style={inputStyle} />
+                            </div>
+
+                            <div>
+                                <label style={labelStyle}>Estatus migratorio</label>
+                                <select name="migrationStatus" value={form.migrationStatus} onChange={handleField} required style={inputStyle}>
+                                    <option value="">-- Seleccionar --</option>
+                                    {MIGRATION_STATUSES.map((s) => (
+                                        <option key={s} value={s}>{s}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                        </div>
+
+                        {formError && <p style={{ color: "red", marginTop: 12 }}>{formError}</p>}
+
+                        <button
+                            type="submit"
+                            disabled={submitting}
+                            style={{ marginTop: 16, background: "#2563eb", color: "white", padding: "9px 20px", border: "none", borderRadius: 6, cursor: "pointer" }}
+                        >
+                            {editingId
+                                ? (submitting ? "Guardando..." : "Guardar cambios")
+                                : (submitting ? "Creando..." : "Crear cliente")}
+                        </button>
+                    </form>
+                </div>
+            )}
+
             {loading ? (
-                <p>Loading customers...</p>
+                <p>Cargando clientes...</p>
             ) : customers.length === 0 ? (
-                <p>No customers yet</p>
+                <p>No hay clientes registrados.</p>
             ) : (
                 <div style={{ display: "grid", gap: 12 }}>
                     {customers.map((c) => (
-                        <div
-                            key={c.id}
-                            style={{
-                                border: "1px solid #ddd",
-                                borderRadius: 10,
-                                padding: 15,
-                                background: "white",
-                            }}
-                        >
-                            <div style={{ fontWeight: "bold", marginBottom: 4 }}>
-                                {c.name}
+                        <div key={c.id} style={{ border: "1px solid #ddd", borderRadius: 10, padding: 16, background: "white" }}>
+                            <div style={{ fontWeight: "bold", fontSize: 16, marginBottom: 6 }}>
+                                {c.firstName} {c.lastName}
                             </div>
-                            <div style={{ marginBottom: 4 }}>{c.email}</div>
-                            <div style={{ marginBottom: 4 }}>
-                                Document: {c.documentNumber}
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 20px", fontSize: 14, color: "#444" }}>
+                                <span>SSN: {c.socialSecurityNumber}</span>
+                                <span>Nacimiento: {c.dateOfBirth?.substring(0, 10)}</span>
+                                <span>Email: {c.email}</span>
+                                <span>Teléfono: {c.phone}</span>
+                                <span style={{ gridColumn: "1 / -1" }}>Dirección: {c.address}</span>
+                                <span>Estatus: {c.migrationStatus}</span>
+                                <span>Pólizas: {c.policiesCount}</span>
                             </div>
-                            <div>Policies: {c.policiesCount}</div>
-                            <button
-                                onClick={() => handleEdit(c)}
-                                style={{
-                                    marginTop: 10,
-                                    marginRight: 10,
-                                    background: "#007bff",
-                                    color: "white",
-                                    border: "none",
-                                    padding: "5px 10px",
-                                    cursor: "pointer"
-                                }}
-                            >
-                                Edit
-                            </button>
-
-                            <button
-                                onClick={() => handleDelete(c.id)}
-                                style={{
-                                    marginTop: 10,
-                                    background: "red",
-                                    color: "white",
-                                    border: "none",
-                                    padding: "5px 10px",
-                                    cursor: "pointer"
-                                }}
-                            >
-                                Delete
-                            </button>
+                            <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
+                                <button onClick={() => handleEdit(c)} style={{ background: "#007bff", color: "white", border: "none", padding: "5px 12px", borderRadius: 5, cursor: "pointer" }}>
+                                    Editar
+                                </button>
+                                <button onClick={() => handleDelete(c.id)} style={{ background: "#dc2626", color: "white", border: "none", padding: "5px 12px", borderRadius: 5, cursor: "pointer" }}>
+                                    Eliminar
+                                </button>
+                            </div>
                         </div>
                     ))}
                 </div>
