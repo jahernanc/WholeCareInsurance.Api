@@ -31,6 +31,17 @@ function Policies() {
         return customer ? `${customer.firstName} ${customer.lastName}` : "Unknown";
     };
 
+    const getCustomerPhone = (id) => {
+        const customer = customers.find((c) => c.id === Number(id));
+        return customer ? customer.phone : null;
+    };
+
+    const buildWhatsAppUrl = (phone) => {
+        const digits = phone.replace(/\D/g, "");
+        const message = encodeURIComponent("Hola, te contactamos desde WholeCare Insurance.");
+        return `https://wa.me/${digits}?text=${message}`;
+    };
+
     const loadData = async () => {
         try {
             setLoading(true);
@@ -575,6 +586,18 @@ function Policies() {
                                             >
                                                 🗑
                                             </button>
+
+                                            {getCustomerPhone(p.customerId) && (
+                                                <a
+                                                    href={buildWhatsAppUrl(getCustomerPhone(p.customerId))}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    title="Chat by WhatsApp"
+                                                    style={{ marginLeft: 8, fontSize: 16, textDecoration: "none" }}
+                                                >
+                                                    💬
+                                                </a>
+                                            )}
 
                                         </td>
                                     </tr>

@@ -63,10 +63,11 @@ Al generar una póliza, enviar notificación (SMS y/o email) al cliente para que
 
 Implementación pausada hasta que el responsable del requerimiento elija proveedor (y quién lo paga).
 
-### 2.2 Botón de WhatsApp para agentes — pendiente
-Permitir que el agente contacte directamente al cliente (para pedir documentación u otro trámite) desde Customers/Policies.
-- Opción simple y de bajo esfuerzo: botón "WhatsApp" que abre un link `https://wa.me/<telefono>?text=...` (click-to-chat), usando el `Phone` ya guardado en `Customer`. No requiere API de WhatsApp Business ni credenciales — solo formatear el teléfono a formato internacional y abrir el link.
-- Alternativa más compleja (no necesaria por ahora): integrar WhatsApp Business API para enviar mensajes automatizados/plantillas desde el backend — requiere cuenta de Meta Business verificada y proveedor (Twilio, 360dialog, etc.).
+### 2.2 Botón de WhatsApp para agentes — ✅ Hecho
+Permitir que el agente contacte directamente al cliente (para pedir documentación u otro trámite) desde la vista de Policies.
+- Implementado como click-to-chat: botón 💬 en cada fila de la tabla de Policies (junto a Editar/Eliminar) que abre `https://wa.me/<telefono>?text=...` en una pestaña nueva, tomando el `Phone` del `Customer` titular y limpiándolo a solo dígitos.
+- Cada agente escribe desde su propio WhatsApp Web/Desktop activo en su computadora — el link no tiene un "número emisor" configurable, solo define el destinatario.
+- Se descartó integrar WhatsApp Business API (mensajes automatizados desde el backend, número fijo de la empresa): decisión del usuario, no se necesita por ahora.
 
 ---
 
@@ -83,8 +84,8 @@ Permitir que el agente contacte directamente al cliente (para pedir documentaci�
 
 1. ~~Tipo en Policy (backend + frontend)~~ ✅ Hecho
 2. ~~Dependientes (backend: modelo + endpoints → frontend: buscador + botón agregar)~~ ✅ Hecho
-3. Buscador/filtro de pólizas (backend: query params → frontend: inputs de filtro) — siguiente
-4. Botón de WhatsApp (click-to-chat) — rápido, sin dependencias externas
+3. ~~Botón de WhatsApp (click-to-chat)~~ ✅ Hecho
+4. Buscador/filtro de pólizas (backend: query params → frontend: inputs de filtro) — siguiente
 5. Modal de detalle de póliza
 6. Refactorizaciones (variable de entorno, hook de API, refresh automático)
 7. Firma digital de consentimiento — bloqueado hasta que el responsable elija proveedor (ver §2.1)
