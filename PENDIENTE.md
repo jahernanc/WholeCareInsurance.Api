@@ -83,7 +83,19 @@ Permitir que el agente contacte directamente al cliente (para pedir documentaci�
 
 ---
 
-## 4. Orden sugerido de trabajo
+## 5. Dashboard y UX general
+
+### 5.1 Dashboard — pendiente de definiciones
+El Dashboard hoy es un placeholder (`<h1>Dashboard ✅</h1>` en `App.jsx`). Puede haber contenido nuevo para definir luego de la reunión con el responsable del requerimiento.
+
+### 5.2 Selector de idioma (Español/Inglés) en el Header — pendiente de definiciones
+Agregar un botón/selector en `Header.jsx` para cambiar el idioma de la UI entre español e inglés (únicos dos idiomas contemplados por ahora).
+- Faltan definiciones: qué textos se traducen (¿solo labels/UI, o también los valores de dropdowns como `MigrationStatus`/`Type` que hoy están hardcodeados en español?), si el idioma se persiste (localStorage) o es por sesión, y si aplica a toda la app o solo a ciertas vistas.
+- No implementar hasta tener esas definiciones — anotado para no perderlo de vista.
+
+---
+
+## 6. Orden sugerido de trabajo
 
 1. ~~Tipo en Policy (backend + frontend)~~ ✅ Hecho
 2. ~~Dependientes (backend: modelo + endpoints → frontend: buscador + botón agregar)~~ ✅ Hecho
@@ -93,3 +105,5 @@ Permitir que el agente contacte directamente al cliente (para pedir documentaci�
 6. ~~Refactorizaciones: variable de entorno, cliente API, refresh automático~~ ✅ Hecho (ver §3.1)
 7. ~~Mover DTOs de Customer/Policy a archivos separados~~ ✅ Hecho (ver §3.2)
 8. Firma digital de consentimiento — bloqueado hasta que el responsable elija proveedor (ver §2.1)
+9. Dashboard — bloqueado hasta la reunión con el responsable (ver §5.1)
+10. Selector de idioma ES/EN — bloqueado hasta tener definiciones (ver §5.2)
