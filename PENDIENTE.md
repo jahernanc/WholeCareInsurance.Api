@@ -4,24 +4,19 @@
 
 ## 1. Policies — campos y funcionalidades nuevas
 
-### 1.1 Campo Tipo (dropdown)
-- Agregar `Type` al modelo `Policy` como campo requerido.
-- Valores permitidos: `Obama Care`, `Salud`, `Auto`, `Otro`.
-- En el frontend: `<select>` igual al de estatus migratorio en Customers.
-- Validación con `[AllowedValues]` en el DTO del backend.
-- Nueva migración EF Core.
+### 1.1 Campo Tipo (dropdown) — ✅ Hecho
+- `Type` en `Policy` restringido a `Obama Care`, `Salud`, `Auto`, `Otro` vía `[AllowedValues]` en `PolicyCreateDto`.
+- Frontend: `<select>` en el formulario de Policies, igual al de estatus migratorio en Customers.
+- El campo `Type` ya existía en el modelo/DB; no hizo falta migración nueva, solo la validación.
 
-### 1.2 Dependientes
+### 1.2 Dependientes — ✅ Hecho
 Los dependientes son **Customers** vinculados a un Customer principal dentro de una póliza.
 Ejemplo: Javier Hernández es el titular; su esposa e hijo son dependientes en la misma póliza.
 
-**Diseño propuesto:**
-- Crear tabla intermedia `PolicyDependents` con columnas:
-  - `PolicyId` (FK → Policies)
-  - `CustomerId` (FK → Customers) — el dependiente
-- El dependiente ES un Customer ya registrado en el sistema.
-- En el formulario de póliza: botón **"Agregar dependiente"** que abre un buscador de clientes existentes para seleccionarlos.
-- En el backend: endpoint `POST /api/policies/{id}/dependents` y `DELETE /api/policies/{id}/dependents/{customerId}`.
+- Tabla intermedia `PolicyDependents` (`PolicyId`, `CustomerId` — clave compuesta). Cascade al borrar la póliza; Restrict en el FK a Customer (necesario para evitar múltiples cascade paths en SQL Server, ya que Customer también cascadea a Policy vía el titular).
+- Endpoints: `GET/POST /api/policies/{id}/dependents`, `DELETE /api/policies/{id}/dependents/{customerId}` (el GET no estaba en el diseño original pero es necesario para listar los dependientes actuales en el frontend).
+- Frontend: sección "Dependientes" en el formulario de Policies, visible solo al **editar** una póliza ya guardada (no al crear una nueva). Buscador de clientes filtra en el cliente la lista ya cargada de `customers` (sin nuevo endpoint de búsqueda).
+- De paso se corrigió un bug preexistente: el `<select>` de Customer y la columna Customer de la tabla referenciaban `c.name`/`c.documentNumber` (inexistentes) en lugar de `firstName`/`lastName`/`socialSecurityNumber`.
 
 ### 1.3 Buscador / filtro de pólizas
 Filtros disponibles:
@@ -56,8 +51,8 @@ Filtros disponibles:
 
 ## 3. Orden sugerido de trabajo
 
-1. Tipo en Policy (backend + frontend) — es pequeño y desbloquea el dropdown
-2. Dependientes (backend: modelo + endpoints → frontend: buscador + botón agregar)
-3. Buscador/filtro de pólizas (backend: query params → frontend: inputs de filtro)
+1. ~~Tipo en Policy (backend + frontend)~~ ✅ Hecho
+2. ~~Dependientes (backend: modelo + endpoints → frontend: buscador + botón agregar)~~ ✅ Hecho
+3. Buscador/filtro de pólizas (backend: query params → frontend: inputs de filtro) — siguiente
 4. Modal de detalle de póliza
 5. Refactorizaciones (variable de entorno, hook de API, refresh automático)
