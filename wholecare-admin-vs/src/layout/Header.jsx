@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { logout } from "../api";
 
 function Header() {
     const [open, setOpen] = useState(false);
@@ -27,10 +28,8 @@ function Header() {
         }
     }
 
-    const handleLogout = () => {
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("refreshToken");
-        window.location.href = "/login";
+    const handleLogout = async () => {
+        await logout();
     };
 
     return (

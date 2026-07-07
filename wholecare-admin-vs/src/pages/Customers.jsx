@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
+import { apiFetch } from "../api";
 
-const API = "http://localhost:5279/api/customers";
+const API = "/api/customers";
 const MIGRATION_STATUSES = [
     "Permiso de trabajo",
     "Residente permanente",
@@ -28,17 +29,10 @@ function Customers() {
     const [formError, setFormError] = useState("");
     const [submitting, setSubmitting] = useState(false);
 
-    const token = localStorage.getItem("accessToken");
-
-    const headers = {
-        Authorization: "Bearer " + token,
-        "Content-Type": "application/json",
-    };
-
     const loadCustomers = async () => {
         try {
             setLoading(true);
-            const res = await fetch(API, { headers: { Authorization: "Bearer " + token } });
+            const res = await apiFetch(API);
             if (!res.ok) throw new Error();
             setCustomers(await res.json());
         } catch {
@@ -84,9 +78,8 @@ function Customers() {
 
         try {
             setSubmitting(true);
-            const res = await fetch(url, {
+            const res = await apiFetch(url, {
                 method,
-                headers,
                 body: JSON.stringify(form),
             });
 
@@ -110,10 +103,7 @@ function Customers() {
     const handleDelete = async (id) => {
         if (!confirm("¿Eliminar este cliente?")) return;
         try {
-            const res = await fetch(`${API}/${id}`, {
-                method: "DELETE",
-                headers: { Authorization: "Bearer " + token },
-            });
+            const res = await apiFetch(`${API}/${id}`, { method: "DELETE" });
             if (!res.ok) throw new Error();
             await loadCustomers();
         } catch {

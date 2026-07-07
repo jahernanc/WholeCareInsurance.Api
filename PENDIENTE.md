@@ -66,12 +66,18 @@ Permitir que el agente contacte directamente al cliente (para pedir documentaci�
 
 ---
 
-## 3. Refactorizaciones pendientes
+## 3. Refactorizaciones
 
-- Mover la URL base de la API (`http://localhost:5279`) a una variable de entorno Vite (`VITE_API_URL`) para no tener el puerto hardcodeado en cada componente.
-- Crear un hook `useApi` o un cliente centralizado (`api.js`) que adjunte el token automáticamente, en lugar de leer `localStorage` en cada componente.
-- Agregar manejo de token expirado: si la API devuelve 401, intentar refresh automático y reintentar; si falla, redirigir al login.
-- Considerar mover las DTOs de Customer y Policy a archivos separados fuera del controlador.
+### 3.1 Cliente API centralizado + variable de entorno + manejo de 401 — ✅ Hecho
+- `VITE_API_URL` en `wholecare-admin-vs/.env` (gitignorado, mismo patrón que `appsettings.Development.json`) + `.env.example` commiteado documentando el valor esperado.
+- `src/api.js`: módulo plano (no un hook, ninguna llamada necesita lifecycle de React) con `apiFetch(path, options)` que adjunta el `accessToken` automáticamente y agrega `Content-Type` cuando hay body.
+- Manejo de 401: si la respuesta es 401 y hay `refreshToken`, `apiFetch` refresca y reintenta la request original una vez. El refresh está deduplicado (una sola llamada a `/auth/refresh` aunque varias requests en paralelo devuelvan 401 al mismo tiempo) — necesario porque el refresh token rota en cada uso, así que dos refrescos concurrentes con el token viejo se pisarían. Si el refresh falla, se llama a `logout()` (también deduplicado) y redirige a `/login`.
+- De paso se conectó el botón de Logout (`Header.jsx`) a `POST /auth/logout`, que antes no se llamaba — el refresh token quedaba vivo en la DB hasta expirar (7 días) en vez de invalidarse al instante.
+- `Login.jsx` no pasa por `apiFetch` (sin token, no aplica refresh) — solo usa `import.meta.env.VITE_API_URL` para la URL.
+- Verificado con Playwright: login real, CRUD de una póliza vía UI, simulación de access token corrupto (auto-refresh transparente, un solo POST /auth/refresh), simulación de ambos tokens corruptos (logout automático deduplicado, redirect a /login, localStorage limpio).
+
+### 3.2 Mover DTOs de Customer/Policy a archivos separados — pendiente
+Quedó fuera de esta sesión a propósito: es un reordenamiento mecánico del backend sin relación con el resto del refactor de cliente API. `CustomersController`/`PoliciesController` siguen con sus DTOs anidados.
 
 ---
 
@@ -82,5 +88,6 @@ Permitir que el agente contacte directamente al cliente (para pedir documentaci�
 3. ~~Botón de WhatsApp (click-to-chat)~~ ✅ Hecho
 4. ~~Buscador/filtro de pólizas~~ ✅ Hecho
 5. ~~Modal de detalle de póliza~~ ✅ Hecho (contenido base; faltan campos por definir, ver §1.4)
-6. Refactorizaciones (variable de entorno, hook de API, refresh automático) — siguiente
-7. Firma digital de consentimiento — bloqueado hasta que el responsable elija proveedor (ver §2.1)
+6. ~~Refactorizaciones: variable de entorno, cliente API, refresh automático~~ ✅ Hecho (ver §3.1)
+7. Mover DTOs de Customer/Policy a archivos separados — pendiente, sin prioridad definida (ver §3.2)
+8. Firma digital de consentimiento — bloqueado hasta que el responsable elija proveedor (ver §2.1)

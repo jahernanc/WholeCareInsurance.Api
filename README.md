@@ -47,7 +47,11 @@ npm install
 npm run dev
 ```
 
-Panel disponible en `http://localhost:5173`.
+Panel disponible en `http://localhost:5173`. Crea un archivo `.env` (excluido del repo, ver `.env.example`) con la URL de la API:
+
+```
+VITE_API_URL=http://localhost:5279
+```
 
 ## Configuración
 

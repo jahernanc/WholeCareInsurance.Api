@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { apiFetch } from "../api";
 
 const POLICY_TYPES = ["Obama Care", "Salud", "Auto", "Otro"];
 
@@ -32,8 +33,6 @@ function Policies() {
 
     const [viewingPolicy, setViewingPolicy] = useState(null);
     const [detailDependents, setDetailDependents] = useState([]);
-
-    const token = localStorage.getItem("accessToken");
 
     const getCustomer = (id) => customers.find((c) => c.id === Number(id));
 
@@ -73,16 +72,8 @@ function Policies() {
             setLoading(true);
 
             const [policiesRes, customersRes] = await Promise.all([
-                fetch(`http://localhost:5279/api/policies${query ? `?${query}` : ""}`, {
-                    headers: {
-                        Authorization: "Bearer " + token,
-                    },
-                }),
-                fetch("http://localhost:5279/api/customers", {
-                    headers: {
-                        Authorization: "Bearer " + token,
-                    },
-                }),
+                apiFetch(`/api/policies${query ? `?${query}` : ""}`),
+                apiFetch("/api/customers"),
             ]);
 
             if (!policiesRes.ok) {
@@ -117,9 +108,7 @@ function Policies() {
     };
     const loadDependents = async (policyId) => {
         try {
-            const res = await fetch(`http://localhost:5279/api/policies/${policyId}/dependents`, {
-                headers: { Authorization: "Bearer " + token },
-            });
+            const res = await apiFetch(`/api/policies/${policyId}/dependents`);
             if (!res.ok) throw new Error();
             setDependents(await res.json());
         } catch (error) {
@@ -131,9 +120,7 @@ function Policies() {
         setViewingPolicy(policy);
         setDetailDependents([]);
         try {
-            const res = await fetch(`http://localhost:5279/api/policies/${policy.id}/dependents`, {
-                headers: { Authorization: "Bearer " + token },
-            });
+            const res = await apiFetch(`/api/policies/${policy.id}/dependents`);
             if (!res.ok) throw new Error();
             setDetailDependents(await res.json());
         } catch (error) {
@@ -148,17 +135,10 @@ function Policies() {
 
     const handleAddDependent = async (depCustomerId) => {
         try {
-            const response = await fetch(
-                `http://localhost:5279/api/policies/${editingId}/dependents`,
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: "Bearer " + token,
-                    },
-                    body: JSON.stringify({ customerId: depCustomerId }),
-                }
-            );
+            const response = await apiFetch(`/api/policies/${editingId}/dependents`, {
+                method: "POST",
+                body: JSON.stringify({ customerId: depCustomerId }),
+            });
             if (!response.ok) throw new Error("Error adding dependent");
             setDependentQuery("");
             await loadDependents(editingId);
@@ -170,13 +150,9 @@ function Policies() {
 
     const handleRemoveDependent = async (depCustomerId) => {
         try {
-            const response = await fetch(
-                `http://localhost:5279/api/policies/${editingId}/dependents/${depCustomerId}`,
-                {
-                    method: "DELETE",
-                    headers: { Authorization: "Bearer " + token },
-                }
-            );
+            const response = await apiFetch(`/api/policies/${editingId}/dependents/${depCustomerId}`, {
+                method: "DELETE",
+            });
             if (!response.ok) throw new Error("Error removing dependent");
             await loadDependents(editingId);
         } catch (error) {
@@ -207,15 +183,7 @@ function Policies() {
         if (!confirm("Are you sure you want to delete this policy?")) return;
 
         try {
-            const response = await fetch(
-                `http://localhost:5279/api/policies/${id}`,
-                {
-                    method: "DELETE",
-                    headers: {
-                        Authorization: "Bearer " + token,
-                    },
-                }
-            );
+            const response = await apiFetch(`/api/policies/${id}`, { method: "DELETE" });
 
             if (!response.ok) {
                 throw new Error("Error deleting policy");
@@ -231,19 +199,15 @@ function Policies() {
 
 
     useEffect(() => {
-        if (!token) return;
+        if (!localStorage.getItem("accessToken")) return;
 
         const fetchData = async () => {
             try {
                 setLoading(true);
 
                 const [policiesRes, customersRes] = await Promise.all([
-                    fetch("http://localhost:5279/api/policies", {
-                        headers: { Authorization: "Bearer " + token },
-                    }),
-                    fetch("http://localhost:5279/api/customers", {
-                        headers: { Authorization: "Bearer " + token },
-                    }),
+                    apiFetch("/api/policies"),
+                    apiFetch("/api/customers"),
                 ]);
 
                 const policiesData = await policiesRes.json();
@@ -260,7 +224,7 @@ function Policies() {
         };
 
         fetchData();
-    }, [token]);
+    }, []);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -283,17 +247,13 @@ function Policies() {
             setSubmitting(true);
 
             const url = editingId
-                ? `http://localhost:5279/api/policies/${editingId}`
-                : "http://localhost:5279/api/policies";
+                ? `/api/policies/${editingId}`
+                : "/api/policies";
 
             const method = editingId ? "PUT" : "POST";
 
-            const response = await fetch(url, {
+            const response = await apiFetch(url, {
                 method: method,
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: "Bearer " + token,
-                },
                 body: JSON.stringify({
                     policyNumber,
                     type,
