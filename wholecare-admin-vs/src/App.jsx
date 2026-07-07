@@ -9,8 +9,6 @@ function Dashboard() {
 }
 
 function App() {
-    const token = localStorage.getItem("accessToken");
-
     return (
         <BrowserRouter>
             <Routes>
@@ -22,7 +20,9 @@ function App() {
                 <Route
                     path="*"
                     element={
-                        token ? <AppLayout /> : <Navigate to="/login" replace />
+                        localStorage.getItem("accessToken")
+                            ? <AppLayout />
+                            : <Navigate to="/login" replace />
                     }
                 >
                     {/* rutas internas */}

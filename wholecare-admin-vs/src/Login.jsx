@@ -1,11 +1,9 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 
 function Login() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
-    const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -35,7 +33,7 @@ function Login() {
             localStorage.setItem("accessToken", data.token.accessToken);
             localStorage.setItem("refreshToken", data.token.refreshToken);
 
-            navigate("/");
+            window.location.replace("/");
 
         } catch (err) {
             console.error(err);
