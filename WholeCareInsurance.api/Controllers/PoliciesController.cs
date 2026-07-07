@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.ComponentModel.DataAnnotations;
+using WholeCareInsurance.api.DTOs.Policies;
 using WholeCareInsurance.api.Models;
 using WholeCareInsurance.api.Services;
 
@@ -201,49 +201,6 @@ namespace WholeCareInsurance.api.Controllers
 
             await _policies.RemoveDependent(dependent);
             return NoContent();
-        }
-
-        public class PolicyCreateDto
-        {
-            public string PolicyNumber { get; set; } = default!;
-
-            [Required]
-            [AllowedValues("Obama Care", "Salud", "Auto", "Otro",
-                ErrorMessage = "Tipo de póliza inválido.")]
-            public string Type { get; set; } = default!;
-
-            public DateTime StartDate { get; set; }
-            public DateTime EndDate { get; set; }
-            public decimal Premium { get; set; }
-            public string Status { get; set; } = "Active";
-            public int CustomerId { get; set; }
-        }
-
-        public class PolicyUpdateDto : PolicyCreateDto { }
-
-        public class PolicyResponseDto
-        {
-            public int Id { get; set; }
-            public string PolicyNumber { get; set; } = default!;
-            public string Type { get; set; } = default!;
-            public DateTime StartDate { get; set; }
-            public DateTime EndDate { get; set; }
-            public decimal Premium { get; set; }
-            public string Status { get; set; } = default!;
-            public int CustomerId { get; set; }
-        }
-
-        public class DependentCreateDto
-        {
-            [Required] public int CustomerId { get; set; }
-        }
-
-        public class DependentResponseDto
-        {
-            public int CustomerId { get; set; }
-            public string FirstName { get; set; } = default!;
-            public string LastName { get; set; } = default!;
-            public string SocialSecurityNumber { get; set; } = default!;
         }
     }
 }

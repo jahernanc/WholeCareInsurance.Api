@@ -40,10 +40,8 @@ No test runner is configured for the frontend either.
 ### Backend layering
 `Controllers` → `Services` (business logic, interfaces in `Repositories/Interfaces`) → `Data/AppDbContext` (EF Core). Entity configurations (fluent API) live in `Data/Configurations/*Configuration.cs` and are picked up automatically via `modelBuilder.ApplyConfigurationsFromAssembly` in `AppDbContext`.
 
-**DTOs are inconsistent by design across controllers** — don't assume one pattern:
-- `AuthController`/`UsersController` use standalone DTO classes under `DTOs/Auth/` and `DTOs/Users/`.
-- `CustomersController` defines its create/update/response DTOs and manual `ToResponse`/`MapFromDto` mappers as nested classes *inside the controller file itself* (no AutoMapper — all mapping is hand-written). Follow whichever pattern the controller you're editing already uses rather than introducing a third.
-- `Mappings/`, `Middlewares/`, `Repositories/Implementations/`, and `Utils/` are currently empty placeholder folders (kept via `.csproj` `<Folder Include>` entries) — don't assume code lives there.
+All DTOs live under `DTOs/<Area>/` (`DTOs/Auth/`, `DTOs/Users/`, `DTOs/Customers/`, `DTOs/Policies/`) as standalone classes — no AutoMapper, mapping is hand-written in each controller (`ToResponse`/`MapFromDto`-style private methods). `PolicyResponseDto` is shared between `PoliciesController` and `CustomersController.GetPoliciesForCustomer`.
+`Mappings/`, `Middlewares/`, `Repositories/Implementations/`, and `Utils/` are currently empty placeholder folders (kept via `.csproj` `<Folder Include>` entries) — don't assume code lives there.
 
 Route prefixes are inconsistent: `CustomersController`/`PoliciesController` are under `api/customers` and `api/policies`; `AuthController`/`UsersController` are under `auth` and `users` (no `api/` prefix). Match the existing prefix for the controller you're touching.
 

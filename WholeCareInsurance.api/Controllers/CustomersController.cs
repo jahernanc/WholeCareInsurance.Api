@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.ComponentModel.DataAnnotations;
+using WholeCareInsurance.api.DTOs.Customers;
+using WholeCareInsurance.api.DTOs.Policies;
 using WholeCareInsurance.api.Models;
 using WholeCareInsurance.api.Services;
 
@@ -123,47 +124,5 @@ namespace WholeCareInsurance.api.Controllers
 
         private static readonly string[] ValidMigrationStatuses =
             ["Permiso de trabajo", "Residente permanente", "Ciudadano", "Otro"];
-
-        public class CustomerCreateDto
-        {
-            [Required][MaxLength(20)] public string SocialSecurityNumber { get; set; } = default!;
-            [Required][MaxLength(100)] public string FirstName { get; set; } = default!;
-            [Required][MaxLength(100)] public string LastName { get; set; } = default!;
-            [Required] public DateTime DateOfBirth { get; set; }
-            [Required][EmailAddress][MaxLength(200)] public string Email { get; set; } = default!;
-            [Required][MaxLength(300)] public string Address { get; set; } = default!;
-            [Required][MaxLength(20)] public string Phone { get; set; } = default!;
-            [Required][AllowedValues("Permiso de trabajo", "Residente permanente", "Ciudadano", "Otro",
-                ErrorMessage = "Estatus migratorio inválido.")]
-            public string MigrationStatus { get; set; } = default!;
-        }
-
-        public class CustomerUpdateDto : CustomerCreateDto { }
-
-        public class CustomerResponseDto
-        {
-            public int Id { get; set; }
-            public string SocialSecurityNumber { get; set; } = default!;
-            public string FirstName { get; set; } = default!;
-            public string LastName { get; set; } = default!;
-            public DateTime DateOfBirth { get; set; }
-            public string Email { get; set; } = default!;
-            public string Address { get; set; } = default!;
-            public string Phone { get; set; } = default!;
-            public string MigrationStatus { get; set; } = default!;
-            public int PoliciesCount { get; set; }
-        }
-
-        public class PolicyResponseDto
-        {
-            public int Id { get; set; }
-            public string PolicyNumber { get; set; } = default!;
-            public string Type { get; set; } = default!;
-            public DateTime StartDate { get; set; }
-            public DateTime EndDate { get; set; }
-            public decimal Premium { get; set; }
-            public string Status { get; set; } = default!;
-            public int CustomerId { get; set; }
-        }
     }
 }
