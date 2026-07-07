@@ -20,12 +20,15 @@ function Policies() {
     const [submitting, setSubmitting] = useState(false);
     const [editingId, setEditingId] = useState(null);
 
+    const [dependents, setDependents] = useState([]);
+    const [dependentQuery, setDependentQuery] = useState("");
+    const [showDependentPicker, setShowDependentPicker] = useState(false);
 
     const token = localStorage.getItem("accessToken");
 
     const getCustomerName = (id) => {
         const customer = customers.find((c) => c.id === Number(id));
-        return customer ? customer.name : "Unknown";
+        return customer ? `${customer.firstName} ${customer.lastName}` : "Unknown";
     };
 
     const loadData = async () => {
@@ -64,6 +67,57 @@ function Policies() {
             setLoading(false);
         }
     };
+    const loadDependents = async (policyId) => {
+        try {
+            const res = await fetch(`http://localhost:5279/api/policies/${policyId}/dependents`, {
+                headers: { Authorization: "Bearer " + token },
+            });
+            if (!res.ok) throw new Error();
+            setDependents(await res.json());
+        } catch (error) {
+            console.error("Error loading dependents:", error);
+        }
+    };
+
+    const handleAddDependent = async (depCustomerId) => {
+        try {
+            const response = await fetch(
+                `http://localhost:5279/api/policies/${editingId}/dependents`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: "Bearer " + token,
+                    },
+                    body: JSON.stringify({ customerId: depCustomerId }),
+                }
+            );
+            if (!response.ok) throw new Error("Error adding dependent");
+            setDependentQuery("");
+            await loadDependents(editingId);
+        } catch (error) {
+            console.error(error);
+            alert("Error adding dependent");
+        }
+    };
+
+    const handleRemoveDependent = async (depCustomerId) => {
+        try {
+            const response = await fetch(
+                `http://localhost:5279/api/policies/${editingId}/dependents/${depCustomerId}`,
+                {
+                    method: "DELETE",
+                    headers: { Authorization: "Bearer " + token },
+                }
+            );
+            if (!response.ok) throw new Error("Error removing dependent");
+            await loadDependents(editingId);
+        } catch (error) {
+            console.error(error);
+            alert("Error removing dependent");
+        }
+    };
+
     const handleEdit = (policy) => {
         setEditingId(policy.id);
 
@@ -74,6 +128,10 @@ function Policies() {
         setPremium(policy.premium);
         setStatus(policy.status);
         setCustomerId(policy.customerId);
+
+        setDependentQuery("");
+        setShowDependentPicker(false);
+        loadDependents(policy.id);
 
         setShowForm(true);
     };
@@ -199,6 +257,10 @@ function Policies() {
             setStatus("Active");
             setCustomerId("");
 
+            setDependents([]);
+            setDependentQuery("");
+            setShowDependentPicker(false);
+
             await loadData();
         } catch (error) {
 
@@ -209,6 +271,13 @@ function Policies() {
             setSubmitting(false);
         }
     };
+
+    const dependentCandidates = customers.filter(
+        (c) =>
+            c.id !== Number(customerId) &&
+            !dependents.some((d) => d.customerId === c.id) &&
+            `${c.firstName} ${c.lastName}`.toLowerCase().includes(dependentQuery.toLowerCase())
+    );
 
     if (loading) {
         return <p>Loading policies...</p>;
@@ -330,13 +399,106 @@ function Policies() {
                                     <option value="">Select customer</option>
                                     {customers.map((c) => (
                                         <option key={c.id} value={c.id}>
-                                            {c.name} ({c.documentNumber})
+                                            {c.firstName} {c.lastName} ({c.socialSecurityNumber})
                                         </option>
                                     ))}
                                 </select>
                             </div>
 
+                            {editingId && (
+                                <div style={{ marginBottom: 12, borderTop: "1px solid #ddd", paddingTop: 12 }}>
+                                    <label style={{ fontWeight: "bold" }}>Dependientes</label>
 
+                                    {dependents.length === 0 ? (
+                                        <p style={{ color: "#666", margin: "8px 0" }}>No dependents yet</p>
+                                    ) : (
+                                        <ul style={{ listStyle: "none", padding: 0, margin: "8px 0" }}>
+                                            {dependents.map((d) => (
+                                                <li
+                                                    key={d.customerId}
+                                                    style={{
+                                                        display: "flex",
+                                                        justifyContent: "space-between",
+                                                        alignItems: "center",
+                                                        padding: "6px 0",
+                                                    }}
+                                                >
+                                                    <span>{d.firstName} {d.lastName}</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleRemoveDependent(d.customerId)}
+                                                        title="Remove dependent"
+                                                        style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 16 }}
+                                                    >
+                                                        🗑
+                                                    </button>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowDependentPicker(!showDependentPicker)}
+                                        style={{
+                                            background: "#2563eb",
+                                            color: "white",
+                                            padding: "6px 10px",
+                                            border: "none",
+                                            borderRadius: 6,
+                                            cursor: "pointer",
+                                            marginBottom: 8,
+                                        }}
+                                    >
+                                        {showDependentPicker ? "Cancelar" : "+ Agregar dependiente"}
+                                    </button>
+
+                                    {showDependentPicker && (
+                                        <div>
+                                            <input
+                                                type="text"
+                                                placeholder="Buscar cliente por nombre..."
+                                                value={dependentQuery}
+                                                onChange={(e) => setDependentQuery(e.target.value)}
+                                                style={{ width: "100%", padding: 8, marginBottom: 8 }}
+                                            />
+                                            <ul style={{ listStyle: "none", padding: 0, maxHeight: 160, overflowY: "auto" }}>
+                                                {dependentCandidates.map((c) => (
+                                                    <li
+                                                        key={c.id}
+                                                        style={{
+                                                            display: "flex",
+                                                            justifyContent: "space-between",
+                                                            alignItems: "center",
+                                                            padding: "6px 0",
+                                                            borderBottom: "1px solid #eee",
+                                                        }}
+                                                    >
+                                                        <span>{c.firstName} {c.lastName}</span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleAddDependent(c.id)}
+                                                            style={{
+                                                                background: "#16a34a",
+                                                                color: "white",
+                                                                border: "none",
+                                                                borderRadius: 4,
+                                                                padding: "4px 8px",
+                                                                cursor: "pointer",
+                                                            }}
+                                                        >
+                                                            Add
+                                                        </button>
+                                                    </li>
+                                                ))}
+                                                {dependentCandidates.length === 0 && (
+                                                    <li style={{ color: "#666", padding: "6px 0" }}>No matches</li>
+                                                )}
+                                            </ul>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             {formError && (
                                 <p style={{ color: "red", marginBottom: 12 }}>

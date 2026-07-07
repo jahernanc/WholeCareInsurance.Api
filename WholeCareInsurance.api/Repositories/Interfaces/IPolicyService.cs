@@ -9,5 +9,10 @@ namespace WholeCareInsurance.api.Services
         Task<Policy> Create(Policy policy);
         Task<Policy> Update(Policy policy);
         Task Delete(Policy policy);
+
+        Task<List<PolicyDependent>> GetDependents(int policyId);
+        Task<PolicyDependent?> GetDependent(int policyId, int customerId);
+        Task<PolicyDependent> AddDependent(PolicyDependent dependent);
+        Task RemoveDependent(PolicyDependent dependent);
     }
 }

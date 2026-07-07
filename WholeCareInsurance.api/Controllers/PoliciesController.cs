@@ -139,6 +139,65 @@ namespace WholeCareInsurance.api.Controllers
             return NoContent();
         }
 
+        [HttpGet("{id:int}/dependents")]
+        public async Task<IActionResult> GetDependents(int id)
+        {
+            var policy = await _policies.GetById(id);
+            if (policy == null) return NotFound();
+
+            var dependents = (await _policies.GetDependents(id))
+                .Select(pd => new DependentResponseDto
+                {
+                    CustomerId = pd.Customer.Id,
+                    FirstName = pd.Customer.FirstName,
+                    LastName = pd.Customer.LastName,
+                    SocialSecurityNumber = pd.Customer.SocialSecurityNumber
+                });
+
+            return Ok(dependents);
+        }
+
+        [HttpPost("{id:int}/dependents")]
+        public async Task<IActionResult> AddDependent(int id, [FromBody] DependentCreateDto dto)
+        {
+            var policy = await _policies.GetById(id);
+            if (policy == null) return NotFound();
+
+            var customer = await _customers.GetById(dto.CustomerId);
+            if (customer == null)
+                return BadRequest($"CustomerId {dto.CustomerId} no existe.");
+
+            if (dto.CustomerId == policy.CustomerId)
+                return BadRequest("El titular no puede ser su propio dependiente.");
+
+            if (await _policies.GetDependent(id, dto.CustomerId) != null)
+                return BadRequest("Ya es dependiente de esta póliza.");
+
+            var created = await _policies.AddDependent(new PolicyDependent
+            {
+                PolicyId = id,
+                CustomerId = dto.CustomerId
+            });
+
+            return CreatedAtAction(nameof(GetDependents), new { id }, new DependentResponseDto
+            {
+                CustomerId = customer.Id,
+                FirstName = customer.FirstName,
+                LastName = customer.LastName,
+                SocialSecurityNumber = customer.SocialSecurityNumber
+            });
+        }
+
+        [HttpDelete("{id:int}/dependents/{customerId:int}")]
+        public async Task<IActionResult> RemoveDependent(int id, int customerId)
+        {
+            var dependent = await _policies.GetDependent(id, customerId);
+            if (dependent == null) return NotFound();
+
+            await _policies.RemoveDependent(dependent);
+            return NoContent();
+        }
+
         public class PolicyCreateDto
         {
             public string PolicyNumber { get; set; } = default!;
@@ -167,6 +226,19 @@ namespace WholeCareInsurance.api.Controllers
             public decimal Premium { get; set; }
             public string Status { get; set; } = default!;
             public int CustomerId { get; set; }
+        }
+
+        public class DependentCreateDto
+        {
+            [Required] public int CustomerId { get; set; }
+        }
+
+        public class DependentResponseDto
+        {
+            public int CustomerId { get; set; }
+            public string FirstName { get; set; } = default!;
+            public string LastName { get; set; } = default!;
+            public string SocialSecurityNumber { get; set; } = default!;
         }
     }
 }

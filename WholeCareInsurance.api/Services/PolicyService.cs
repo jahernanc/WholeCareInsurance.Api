@@ -40,5 +40,29 @@ namespace WholeCareInsurance.api.Services
             _context.Policies.Remove(policy);
             await _context.SaveChangesAsync();
         }
+
+        public async Task<List<PolicyDependent>> GetDependents(int policyId)
+            => await _context.PolicyDependents
+                .Include(pd => pd.Customer)
+                .Where(pd => pd.PolicyId == policyId)
+                .ToListAsync();
+
+        public async Task<PolicyDependent?> GetDependent(int policyId, int customerId)
+            => await _context.PolicyDependents
+                .Include(pd => pd.Customer)
+                .FirstOrDefaultAsync(pd => pd.PolicyId == policyId && pd.CustomerId == customerId);
+
+        public async Task<PolicyDependent> AddDependent(PolicyDependent dependent)
+        {
+            _context.PolicyDependents.Add(dependent);
+            await _context.SaveChangesAsync();
+            return dependent;
+        }
+
+        public async Task RemoveDependent(PolicyDependent dependent)
+        {
+            _context.PolicyDependents.Remove(dependent);
+            await _context.SaveChangesAsync();
+        }
     }
 }
