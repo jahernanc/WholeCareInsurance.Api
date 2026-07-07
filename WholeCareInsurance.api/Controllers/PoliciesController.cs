@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.ComponentModel.DataAnnotations;
 using WholeCareInsurance.api.Models;
 using WholeCareInsurance.api.Services;
 
@@ -141,7 +142,12 @@ namespace WholeCareInsurance.api.Controllers
         public class PolicyCreateDto
         {
             public string PolicyNumber { get; set; } = default!;
+
+            [Required]
+            [AllowedValues("Obama Care", "Salud", "Auto", "Otro",
+                ErrorMessage = "Tipo de póliza inválido.")]
             public string Type { get; set; } = default!;
+
             public DateTime StartDate { get; set; }
             public DateTime EndDate { get; set; }
             public decimal Premium { get; set; }

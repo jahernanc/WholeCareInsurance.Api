@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 
+const POLICY_TYPES = ["Obama Care", "Salud", "Auto", "Otro"];
+
 function Policies() {
     const [policies, setPolicies] = useState([]);
     const [customers, setCustomers] = useState([]);
@@ -262,12 +264,16 @@ function Policies() {
 
                             <div style={{ marginBottom: 12 }}>
                                 <label>Type</label>
-                                <input
-                                    type="text"
+                                <select
                                     value={type}
                                     onChange={(e) => setType(e.target.value)}
                                     style={{ width: "100%", padding: 8, marginTop: 4 }}
-                                />
+                                >
+                                    <option value="">Select type</option>
+                                    {POLICY_TYPES.map((t) => (
+                                        <option key={t} value={t}>{t}</option>
+                                    ))}
+                                </select>
                             </div>
 
                             <div style={{ marginBottom: 12 }}>
