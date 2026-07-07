@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.ComponentModel.DataAnnotations;
 using WholeCareInsurance.api.Models;
 using WholeCareInsurance.api.Services;
 
@@ -22,16 +23,7 @@ namespace WholeCareInsurance.api.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            var list = (await _customers.GetAll())
-                .Select(c => new CustomerResponseDto
-                {
-                    Id = c.Id,
-                    Name = c.Name,
-                    Email = c.Email,
-                    DocumentNumber = c.DocumentNumber,
-                    PoliciesCount = c.Policies?.Count ?? 0
-                });
-
+            var list = (await _customers.GetAll()).Select(ToResponse);
             return Ok(list);
         }
 
@@ -40,15 +32,7 @@ namespace WholeCareInsurance.api.Controllers
         {
             var customer = await _customers.GetById(id);
             if (customer == null) return NotFound();
-
-            return Ok(new CustomerResponseDto
-            {
-                Id = customer.Id,
-                Name = customer.Name,
-                Email = customer.Email,
-                DocumentNumber = customer.DocumentNumber,
-                PoliciesCount = customer.Policies?.Count ?? 0
-            });
+            return Ok(ToResponse(customer));
         }
 
         [HttpGet("{id:int}/policies")]
@@ -77,23 +61,9 @@ namespace WholeCareInsurance.api.Controllers
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CustomerCreateDto dto)
         {
-            var customer = new Customer
-            {
-                Name = dto.Name,
-                Email = dto.Email,
-                DocumentNumber = dto.DocumentNumber
-            };
-
+            var customer = MapFromDto(dto);
             var created = await _customers.Create(customer);
-
-            return CreatedAtAction(nameof(GetById), new { id = created.Id }, new CustomerResponseDto
-            {
-                Id = created.Id,
-                Name = created.Name,
-                Email = created.Email,
-                DocumentNumber = created.DocumentNumber,
-                PoliciesCount = 0
-            });
+            return CreatedAtAction(nameof(GetById), new { id = created.Id }, ToResponse(created));
         }
 
         [HttpPut("{id:int}")]
@@ -102,20 +72,17 @@ namespace WholeCareInsurance.api.Controllers
             var existing = await _customers.GetById(id);
             if (existing == null) return NotFound();
 
-            existing.Name = dto.Name;
+            existing.SocialSecurityNumber = dto.SocialSecurityNumber;
+            existing.FirstName = dto.FirstName;
+            existing.LastName = dto.LastName;
+            existing.DateOfBirth = dto.DateOfBirth;
             existing.Email = dto.Email;
-            existing.DocumentNumber = dto.DocumentNumber;
+            existing.Address = dto.Address;
+            existing.Phone = dto.Phone;
+            existing.MigrationStatus = dto.MigrationStatus;
 
             var updated = await _customers.Update(existing);
-
-            return Ok(new CustomerResponseDto
-            {
-                Id = updated.Id,
-                Name = updated.Name,
-                Email = updated.Email,
-                DocumentNumber = updated.DocumentNumber,
-                PoliciesCount = updated.Policies?.Count ?? 0
-            });
+            return Ok(ToResponse(updated));
         }
 
         [HttpDelete("{id:int}")]
@@ -128,11 +95,47 @@ namespace WholeCareInsurance.api.Controllers
             return NoContent();
         }
 
+        private static CustomerResponseDto ToResponse(Customer c) => new()
+        {
+            Id = c.Id,
+            SocialSecurityNumber = c.SocialSecurityNumber,
+            FirstName = c.FirstName,
+            LastName = c.LastName,
+            DateOfBirth = c.DateOfBirth,
+            Email = c.Email,
+            Address = c.Address,
+            Phone = c.Phone,
+            MigrationStatus = c.MigrationStatus,
+            PoliciesCount = c.Policies?.Count ?? 0
+        };
+
+        private static Customer MapFromDto(CustomerCreateDto dto) => new()
+        {
+            SocialSecurityNumber = dto.SocialSecurityNumber,
+            FirstName = dto.FirstName,
+            LastName = dto.LastName,
+            DateOfBirth = dto.DateOfBirth,
+            Email = dto.Email,
+            Address = dto.Address,
+            Phone = dto.Phone,
+            MigrationStatus = dto.MigrationStatus
+        };
+
+        private static readonly string[] ValidMigrationStatuses =
+            ["Permiso de trabajo", "Residente permanente", "Ciudadano", "Otro"];
+
         public class CustomerCreateDto
         {
-            public string Name { get; set; } = default!;
-            public string Email { get; set; } = default!;
-            public string DocumentNumber { get; set; } = default!;
+            [Required][MaxLength(20)] public string SocialSecurityNumber { get; set; } = default!;
+            [Required][MaxLength(100)] public string FirstName { get; set; } = default!;
+            [Required][MaxLength(100)] public string LastName { get; set; } = default!;
+            [Required] public DateTime DateOfBirth { get; set; }
+            [Required][EmailAddress][MaxLength(200)] public string Email { get; set; } = default!;
+            [Required][MaxLength(300)] public string Address { get; set; } = default!;
+            [Required][MaxLength(20)] public string Phone { get; set; } = default!;
+            [Required][AllowedValues("Permiso de trabajo", "Residente permanente", "Ciudadano", "Otro",
+                ErrorMessage = "Estatus migratorio inválido.")]
+            public string MigrationStatus { get; set; } = default!;
         }
 
         public class CustomerUpdateDto : CustomerCreateDto { }
@@ -140,9 +143,14 @@ namespace WholeCareInsurance.api.Controllers
         public class CustomerResponseDto
         {
             public int Id { get; set; }
-            public string Name { get; set; } = default!;
+            public string SocialSecurityNumber { get; set; } = default!;
+            public string FirstName { get; set; } = default!;
+            public string LastName { get; set; } = default!;
+            public DateTime DateOfBirth { get; set; }
             public string Email { get; set; } = default!;
-            public string DocumentNumber { get; set; } = default!;
+            public string Address { get; set; } = default!;
+            public string Phone { get; set; } = default!;
+            public string MigrationStatus { get; set; } = default!;
             public int PoliciesCount { get; set; }
         }
 
