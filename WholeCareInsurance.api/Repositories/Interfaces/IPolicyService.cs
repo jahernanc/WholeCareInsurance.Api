@@ -5,6 +5,7 @@ namespace WholeCareInsurance.api.Services
     public interface IPolicyService
     {
         Task<IEnumerable<Policy>> GetAll();
+        Task<List<Policy>> Search(int? customerId, string? firstName, string? lastName, string? policyNumber, string? status, string? type);
         Task<Policy?> GetById(int id);
         Task<Policy> Create(Policy policy);
         Task<Policy> Update(Policy policy);

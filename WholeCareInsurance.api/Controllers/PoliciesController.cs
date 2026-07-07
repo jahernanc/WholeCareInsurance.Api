@@ -21,22 +21,27 @@ namespace WholeCareInsurance.api.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll([FromQuery] int? customerId = null)
+        public async Task<IActionResult> GetAll(
+            [FromQuery] int? customerId = null,
+            [FromQuery] string? firstName = null,
+            [FromQuery] string? lastName = null,
+            [FromQuery] string? policyNumber = null,
+            [FromQuery] string? status = null,
+            [FromQuery] string? type = null)
         {
-            var all = await _policies.GetAll();
+            var found = await _policies.Search(customerId, firstName, lastName, policyNumber, status, type);
 
-            var list = (customerId.HasValue ? all.Where(p => p.CustomerId == customerId.Value) : all)
-                .Select(p => new PolicyResponseDto
-                {
-                    Id = p.Id,
-                    PolicyNumber = p.PolicyNumber,
-                    Type = p.Type,
-                    StartDate = p.StartDate,
-                    EndDate = p.EndDate,
-                    Premium = p.Premium,
-                    Status = p.Status,
-                    CustomerId = p.CustomerId
-                });
+            var list = found.Select(p => new PolicyResponseDto
+            {
+                Id = p.Id,
+                PolicyNumber = p.PolicyNumber,
+                Type = p.Type,
+                StartDate = p.StartDate,
+                EndDate = p.EndDate,
+                Premium = p.Premium,
+                Status = p.Status,
+                CustomerId = p.CustomerId
+            });
 
             return Ok(list);
         }

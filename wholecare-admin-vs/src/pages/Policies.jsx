@@ -24,7 +24,18 @@ function Policies() {
     const [dependentQuery, setDependentQuery] = useState("");
     const [showDependentPicker, setShowDependentPicker] = useState(false);
 
+    const [filterPolicyNumber, setFilterPolicyNumber] = useState("");
+    const [filterFirstName, setFilterFirstName] = useState("");
+    const [filterLastName, setFilterLastName] = useState("");
+    const [filterStatus, setFilterStatus] = useState("");
+    const [filterType, setFilterType] = useState("");
+
+    const [viewingPolicy, setViewingPolicy] = useState(null);
+    const [detailDependents, setDetailDependents] = useState([]);
+
     const token = localStorage.getItem("accessToken");
+
+    const getCustomer = (id) => customers.find((c) => c.id === Number(id));
 
     const getCustomerName = (id) => {
         const customer = customers.find((c) => c.id === Number(id));
@@ -42,12 +53,27 @@ function Policies() {
         return `https://wa.me/${digits}?text=${message}`;
     };
 
-    const loadData = async () => {
+    const loadData = async (filterOverrides = {}) => {
+        const filters = {
+            policyNumber: filterPolicyNumber,
+            firstName: filterFirstName,
+            lastName: filterLastName,
+            status: filterStatus,
+            type: filterType,
+            ...filterOverrides,
+        };
+
+        const params = new URLSearchParams();
+        Object.entries(filters).forEach(([key, value]) => {
+            if (value) params.set(key, value);
+        });
+        const query = params.toString();
+
         try {
             setLoading(true);
 
             const [policiesRes, customersRes] = await Promise.all([
-                fetch("http://localhost:5279/api/policies", {
+                fetch(`http://localhost:5279/api/policies${query ? `?${query}` : ""}`, {
                     headers: {
                         Authorization: "Bearer " + token,
                     },
@@ -78,6 +104,17 @@ function Policies() {
             setLoading(false);
         }
     };
+
+    const handleSearch = () => loadData();
+
+    const handleClearFilters = () => {
+        setFilterPolicyNumber("");
+        setFilterFirstName("");
+        setFilterLastName("");
+        setFilterStatus("");
+        setFilterType("");
+        loadData({ policyNumber: "", firstName: "", lastName: "", status: "", type: "" });
+    };
     const loadDependents = async (policyId) => {
         try {
             const res = await fetch(`http://localhost:5279/api/policies/${policyId}/dependents`, {
@@ -88,6 +125,25 @@ function Policies() {
         } catch (error) {
             console.error("Error loading dependents:", error);
         }
+    };
+
+    const openDetail = async (policy) => {
+        setViewingPolicy(policy);
+        setDetailDependents([]);
+        try {
+            const res = await fetch(`http://localhost:5279/api/policies/${policy.id}/dependents`, {
+                headers: { Authorization: "Bearer " + token },
+            });
+            if (!res.ok) throw new Error();
+            setDetailDependents(await res.json());
+        } catch (error) {
+            console.error("Error loading dependents for detail view:", error);
+        }
+    };
+
+    const closeDetail = () => {
+        setViewingPolicy(null);
+        setDetailDependents([]);
     };
 
     const handleAddDependent = async (depCustomerId) => {
@@ -526,6 +582,108 @@ function Policies() {
                 )
             }
 
+            <div
+                style={{
+                    border: "1px solid #ddd",
+                    borderRadius: 10,
+                    padding: 16,
+                    marginBottom: 20,
+                    background: "#fafafa",
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 10,
+                    alignItems: "flex-end",
+                }}
+            >
+                <div>
+                    <label style={{ display: "block", fontSize: 12 }}>Policy Number</label>
+                    <input
+                        type="text"
+                        value={filterPolicyNumber}
+                        onChange={(e) => setFilterPolicyNumber(e.target.value)}
+                        style={{ padding: 6 }}
+                    />
+                </div>
+
+                <div>
+                    <label style={{ display: "block", fontSize: 12 }}>First Name</label>
+                    <input
+                        type="text"
+                        value={filterFirstName}
+                        onChange={(e) => setFilterFirstName(e.target.value)}
+                        style={{ padding: 6 }}
+                    />
+                </div>
+
+                <div>
+                    <label style={{ display: "block", fontSize: 12 }}>Last Name</label>
+                    <input
+                        type="text"
+                        value={filterLastName}
+                        onChange={(e) => setFilterLastName(e.target.value)}
+                        style={{ padding: 6 }}
+                    />
+                </div>
+
+                <div>
+                    <label style={{ display: "block", fontSize: 12 }}>Status</label>
+                    <select
+                        value={filterStatus}
+                        onChange={(e) => setFilterStatus(e.target.value)}
+                        style={{ padding: 6 }}
+                    >
+                        <option value="">All</option>
+                        <option value="Active">Active</option>
+                        <option value="Expired">Expired</option>
+                        <option value="Cancelled">Cancelled</option>
+                        <option value="activa">activa</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label style={{ display: "block", fontSize: 12 }}>Type</label>
+                    <select
+                        value={filterType}
+                        onChange={(e) => setFilterType(e.target.value)}
+                        style={{ padding: 6 }}
+                    >
+                        <option value="">All</option>
+                        {POLICY_TYPES.map((t) => (
+                            <option key={t} value={t}>{t}</option>
+                        ))}
+                    </select>
+                </div>
+
+                <button
+                    type="button"
+                    onClick={handleSearch}
+                    style={{
+                        background: "#2563eb",
+                        color: "white",
+                        padding: "8px 12px",
+                        border: "none",
+                        borderRadius: 6,
+                        cursor: "pointer",
+                    }}
+                >
+                    Search
+                </button>
+
+                <button
+                    type="button"
+                    onClick={handleClearFilters}
+                    style={{
+                        background: "transparent",
+                        border: "1px solid #ccc",
+                        padding: "8px 12px",
+                        borderRadius: 6,
+                        cursor: "pointer",
+                    }}
+                >
+                    Clear
+                </button>
+            </div>
+
             {/* ✅ TABLA SIEMPRE VISIBLE */}
             {
                 policies.length === 0 ? (
@@ -557,6 +715,20 @@ function Policies() {
                                             {getCustomerName(p.customerId)}
                                         </td>
                                         <td style={{ padding: 10 }}>
+
+                                            <button
+                                                onClick={() => openDetail(p)}
+                                                title="View details"
+                                                style={{
+                                                    marginRight: 8,
+                                                    background: "transparent",
+                                                    border: "none",
+                                                    cursor: "pointer",
+                                                    fontSize: 16
+                                                }}
+                                            >
+                                                🔍
+                                            </button>
 
                                             <button
                                                 onClick={() => handleEdit(p)}
@@ -607,6 +779,83 @@ function Policies() {
                     </div>
                 )
             }
+
+            {viewingPolicy && (
+                <div
+                    style={{
+                        position: "fixed",
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        background: "rgba(0,0,0,0.5)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        zIndex: 1000,
+                    }}
+                    onClick={closeDetail}
+                >
+                    <div
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                            background: "white",
+                            borderRadius: 10,
+                            padding: 24,
+                            width: "90%",
+                            maxWidth: 500,
+                            maxHeight: "85vh",
+                            overflowY: "auto",
+                        }}
+                    >
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                            <h3 style={{ margin: 0 }}>Policy {viewingPolicy.policyNumber}</h3>
+                            <button
+                                onClick={closeDetail}
+                                style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 18 }}
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        <h4 style={{ marginBottom: 6 }}>Policy</h4>
+                        <p style={{ margin: "2px 0" }}>Type: {viewingPolicy.type}</p>
+                        <p style={{ margin: "2px 0" }}>Status: {viewingPolicy.status}</p>
+                        <p style={{ margin: "2px 0" }}>Start Date: {viewingPolicy.startDate?.slice(0, 10)}</p>
+                        <p style={{ margin: "2px 0" }}>End Date: {viewingPolicy.endDate?.slice(0, 10)}</p>
+                        <p style={{ margin: "2px 0" }}>Premium: {viewingPolicy.premium}</p>
+
+                        <h4 style={{ marginTop: 16, marginBottom: 6 }}>Titular</h4>
+                        {(() => {
+                            const titular = getCustomer(viewingPolicy.customerId);
+                            if (!titular) return <p>Unknown</p>;
+                            return (
+                                <>
+                                    <p style={{ margin: "2px 0" }}>{titular.firstName} {titular.lastName}</p>
+                                    <p style={{ margin: "2px 0" }}>SSN: {titular.socialSecurityNumber}</p>
+                                    <p style={{ margin: "2px 0" }}>Email: {titular.email}</p>
+                                    <p style={{ margin: "2px 0" }}>Phone: {titular.phone}</p>
+                                    <p style={{ margin: "2px 0" }}>Address: {titular.address}</p>
+                                    <p style={{ margin: "2px 0" }}>Migration Status: {titular.migrationStatus}</p>
+                                </>
+                            );
+                        })()}
+
+                        <h4 style={{ marginTop: 16, marginBottom: 6 }}>Dependents</h4>
+                        {detailDependents.length === 0 ? (
+                            <p style={{ color: "#666" }}>No dependents</p>
+                        ) : (
+                            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                                {detailDependents.map((d) => (
+                                    <li key={d.customerId} style={{ padding: "4px 0" }}>
+                                        {d.firstName} {d.lastName} ({d.socialSecurityNumber})
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </div>
+                </div>
+            )}
         </div >
     );
 

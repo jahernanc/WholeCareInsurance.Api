@@ -18,25 +18,20 @@ Ejemplo: Javier Hernández es el titular; su esposa e hijo son dependientes en l
 - Frontend: sección "Dependientes" en el formulario de Policies, visible solo al **editar** una póliza ya guardada (no al crear una nueva). Buscador de clientes filtra en el cliente la lista ya cargada de `customers` (sin nuevo endpoint de búsqueda).
 - De paso se corrigió un bug preexistente: el `<select>` de Customer y la columna Customer de la tabla referenciaban `c.name`/`c.documentNumber` (inexistentes) en lugar de `firstName`/`lastName`/`socialSecurityNumber`.
 
-### 1.3 Buscador / filtro de pólizas
-Filtros disponibles:
-- Nombre del titular
-- Apellido del titular
-- Número de póliza
-- Status
-- Tipo
+### 1.3 Buscador / filtro de pólizas — ✅ Hecho
+Filtros disponibles: nombre del titular, apellido del titular, número de póliza, status, tipo.
 
-**Opciones de implementación:**
-- A. Filtro en el frontend (si el volumen de datos es bajo): traer todas las pólizas y filtrar con JS.
-- B. Query params en el backend: `GET /api/policies?nombre=&tipo=&status=` con `Where` dinámico en EF.
-- Recomendado: opción B para escalar.
+- Implementado con la opción B (recomendada): `GET /api/policies?firstName=&lastName=&policyNumber=&status=&type=` con `Where` dinámico contra la DB (`PolicyService.Search`), no filtrado en memoria — así escala mejor que el `GetAll()` + filtro in-memory que había antes.
+- `firstName`/`lastName` filtran por `Customer.FirstName`/`LastName` (contains, case-insensitive por la collation default de SQL Server); `policyNumber` es contains; `status`/`type` son match exacto. Todos combinables (AND).
+- Frontend: barra de filtros arriba de la tabla de Policies con inputs de texto + selects de Status/Type, botones Search y Clear.
+- De paso se eliminó la duplicación de código: el filtrado en memoria que hacía `GetAll` antes de tener query params ya no existe; `GetById`/`GetPoliciesForCustomer` (en `CustomersController`) siguen usando `GetAll()` sin cambios.
 
-### 1.4 Vista de detalle de póliza (pendiente para más adelante)
-- Al hacer clic en un resultado del buscador, abrir un **modal** (o página de detalle) con toda la info de la póliza:
-  - Datos del titular
-  - Lista de dependientes
-  - Tipo, status, fechas, prima, número de póliza
-- Implementar cuando los filtros y dependientes estén listos.
+### 1.4 Vista de detalle de póliza — ✅ Hecho (contenido base, faltan campos por definir)
+- Botón 🔍 "View details" en cada fila de la tabla de Policies, abre un modal con:
+  - Datos de la póliza: tipo, status, fechas, prima, número de póliza.
+  - Datos del titular: nombre, SSN, email, teléfono, dirección, estatus migratorio (de `customers`, ya cargado en el frontend, sin fetch nuevo).
+  - Lista de dependientes (reutiliza `GET /api/policies/{id}/dependents`).
+- **Pendiente:** el responsable del requerimiento aún no definió qué información adicional debería mostrarse en el detalle (más allá de los datos que ya existen hoy en `Policy`/`Customer`). Cuando se defina, sumar esos campos al modal — no debería requerir cambios de estructura, solo agregar más `<p>` en la sección correspondiente (o nuevos campos en el modelo si la info no existe todavía).
 
 ---
 
@@ -85,7 +80,7 @@ Permitir que el agente contacte directamente al cliente (para pedir documentaci�
 1. ~~Tipo en Policy (backend + frontend)~~ ✅ Hecho
 2. ~~Dependientes (backend: modelo + endpoints → frontend: buscador + botón agregar)~~ ✅ Hecho
 3. ~~Botón de WhatsApp (click-to-chat)~~ ✅ Hecho
-4. Buscador/filtro de pólizas (backend: query params → frontend: inputs de filtro) — siguiente
-5. Modal de detalle de póliza
-6. Refactorizaciones (variable de entorno, hook de API, refresh automático)
+4. ~~Buscador/filtro de pólizas~~ ✅ Hecho
+5. ~~Modal de detalle de póliza~~ ✅ Hecho (contenido base; faltan campos por definir, ver §1.4)
+6. Refactorizaciones (variable de entorno, hook de API, refresh automático) — siguiente
 7. Firma digital de consentimiento — bloqueado hasta que el responsable elija proveedor (ver §2.1)
