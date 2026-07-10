@@ -17,6 +17,7 @@ Ejemplo: Javier Hernández es el titular; su esposa e hijo son dependientes en l
 - Endpoints: `GET/POST /api/policies/{id}/dependents`, `DELETE /api/policies/{id}/dependents/{customerId}` (el GET no estaba en el diseño original pero es necesario para listar los dependientes actuales en el frontend).
 - Frontend: sección "Dependientes" en el formulario de Policies, visible solo al **editar** una póliza ya guardada (no al crear una nueva). Buscador de clientes filtra en el cliente la lista ya cargada de `customers` (sin nuevo endpoint de búsqueda).
 - De paso se corrigió un bug preexistente: el `<select>` de Customer y la columna Customer de la tabla referenciaban `c.name`/`c.documentNumber` (inexistentes) en lugar de `firstName`/`lastName`/`socialSecurityNumber`.
+- Ver §1.6 para los campos `RelacionConPrincipal` (en `Customer`) e `IsAplicante` (en `PolicyDependent`) agregados después sobre esta misma base.
 
 ### 1.3 Buscador / filtro de pólizas — ✅ Hecho
 Filtros disponibles: nombre del titular, apellido del titular, número de póliza, status, tipo.
@@ -38,6 +39,12 @@ Filtros disponibles: nombre del titular, apellido del titular, número de póliz
 - Migración EF Core aplicada: pólizas ya existentes en la base recibieron `WholeCareInsurance` como default (columna `NOT NULL`, no podía quedar en `null`).
 - Frontend: `<select>` en el formulario de Policies, columna nueva en la tabla, filtro superior y línea nueva en el modal de detalle (§1.4).
 - `PolicyService.Search` extendido con filtro opcional `insuranceCompany` (mismo patrón que `type`).
+
+### 1.6 Relación con el principal (Customer) + Es aplicante (dependiente de póliza) — ✅ Hecho
+- `RelacionConPrincipal` nuevo en `Customer` (no en `PolicyDependent`): es un atributo fijo de la persona, no cambia según la póliza. Requerido, `[AllowedValues]` con `Cónyuge`, `Hijo/a`, `Madre`, `Padre`, `Sobrino/a`, `Nieto/a`, `Hijastro/a`, `Hermano/a`, `Otro` — mismo patrón que `MigrationStatus`/`Type`. Clientes ya existentes recibieron `Otro` como default en la migración.
+- `IsAplicante` (bool) nuevo en `PolicyDependent` (la tabla intermedia), no en `Customer`: a diferencia de `RelacionConPrincipal`, la misma persona puede ser aplicante en una póliza (ej. Obama Care) y no en otra (ej. Auto). Default `false` para los dependientes ya existentes — no marcado significa que sigue siendo parte del grupo familiar de esa póliza pero no se contabiliza como aplicante en reportes futuros.
+- Nuevo endpoint `PUT /api/policies/{id}/dependents/{customerId}` para togglear `IsAplicante` de un dependiente ya agregado, sin tener que quitarlo y volver a agregarlo.
+- Frontend: `<select>` de Relación con el principal en el formulario de Customers (y visible en la tarjeta de cada cliente); checkbox "Es aplicante" junto a cada dependiente ya agregado en la sección Dependientes del formulario de Policies.
 
 ---
 
@@ -111,6 +118,7 @@ Agregar un botón/selector en `Header.jsx` para cambiar el idioma de la UI entre
 6. ~~Refactorizaciones: variable de entorno, cliente API, refresh automático~~ ✅ Hecho (ver §3.1)
 7. ~~Mover DTOs de Customer/Policy a archivos separados~~ ✅ Hecho (ver §3.2)
 8. ~~Campo Compañía aseguradora en Policy~~ ✅ Hecho (ver §1.5)
-9. Firma digital de consentimiento — bloqueado hasta que el responsable elija proveedor (ver §2.1)
-10. Dashboard — bloqueado hasta la reunión con el responsable (ver §5.1)
-11. Selector de idioma ES/EN — bloqueado hasta tener definiciones (ver §5.2)
+9. ~~Relación con el principal (Customer) + Es aplicante (dependiente de póliza)~~ ✅ Hecho (ver §1.6)
+10. Firma digital de consentimiento — bloqueado hasta que el responsable elija proveedor (ver §2.1)
+11. Dashboard — bloqueado hasta la reunión con el responsable (ver §5.1)
+12. Selector de idioma ES/EN — bloqueado hasta tener definiciones (ver §5.2)
