@@ -6,7 +6,20 @@ const INSURANCE_COMPANIES = ["WholeCareInsurance", "Otro"];
 const ALLOWED_DOCUMENT_EXTENSIONS = [".pdf", ".docx", ".jpg", ".jpeg"];
 const MAX_DOCUMENT_SIZE_BYTES = 5 * 1024 * 1024;
 
-const formatFileSize = (bytes) => `${(bytes / 1024).toFixed(0)} KB`;
+const formatFileSize = (bytes) => `${(bytes / 1024).toFixed(2)} KB`;
+
+const formatDocumentDate = (iso) => {
+    const d = new Date(iso);
+    const pad = (n) => String(n).padStart(2, "0");
+    const month = pad(d.getMonth() + 1);
+    const day = pad(d.getDate());
+    const year = d.getFullYear();
+    let hours = d.getHours();
+    const ampm = hours >= 12 ? "PM" : "AM";
+    hours = hours % 12 || 12;
+    const minutes = pad(d.getMinutes());
+    return `${month}/${day}/${year} ${pad(hours)}:${minutes} ${ampm}`;
+};
 
 function Policies() {
     const [policies, setPolicies] = useState([]);
@@ -43,6 +56,7 @@ function Policies() {
     const [detailDocuments, setDetailDocuments] = useState([]);
     const [documentError, setDocumentError] = useState("");
     const [uploadingDocument, setUploadingDocument] = useState(false);
+    const [openDocMenuId, setOpenDocMenuId] = useState(null);
 
     const getCustomer = (id) => customers.find((c) => c.id === Number(id));
 
@@ -133,6 +147,7 @@ function Policies() {
         setDetailDependents([]);
         setDetailDocuments([]);
         setDocumentError("");
+        setOpenDocMenuId(null);
         try {
             const res = await apiFetch(`/api/policies/${policy.id}/dependents`);
             if (!res.ok) throw new Error();
@@ -148,6 +163,7 @@ function Policies() {
         setDetailDependents([]);
         setDetailDocuments([]);
         setDocumentError("");
+        setOpenDocMenuId(null);
     };
 
     const loadDocuments = async (policyId) => {
@@ -918,7 +934,7 @@ function Policies() {
                     onClick={closeDetail}
                 >
                     <div
-                        onClick={(e) => e.stopPropagation()}
+                        onClick={(e) => { e.stopPropagation(); setOpenDocMenuId(null); }}
                         style={{
                             background: "white",
                             borderRadius: 10,
@@ -976,78 +992,145 @@ function Policies() {
                             </ul>
                         )}
 
-                        <h4 style={{ marginTop: 16, marginBottom: 6 }}>Documentos</h4>
-
-                        <label
+                        <div
                             style={{
-                                display: "inline-block",
-                                background: "#2563eb",
-                                color: "white",
-                                padding: "6px 12px",
-                                borderRadius: 6,
-                                cursor: uploadingDocument ? "default" : "pointer",
-                                opacity: uploadingDocument ? 0.6 : 1,
-                                fontSize: 14,
-                                marginBottom: 8,
+                                border: "1px solid #ddd",
+                                borderRadius: 10,
+                                padding: 16,
+                                marginTop: 16,
                             }}
                         >
-                            {uploadingDocument ? "Subiendo..." : "+ Subir documento"}
-                            <input
-                                type="file"
-                                accept={ALLOWED_DOCUMENT_EXTENSIONS.join(",")}
-                                onChange={handleUploadDocument}
-                                disabled={uploadingDocument}
-                                style={{ display: "none" }}
-                            />
-                        </label>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                                <h4 style={{ margin: 0 }}>Documents</h4>
+                                <label
+                                    style={{
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: 6,
+                                        background: "#2563eb",
+                                        color: "white",
+                                        padding: "6px 12px",
+                                        borderRadius: 6,
+                                        cursor: uploadingDocument ? "default" : "pointer",
+                                        opacity: uploadingDocument ? 0.6 : 1,
+                                        fontSize: 14,
+                                    }}
+                                >
+                                    📎 {uploadingDocument ? "Subiendo..." : "New"}
+                                    <input
+                                        type="file"
+                                        accept={ALLOWED_DOCUMENT_EXTENSIONS.join(",")}
+                                        onChange={handleUploadDocument}
+                                        disabled={uploadingDocument}
+                                        style={{ display: "none" }}
+                                    />
+                                </label>
+                            </div>
 
-                        {documentError && (
-                            <p style={{ color: "red", margin: "4px 0" }}>{documentError}</p>
-                        )}
+                            {documentError && (
+                                <p style={{ color: "red", margin: "0 0 8px" }}>{documentError}</p>
+                            )}
 
-                        {detailDocuments.length === 0 ? (
-                            <p style={{ color: "#666" }}>No hay documentos</p>
-                        ) : (
-                            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-                                {detailDocuments.map((doc) => (
-                                    <li
-                                        key={doc.id}
-                                        style={{
-                                            display: "flex",
-                                            justifyContent: "space-between",
-                                            alignItems: "center",
-                                            padding: "6px 0",
-                                            borderBottom: "1px solid #eee",
-                                        }}
-                                    >
-                                        <span>
-                                            {doc.originalFileName}
-                                            <span style={{ color: "#666", fontSize: 12, marginLeft: 8 }}>
-                                                {doc.uploadedAt?.slice(0, 10)} · {formatFileSize(doc.sizeBytes)}
-                                            </span>
-                                        </span>
-                                        <span>
-                                            <button
-                                                type="button"
-                                                onClick={() => handleDownloadDocument(doc)}
-                                                title="Download document"
-                                                style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 16, marginRight: 4 }}
-                                            >
-                                                ⬇️
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => handleDeleteDocument(doc)}
-                                                title="Delete document"
-                                                style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 16 }}
-                                            >
-                                                🗑
-                                            </button>
-                                        </span>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
+                            {detailDocuments.length === 0 ? (
+                                <p style={{ color: "#666" }}>No hay documentos</p>
+                            ) : (
+                                <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                                    {detailDocuments.map((doc) => (
+                                        <li
+                                            key={doc.id}
+                                            style={{
+                                                display: "flex",
+                                                justifyContent: "space-between",
+                                                alignItems: "flex-start",
+                                                padding: "10px 0",
+                                                borderBottom: "1px solid #eee",
+                                                position: "relative",
+                                            }}
+                                        >
+                                            <div>
+                                                <span style={{ color: "#2563eb", fontWeight: 500 }}>
+                                                    {doc.originalFileName}
+                                                </span>
+                                                <div style={{ color: "#666", fontSize: 12, marginTop: 2 }}>
+                                                    {formatFileSize(doc.sizeBytes)} - {formatDocumentDate(doc.uploadedAt)}
+                                                </div>
+                                            </div>
+
+                                            <div style={{ position: "relative" }}>
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setOpenDocMenuId(openDocMenuId === doc.id ? null : doc.id);
+                                                    }}
+                                                    title="Options"
+                                                    style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 18, padding: "0 6px", lineHeight: 1 }}
+                                                >
+                                                    ⋮
+                                                </button>
+
+                                                {openDocMenuId === doc.id && (
+                                                    <div
+                                                        style={{
+                                                            position: "absolute",
+                                                            right: 0,
+                                                            top: "100%",
+                                                            background: "white",
+                                                            border: "1px solid #ddd",
+                                                            borderRadius: 6,
+                                                            boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                                                            zIndex: 10,
+                                                            minWidth: 130,
+                                                            overflow: "hidden",
+                                                        }}
+                                                    >
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setOpenDocMenuId(null);
+                                                                handleDownloadDocument(doc);
+                                                            }}
+                                                            style={{
+                                                                display: "block",
+                                                                width: "100%",
+                                                                textAlign: "left",
+                                                                background: "transparent",
+                                                                border: "none",
+                                                                padding: "8px 12px",
+                                                                cursor: "pointer",
+                                                                fontSize: 14,
+                                                            }}
+                                                        >
+                                                            Descargar
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setOpenDocMenuId(null);
+                                                                handleDeleteDocument(doc);
+                                                            }}
+                                                            style={{
+                                                                display: "block",
+                                                                width: "100%",
+                                                                textAlign: "left",
+                                                                background: "transparent",
+                                                                border: "none",
+                                                                padding: "8px 12px",
+                                                                cursor: "pointer",
+                                                                fontSize: 14,
+                                                                color: "#dc2626",
+                                                            }}
+                                                        >
+                                                            Eliminar
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}
