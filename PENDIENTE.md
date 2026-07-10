@@ -126,10 +126,51 @@ Permitir que el agente contacte directamente al cliente (para pedir documentaci�
 ### 5.1 Dashboard — pendiente de definiciones
 El Dashboard hoy es un placeholder (`<h1>Dashboard ✅</h1>` en `App.jsx`). Puede haber contenido nuevo para definir luego de la reunión con el responsable del requerimiento.
 
-### 5.2 Selector de idioma (Español/Inglés) en el Header — pendiente de definiciones
-Agregar un botón/selector en `Header.jsx` para cambiar el idioma de la UI entre español e inglés (únicos dos idiomas contemplados por ahora).
-- Faltan definiciones: qué textos se traducen (¿solo labels/UI, o también los valores de dropdowns como `MigrationStatus`/`Type` que hoy están hardcodeados en español?), si el idioma se persiste (localStorage) o es por sesión, y si aplica a toda la app o solo a ciertas vistas.
-- No implementar hasta tener esas definiciones — anotado para no perderlo de vista.
+### 5.2 Selector de idioma (Español/Inglés) en el Header — ✅ Hecho
+`react-i18next` con diccionarios por namespace (`common`, `login`, `customers`, `policies`, `agentes`, `enums`) en inglés/español, Inglés como default.
+- Alcance: toda la UI (labels, botones, títulos, mensajes) **y** los valores mostrados en los dropdowns (`Type`, `MigrationStatus`, `RelacionConPrincipal`, `MaritalStatus`, `InsuranceCompany`, `Status`, `Rol`). El `translateEnum()` de `src/i18n/translateEnum.js` desacopla el valor guardado en la DB (siempre en español, el backend no cambió) del texto mostrado — no usa `t()` a propósito porque varios valores tienen `/` o espacios (`Hijo/a`, `Unión libre`) que romperían el key-parsing por defecto de i18next.
+- Persistencia: `User.PreferredLanguage` nuevo en el backend (default `"en"`, migración aplicada), incluido directo en la respuesta de `/auth/login` (sin round-trip extra) y actualizable vía `PUT /users/me/language` (self-service, cualquier usuario autenticado, no solo Admin).
+- Carga antes de renderizar: al hacer login el idioma llega en la misma respuesta; al recargar con sesión ya activa, `localStorage` actúa solo como cache de arranque rápido (pinta instantáneo) y `AppLayout` reconcilia en segundo plano contra `GET /users/me` sin bloquear el primer render — si el usuario cambió el idioma desde otra computadora, se corrige apenas responde esa llamada.
+- Verificado con curl (`preferredLanguage` en la respuesta de login, `PUT /users/me/language`, rechazo de idioma inválido) y con Playwright (traducción de dropdowns en ambos idiomas, cambio de idioma en caliente con el modal de detalle de póliza abierto, persistencia tras logout/login, y el escenario de "otra computadora" con un browser context sin cache).
+
+---
+
+## 7. Hosting y despliegue (VPS)
+
+### 7.1 Infraestructura — ⏸ Pendiente de compra del VPS
+Se definió la arquitectura de hosting para ambiente bajo (pruebas) y producción, usando Hostinger.
+
+**Decisión de arquitectura:**
+- Hostinger no ofrece VPS con Windows (solo Linux). La opción de "Windows Hosting + Plesk" es hosting compartido, con limitaciones serias para producción (una sola base de datos, sin ambientes separados) — descartada.
+- Se opta por **1 VPS Linux (Ubuntu 22.04)**, plan KVM2 o superior (RAM suficiente para correr .NET + SQL Server + dos ambientes a la vez).
+- SQL Server corre de forma nativa y oficialmente soportada en Linux (desde 2017) — no hace falta cambiar de motor de base de datos.
+- Un mismo VPS aloja **dos ambientes separados**: bajo/pruebas (subdominio, ej. `test.tudominio.com`) y producción (`tudominio.com`), cada uno con su propia base de datos y su propio proceso corriendo. Si producción crece en tráfico, se migra solo ese ambiente a un VPS más grande sin rehacer la configuración.
+
+**Componentes a instalar/configurar en el VPS:**
+- .NET runtime
+- SQL Server para Linux
+- NGINX como reverse proxy hacia la API (Kestrel)
+- systemd para mantener la app corriendo (reinicio automático si crashea)
+- Certbot (Let's Encrypt) para SSL gratis en ambos dominios/subdominios
+
+**Bloqueado hasta:** compra del VPS en Hostinger (Ubuntu 22.04, plan KVM2+).
+
+**Próximo paso cuando el VPS esté comprado:** con acceso SSH ya disponible, pasarle a Claude Code (corriendo en el VPS o guiando paso a paso) lo siguiente:
+
+> Necesito configurar este VPS Ubuntu 22.04 para alojar una app .NET (API) + SQL Server, con dos ambientes separados (test y producción) corriendo en el mismo servidor.
+>
+> Necesito que me guíes/hagas paso a paso:
+> 1. Instalación del .NET runtime (verificar versión necesaria según el proyecto — .NET 9).
+> 2. Instalación de SQL Server para Linux, y creación de dos bases de datos separadas (una para test, otra para producción).
+> 3. Instalación y configuración de NGINX como reverse proxy: dos server blocks, uno para test.[dominio] apuntando al puerto de la app de test, otro para [dominio] apuntando al puerto de la app de producción.
+> 4. Configuración de dos servicios systemd (uno por ambiente) para que cada instancia de la API se mantenga corriendo y se reinicie sola si falla.
+> 5. Generación de certificados SSL gratuitos con Certbot para ambos dominios/subdominios.
+> 6. Verificación final: que ambos ambientes respondan correctamente por HTTPS y estén aislados entre sí (bases de datos y procesos separados).
+>
+> Dame el plan completo antes de ejecutar cada paso, para revisarlo.
+
+### 7.2 Migración de datos del sistema anterior — ⏸ Pendiente de archivo CSV
+El responsable del proyecto va a proveer un CSV con la información actual de clientes, agentes y pólizas del sistema anterior, para migrar a esta base de datos. Pendiente de recibir el archivo (o una muestra) para definir estructura y mapeo de relaciones antes de armar el script de migración. La migración se probará primero contra la base del ambiente de test (ver 7.1), nunca directo contra producción.
 
 ---
 
@@ -146,6 +187,8 @@ Agregar un botón/selector en `Header.jsx` para cambiar el idioma de la UI entre
 9. ~~Relación con el principal (Customer) + Es aplicante (dependiente de póliza)~~ ✅ Hecho (ver §1.6)
 10. ~~Documentos de póliza (subir/descargar/eliminar)~~ ✅ Hecho (ver §1.7)
 11. ~~Agentes (Agente/Asistente/Record) + datos demográficos en Customer~~ ✅ Hecho (ver §4.1)
-12. Firma digital de consentimiento — bloqueado hasta que el responsable elija proveedor (ver §2.1)
-13. Dashboard — bloqueado hasta la reunión con el responsable (ver §5.1)
-14. Selector de idioma ES/EN — bloqueado hasta tener definiciones (ver §5.2)
+12. ~~Selector de idioma ES/EN~~ ✅ Hecho (ver §5.2)
+13. Firma digital de consentimiento — bloqueado hasta que el responsable elija proveedor (ver §2.1)
+14. Dashboard — bloqueado hasta la reunión con el responsable (ver §5.1)
+15. Infraestructura de hosting (VPS) — bloqueado hasta la compra del VPS en Hostinger (ver §7.1)
+16. Migración de datos del sistema anterior — bloqueado hasta recibir el CSV (ver §7.2)
