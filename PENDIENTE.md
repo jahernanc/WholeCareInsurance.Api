@@ -33,6 +33,12 @@ Filtros disponibles: nombre del titular, apellido del titular, número de póliz
   - Lista de dependientes (reutiliza `GET /api/policies/{id}/dependents`).
 - **Pendiente:** el responsable del requerimiento aún no definió qué información adicional debería mostrarse en el detalle (más allá de los datos que ya existen hoy en `Policy`/`Customer`). Cuando se defina, sumar esos campos al modal — no debería requerir cambios de estructura, solo agregar más `<p>` en la sección correspondiente (o nuevos campos en el modelo si la info no existe todavía).
 
+### 1.5 Campo Compañía aseguradora (dropdown) — ✅ Hecho
+- `InsuranceCompany` nuevo en `Policy`, requerido, restringido a `WholeCareInsurance`, `Otro` vía `[AllowedValues]` en `PolicyCreateDto` — mismo patrón que `Type` (§1.1).
+- Migración EF Core aplicada: pólizas ya existentes en la base recibieron `WholeCareInsurance` como default (columna `NOT NULL`, no podía quedar en `null`).
+- Frontend: `<select>` en el formulario de Policies, columna nueva en la tabla, filtro superior y línea nueva en el modal de detalle (§1.4).
+- `PolicyService.Search` extendido con filtro opcional `insuranceCompany` (mismo patrón que `type`).
+
 ---
 
 ## 2. Consentimiento firmado y comunicación con clientes
@@ -104,6 +110,7 @@ Agregar un botón/selector en `Header.jsx` para cambiar el idioma de la UI entre
 5. ~~Modal de detalle de póliza~~ ✅ Hecho (contenido base; faltan campos por definir, ver §1.4)
 6. ~~Refactorizaciones: variable de entorno, cliente API, refresh automático~~ ✅ Hecho (ver §3.1)
 7. ~~Mover DTOs de Customer/Policy a archivos separados~~ ✅ Hecho (ver §3.2)
-8. Firma digital de consentimiento — bloqueado hasta que el responsable elija proveedor (ver §2.1)
-9. Dashboard — bloqueado hasta la reunión con el responsable (ver §5.1)
-10. Selector de idioma ES/EN — bloqueado hasta tener definiciones (ver §5.2)
+8. ~~Campo Compañía aseguradora en Policy~~ ✅ Hecho (ver §1.5)
+9. Firma digital de consentimiento — bloqueado hasta que el responsable elija proveedor (ver §2.1)
+10. Dashboard — bloqueado hasta la reunión con el responsable (ver §5.1)
+11. Selector de idioma ES/EN — bloqueado hasta tener definiciones (ver §5.2)
