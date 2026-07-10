@@ -7,5 +7,7 @@ namespace WholeCareInsurance.api.Models
 
         public int CustomerId { get; set; }
         public Customer Customer { get; set; } = default!;
+
+        public bool IsAplicante { get; set; }
     }
 }

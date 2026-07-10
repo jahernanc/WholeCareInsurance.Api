@@ -14,5 +14,9 @@ namespace WholeCareInsurance.api.DTOs.Customers
         [Required][AllowedValues("Permiso de trabajo", "Residente permanente", "Ciudadano", "Otro",
             ErrorMessage = "Estatus migratorio inválido.")]
         public string MigrationStatus { get; set; } = default!;
+
+        [Required][AllowedValues("Cónyuge", "Hijo/a", "Madre", "Padre", "Sobrino/a", "Nieto/a", "Hijastro/a", "Hermano/a", "Otro",
+            ErrorMessage = "Relación con el principal inválida.")]
+        public string RelacionConPrincipal { get; set; } = default!;
     }
 }

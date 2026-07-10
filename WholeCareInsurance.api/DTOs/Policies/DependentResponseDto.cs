@@ -6,5 +6,6 @@ namespace WholeCareInsurance.api.DTOs.Policies
         public string FirstName { get; set; } = default!;
         public string LastName { get; set; } = default!;
         public string SocialSecurityNumber { get; set; } = default!;
+        public bool IsAplicante { get; set; }
     }
 }

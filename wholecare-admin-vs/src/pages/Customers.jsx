@@ -8,6 +8,17 @@ const MIGRATION_STATUSES = [
     "Ciudadano",
     "Otro",
 ];
+const RELACIONES_PRINCIPAL = [
+    "Cónyuge",
+    "Hijo/a",
+    "Madre",
+    "Padre",
+    "Sobrino/a",
+    "Nieto/a",
+    "Hijastro/a",
+    "Hermano/a",
+    "Otro",
+];
 
 const emptyForm = {
     socialSecurityNumber: "",
@@ -18,6 +29,7 @@ const emptyForm = {
     address: "",
     phone: "",
     migrationStatus: "",
+    relacionConPrincipal: "",
 };
 
 function Customers() {
@@ -64,6 +76,7 @@ function Customers() {
             address: c.address,
             phone: c.phone,
             migrationStatus: c.migrationStatus,
+            relacionConPrincipal: c.relacionConPrincipal,
         });
         setFormError("");
         setShowForm(true);
@@ -178,6 +191,16 @@ function Customers() {
                                 </select>
                             </div>
 
+                            <div>
+                                <label style={labelStyle}>Relación con el principal</label>
+                                <select name="relacionConPrincipal" value={form.relacionConPrincipal} onChange={handleField} required style={inputStyle}>
+                                    <option value="">-- Seleccionar --</option>
+                                    {RELACIONES_PRINCIPAL.map((r) => (
+                                        <option key={r} value={r}>{r}</option>
+                                    ))}
+                                </select>
+                            </div>
+
                         </div>
 
                         {formError && <p style={{ color: "red", marginTop: 12 }}>{formError}</p>}
@@ -213,6 +236,7 @@ function Customers() {
                                 <span>Teléfono: {c.phone}</span>
                                 <span style={{ gridColumn: "1 / -1" }}>Dirección: {c.address}</span>
                                 <span>Estatus: {c.migrationStatus}</span>
+                                <span>Relación con el principal: {c.relacionConPrincipal}</span>
                                 <span>Pólizas: {c.policiesCount}</span>
                             </div>
                             <div style={{ marginTop: 10, display: "flex", gap: 8 }}>

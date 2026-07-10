@@ -81,6 +81,7 @@ namespace WholeCareInsurance.api.Controllers
             existing.Address = dto.Address;
             existing.Phone = dto.Phone;
             existing.MigrationStatus = dto.MigrationStatus;
+            existing.RelacionConPrincipal = dto.RelacionConPrincipal;
 
             var updated = await _customers.Update(existing);
             return Ok(ToResponse(updated));
@@ -107,6 +108,7 @@ namespace WholeCareInsurance.api.Controllers
             Address = c.Address,
             Phone = c.Phone,
             MigrationStatus = c.MigrationStatus,
+            RelacionConPrincipal = c.RelacionConPrincipal,
             PoliciesCount = c.Policies?.Count ?? 0
         };
 
@@ -119,7 +121,8 @@ namespace WholeCareInsurance.api.Controllers
             Email = dto.Email,
             Address = dto.Address,
             Phone = dto.Phone,
-            MigrationStatus = dto.MigrationStatus
+            MigrationStatus = dto.MigrationStatus,
+            RelacionConPrincipal = dto.RelacionConPrincipal
         };
 
         private static readonly string[] ValidMigrationStatuses =

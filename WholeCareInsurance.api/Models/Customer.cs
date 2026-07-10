@@ -11,6 +11,7 @@
         public string Address { get; set; } = default!;
         public string Phone { get; set; } = default!;
         public string MigrationStatus { get; set; } = default!;
+        public string RelacionConPrincipal { get; set; } = default!;
 
         public ICollection<Policy> Policies { get; set; } = new List<Policy>();
     }

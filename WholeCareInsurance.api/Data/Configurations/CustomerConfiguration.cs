@@ -23,6 +23,7 @@ namespace WholeCareInsurance.api.Data.Configurations
             entity.Property(c => c.Address).IsRequired().HasMaxLength(300);
             entity.Property(c => c.Phone).IsRequired().HasMaxLength(20);
             entity.Property(c => c.MigrationStatus).IsRequired().HasMaxLength(50);
+            entity.Property(c => c.RelacionConPrincipal).IsRequired().HasMaxLength(50);
 
             entity.HasMany(c => c.Policies)
                   .WithOne(p => p.Customer)

@@ -163,7 +163,8 @@ namespace WholeCareInsurance.api.Controllers
                     CustomerId = pd.Customer.Id,
                     FirstName = pd.Customer.FirstName,
                     LastName = pd.Customer.LastName,
-                    SocialSecurityNumber = pd.Customer.SocialSecurityNumber
+                    SocialSecurityNumber = pd.Customer.SocialSecurityNumber,
+                    IsAplicante = pd.IsAplicante
                 });
 
             return Ok(dependents);
@@ -188,7 +189,8 @@ namespace WholeCareInsurance.api.Controllers
             var created = await _policies.AddDependent(new PolicyDependent
             {
                 PolicyId = id,
-                CustomerId = dto.CustomerId
+                CustomerId = dto.CustomerId,
+                IsAplicante = dto.IsAplicante
             });
 
             return CreatedAtAction(nameof(GetDependents), new { id }, new DependentResponseDto
@@ -196,7 +198,27 @@ namespace WholeCareInsurance.api.Controllers
                 CustomerId = customer.Id,
                 FirstName = customer.FirstName,
                 LastName = customer.LastName,
-                SocialSecurityNumber = customer.SocialSecurityNumber
+                SocialSecurityNumber = customer.SocialSecurityNumber,
+                IsAplicante = created.IsAplicante
+            });
+        }
+
+        [HttpPut("{id:int}/dependents/{customerId:int}")]
+        public async Task<IActionResult> UpdateDependent(int id, int customerId, [FromBody] DependentUpdateDto dto)
+        {
+            var dependent = await _policies.GetDependent(id, customerId);
+            if (dependent == null) return NotFound();
+
+            dependent.IsAplicante = dto.IsAplicante;
+            var updated = await _policies.UpdateDependent(dependent);
+
+            return Ok(new DependentResponseDto
+            {
+                CustomerId = updated.Customer.Id,
+                FirstName = updated.Customer.FirstName,
+                LastName = updated.Customer.LastName,
+                SocialSecurityNumber = updated.Customer.SocialSecurityNumber,
+                IsAplicante = updated.IsAplicante
             });
         }
 

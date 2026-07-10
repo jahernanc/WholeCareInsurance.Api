@@ -153,6 +153,20 @@ function Policies() {
         }
     };
 
+    const handleToggleAplicante = async (depCustomerId, isAplicante) => {
+        try {
+            const response = await apiFetch(`/api/policies/${editingId}/dependents/${depCustomerId}`, {
+                method: "PUT",
+                body: JSON.stringify({ isAplicante }),
+            });
+            if (!response.ok) throw new Error("Error updating dependent");
+            await loadDependents(editingId);
+        } catch (error) {
+            console.error(error);
+            alert("Error updating dependent");
+        }
+    };
+
     const handleRemoveDependent = async (depCustomerId) => {
         try {
             const response = await apiFetch(`/api/policies/${editingId}/dependents/${depCustomerId}`, {
@@ -474,6 +488,14 @@ function Policies() {
                                                     }}
                                                 >
                                                     <span>{d.firstName} {d.lastName}</span>
+                                                    <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={d.isAplicante}
+                                                            onChange={(e) => handleToggleAplicante(d.customerId, e.target.checked)}
+                                                        />
+                                                        Es aplicante
+                                                    </label>
                                                     <button
                                                         type="button"
                                                         onClick={() => handleRemoveDependent(d.customerId)}

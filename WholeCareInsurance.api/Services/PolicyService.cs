@@ -87,6 +87,13 @@ namespace WholeCareInsurance.api.Services
             return dependent;
         }
 
+        public async Task<PolicyDependent> UpdateDependent(PolicyDependent dependent)
+        {
+            _context.PolicyDependents.Update(dependent);
+            await _context.SaveChangesAsync();
+            return dependent;
+        }
+
         public async Task RemoveDependent(PolicyDependent dependent)
         {
             _context.PolicyDependents.Remove(dependent);

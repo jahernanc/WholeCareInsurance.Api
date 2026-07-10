@@ -14,6 +14,7 @@ namespace WholeCareInsurance.api.Services
         Task<List<PolicyDependent>> GetDependents(int policyId);
         Task<PolicyDependent?> GetDependent(int policyId, int customerId);
         Task<PolicyDependent> AddDependent(PolicyDependent dependent);
+        Task<PolicyDependent> UpdateDependent(PolicyDependent dependent);
         Task RemoveDependent(PolicyDependent dependent);
     }
 }
