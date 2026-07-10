@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.StaticFiles;
 using WholeCareInsurance.api.DTOs.Policies;
 using WholeCareInsurance.api.Models;
 using WholeCareInsurance.api.Services;
+using WholeCareInsurance.api.Utils;
 
 namespace WholeCareInsurance.api.Controllers
 {
@@ -13,11 +15,14 @@ namespace WholeCareInsurance.api.Controllers
     {
         private readonly IPolicyService _policies;
         private readonly ICustomerService _customers;
+        private readonly IPolicyDocumentStorage _documentStorage;
+        private static readonly FileExtensionContentTypeProvider ContentTypeProvider = new();
 
-        public PoliciesController(IPolicyService policies, ICustomerService customers)
+        public PoliciesController(IPolicyService policies, ICustomerService customers, IPolicyDocumentStorage documentStorage)
         {
             _policies = policies;
             _customers = customers;
+            _documentStorage = documentStorage;
         }
 
         [HttpGet]
@@ -231,5 +236,90 @@ namespace WholeCareInsurance.api.Controllers
             await _policies.RemoveDependent(dependent);
             return NoContent();
         }
+
+        [HttpGet("{id:int}/documents")]
+        public async Task<IActionResult> GetDocuments(int id)
+        {
+            var policy = await _policies.GetById(id);
+            if (policy == null) return NotFound();
+
+            var documents = (await _policies.GetDocuments(id))
+                .Select(ToDocumentResponse);
+
+            return Ok(documents);
+        }
+
+        [HttpPost("{id:int}/documents")]
+        [Consumes("multipart/form-data")]
+        [RequestFormLimits(MultipartBodyLengthLimit = FileValidationHelper.MaxFileSizeBytes)]
+        public async Task<IActionResult> UploadDocument(int id, IFormFile file)
+        {
+            var policy = await _policies.GetById(id);
+            if (policy == null) return NotFound();
+
+            if (file == null || file.Length == 0)
+                return BadRequest("Debe adjuntar un archivo.");
+
+            if (file.Length > FileValidationHelper.MaxFileSizeBytes)
+                return BadRequest("El archivo supera el tamaño máximo permitido (5 MB).");
+
+            if (!FileValidationHelper.HasAllowedExtension(file.FileName))
+                return BadRequest("Tipo de archivo no permitido. Se aceptan: .pdf, .docx, .jpg, .jpeg.");
+
+            var extension = Path.GetExtension(file.FileName);
+
+            using var stream = file.OpenReadStream();
+            if (!await FileValidationHelper.MatchesContentAsync(stream, extension))
+                return BadRequest("El contenido del archivo no coincide con su extensión.");
+
+            var storedFileName = await _documentStorage.SaveAsync(id, stream, extension);
+
+            if (!ContentTypeProvider.TryGetContentType(file.FileName, out var contentType))
+                contentType = "application/octet-stream";
+
+            var created = await _policies.AddDocument(new PolicyDocument
+            {
+                PolicyId = id,
+                OriginalFileName = file.FileName,
+                StoredFileName = storedFileName,
+                ContentType = contentType,
+                SizeBytes = file.Length,
+                UploadedAt = DateTime.UtcNow
+            });
+
+            return CreatedAtAction(nameof(GetDocuments), new { id }, ToDocumentResponse(created));
+        }
+
+        [HttpGet("{id:int}/documents/{documentId:int}")]
+        public async Task<IActionResult> DownloadDocument(int id, int documentId)
+        {
+            var document = await _policies.GetDocument(id, documentId);
+            if (document == null) return NotFound();
+
+            var path = _documentStorage.GetPhysicalPath(id, document.StoredFileName);
+            if (!System.IO.File.Exists(path))
+                return NotFound("El archivo ya no está disponible en el servidor.");
+
+            return PhysicalFile(path, document.ContentType, document.OriginalFileName);
+        }
+
+        [HttpDelete("{id:int}/documents/{documentId:int}")]
+        public async Task<IActionResult> DeleteDocument(int id, int documentId)
+        {
+            var document = await _policies.GetDocument(id, documentId);
+            if (document == null) return NotFound();
+
+            await _policies.RemoveDocument(document);
+            return NoContent();
+        }
+
+        private static PolicyDocumentResponseDto ToDocumentResponse(PolicyDocument d) => new()
+        {
+            Id = d.Id,
+            OriginalFileName = d.OriginalFileName,
+            ContentType = d.ContentType,
+            SizeBytes = d.SizeBytes,
+            UploadedAt = d.UploadedAt
+        };
     }
 }

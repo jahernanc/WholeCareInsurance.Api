@@ -16,5 +16,10 @@ namespace WholeCareInsurance.api.Services
         Task<PolicyDependent> AddDependent(PolicyDependent dependent);
         Task<PolicyDependent> UpdateDependent(PolicyDependent dependent);
         Task RemoveDependent(PolicyDependent dependent);
+
+        Task<List<PolicyDocument>> GetDocuments(int policyId);
+        Task<PolicyDocument?> GetDocument(int policyId, int documentId);
+        Task<PolicyDocument> AddDocument(PolicyDocument document);
+        Task RemoveDocument(PolicyDocument document);
     }
 }

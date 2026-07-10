@@ -16,6 +16,7 @@ builder.Services.AddScoped<IUsersService, UsersService>();
 builder.Services.AddScoped<AdminUserSeeder>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<IPolicyService, PolicyService>();
+builder.Services.AddSingleton<IPolicyDocumentStorage, PolicyDocumentStorage>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>

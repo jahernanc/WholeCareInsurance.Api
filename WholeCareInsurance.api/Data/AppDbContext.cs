@@ -14,6 +14,7 @@ namespace WholeCareInsurance.api.Data
         public DbSet<Customer> Customers => Set<Customer>();
         public DbSet<Policy> Policies => Set<Policy>();
         public DbSet<PolicyDependent> PolicyDependents => Set<PolicyDependent>();
+        public DbSet<PolicyDocument> PolicyDocuments => Set<PolicyDocument>();
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)

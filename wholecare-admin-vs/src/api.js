@@ -62,7 +62,7 @@ export async function apiFetch(path, options = {}) {
         fetch(`${BASE_URL}${path}`, {
             ...options,
             headers: {
-                ...(options.body ? { "Content-Type": "application/json" } : {}),
+                ...(options.body && !(options.body instanceof FormData) ? { "Content-Type": "application/json" } : {}),
                 ...options.headers,
                 ...(accessToken ? { Authorization: "Bearer " + accessToken } : {}),
             },

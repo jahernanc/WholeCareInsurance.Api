@@ -3,6 +3,9 @@ bin/
 obj/
 dist/
 
+# Uploaded policy documents (stored on server disk, not in source control)
+WholeCareInsurance.api/App_Data/
+
 # Dependencies
 node_modules/
 

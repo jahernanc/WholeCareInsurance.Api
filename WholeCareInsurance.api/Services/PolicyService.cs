@@ -7,10 +7,12 @@ namespace WholeCareInsurance.api.Services
     public class PolicyService : IPolicyService
     {
         private readonly AppDbContext _context;
+        private readonly IPolicyDocumentStorage _documentStorage;
 
-        public PolicyService(AppDbContext context)
+        public PolicyService(AppDbContext context, IPolicyDocumentStorage documentStorage)
         {
             _context = context;
+            _documentStorage = documentStorage;
         }
 
         public async Task<IEnumerable<Policy>> GetAll()
@@ -67,6 +69,7 @@ namespace WholeCareInsurance.api.Services
         {
             _context.Policies.Remove(policy);
             await _context.SaveChangesAsync();
+            _documentStorage.DeletePolicyFolder(policy.Id);
         }
 
         public async Task<List<PolicyDependent>> GetDependents(int policyId)
@@ -97,6 +100,30 @@ namespace WholeCareInsurance.api.Services
         public async Task RemoveDependent(PolicyDependent dependent)
         {
             _context.PolicyDependents.Remove(dependent);
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task<List<PolicyDocument>> GetDocuments(int policyId)
+            => await _context.PolicyDocuments
+                .Where(d => d.PolicyId == policyId)
+                .OrderByDescending(d => d.UploadedAt)
+                .ToListAsync();
+
+        public async Task<PolicyDocument?> GetDocument(int policyId, int documentId)
+            => await _context.PolicyDocuments
+                .FirstOrDefaultAsync(d => d.PolicyId == policyId && d.Id == documentId);
+
+        public async Task<PolicyDocument> AddDocument(PolicyDocument document)
+        {
+            _context.PolicyDocuments.Add(document);
+            await _context.SaveChangesAsync();
+            return document;
+        }
+
+        public async Task RemoveDocument(PolicyDocument document)
+        {
+            _documentStorage.Delete(document.PolicyId, document.StoredFileName);
+            _context.PolicyDocuments.Remove(document);
             await _context.SaveChangesAsync();
         }
     }

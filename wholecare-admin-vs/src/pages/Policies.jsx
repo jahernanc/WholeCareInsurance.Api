@@ -3,6 +3,10 @@ import { apiFetch } from "../api";
 
 const POLICY_TYPES = ["Obama Care", "Salud", "Auto", "Otro"];
 const INSURANCE_COMPANIES = ["WholeCareInsurance", "Otro"];
+const ALLOWED_DOCUMENT_EXTENSIONS = [".pdf", ".docx", ".jpg", ".jpeg"];
+const MAX_DOCUMENT_SIZE_BYTES = 5 * 1024 * 1024;
+
+const formatFileSize = (bytes) => `${(bytes / 1024).toFixed(0)} KB`;
 
 function Policies() {
     const [policies, setPolicies] = useState([]);
@@ -36,6 +40,9 @@ function Policies() {
 
     const [viewingPolicy, setViewingPolicy] = useState(null);
     const [detailDependents, setDetailDependents] = useState([]);
+    const [detailDocuments, setDetailDocuments] = useState([]);
+    const [documentError, setDocumentError] = useState("");
+    const [uploadingDocument, setUploadingDocument] = useState(false);
 
     const getCustomer = (id) => customers.find((c) => c.id === Number(id));
 
@@ -124,6 +131,8 @@ function Policies() {
     const openDetail = async (policy) => {
         setViewingPolicy(policy);
         setDetailDependents([]);
+        setDetailDocuments([]);
+        setDocumentError("");
         try {
             const res = await apiFetch(`/api/policies/${policy.id}/dependents`);
             if (!res.ok) throw new Error();
@@ -131,11 +140,102 @@ function Policies() {
         } catch (error) {
             console.error("Error loading dependents for detail view:", error);
         }
+        await loadDocuments(policy.id);
     };
 
     const closeDetail = () => {
         setViewingPolicy(null);
         setDetailDependents([]);
+        setDetailDocuments([]);
+        setDocumentError("");
+    };
+
+    const loadDocuments = async (policyId) => {
+        try {
+            const res = await apiFetch(`/api/policies/${policyId}/documents`);
+            if (!res.ok) throw new Error();
+            setDetailDocuments(await res.json());
+        } catch (error) {
+            console.error("Error loading documents:", error);
+        }
+    };
+
+    const handleUploadDocument = async (e) => {
+        const file = e.target.files[0];
+        e.target.value = "";
+        if (!file) return;
+
+        setDocumentError("");
+
+        const extension = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
+        if (!ALLOWED_DOCUMENT_EXTENSIONS.includes(extension)) {
+            setDocumentError("Tipo de archivo no permitido. Se aceptan: .pdf, .docx, .jpg, .jpeg.");
+            return;
+        }
+
+        if (file.size > MAX_DOCUMENT_SIZE_BYTES) {
+            setDocumentError("El archivo supera el tamaño máximo permitido (5 MB).");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append("file", file);
+
+        try {
+            setUploadingDocument(true);
+            const res = await apiFetch(`/api/policies/${viewingPolicy.id}/documents`, {
+                method: "POST",
+                body: formData,
+            });
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => null);
+                setDocumentError(typeof err === "string" ? err : "Error al subir el documento.");
+                return;
+            }
+
+            await loadDocuments(viewingPolicy.id);
+        } catch (error) {
+            console.error(error);
+            setDocumentError("Error al subir el documento.");
+        } finally {
+            setUploadingDocument(false);
+        }
+    };
+
+    const handleDownloadDocument = async (doc) => {
+        try {
+            const res = await apiFetch(`/api/policies/${viewingPolicy.id}/documents/${doc.id}`);
+            if (!res.ok) throw new Error();
+
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = doc.originalFileName;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error(error);
+            alert("Error al descargar el documento");
+        }
+    };
+
+    const handleDeleteDocument = async (doc) => {
+        if (!confirm(`¿Eliminar el documento "${doc.originalFileName}"?`)) return;
+
+        try {
+            const res = await apiFetch(`/api/policies/${viewingPolicy.id}/documents/${doc.id}`, {
+                method: "DELETE",
+            });
+            if (!res.ok) throw new Error();
+            await loadDocuments(viewingPolicy.id);
+        } catch (error) {
+            console.error(error);
+            alert("Error al eliminar el documento");
+        }
     };
 
     const handleAddDependent = async (depCustomerId) => {
@@ -871,6 +971,79 @@ function Policies() {
                                 {detailDependents.map((d) => (
                                     <li key={d.customerId} style={{ padding: "4px 0" }}>
                                         {d.firstName} {d.lastName} ({d.socialSecurityNumber})
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+
+                        <h4 style={{ marginTop: 16, marginBottom: 6 }}>Documentos</h4>
+
+                        <label
+                            style={{
+                                display: "inline-block",
+                                background: "#2563eb",
+                                color: "white",
+                                padding: "6px 12px",
+                                borderRadius: 6,
+                                cursor: uploadingDocument ? "default" : "pointer",
+                                opacity: uploadingDocument ? 0.6 : 1,
+                                fontSize: 14,
+                                marginBottom: 8,
+                            }}
+                        >
+                            {uploadingDocument ? "Subiendo..." : "+ Subir documento"}
+                            <input
+                                type="file"
+                                accept={ALLOWED_DOCUMENT_EXTENSIONS.join(",")}
+                                onChange={handleUploadDocument}
+                                disabled={uploadingDocument}
+                                style={{ display: "none" }}
+                            />
+                        </label>
+
+                        {documentError && (
+                            <p style={{ color: "red", margin: "4px 0" }}>{documentError}</p>
+                        )}
+
+                        {detailDocuments.length === 0 ? (
+                            <p style={{ color: "#666" }}>No hay documentos</p>
+                        ) : (
+                            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                                {detailDocuments.map((doc) => (
+                                    <li
+                                        key={doc.id}
+                                        style={{
+                                            display: "flex",
+                                            justifyContent: "space-between",
+                                            alignItems: "center",
+                                            padding: "6px 0",
+                                            borderBottom: "1px solid #eee",
+                                        }}
+                                    >
+                                        <span>
+                                            {doc.originalFileName}
+                                            <span style={{ color: "#666", fontSize: 12, marginLeft: 8 }}>
+                                                {doc.uploadedAt?.slice(0, 10)} · {formatFileSize(doc.sizeBytes)}
+                                            </span>
+                                        </span>
+                                        <span>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDownloadDocument(doc)}
+                                                title="Download document"
+                                                style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 16, marginRight: 4 }}
+                                            >
+                                                ⬇️
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeleteDocument(doc)}
+                                                title="Delete document"
+                                                style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 16 }}
+                                            >
+                                                🗑
+                                            </button>
+                                        </span>
                                     </li>
                                 ))}
                             </ul>
