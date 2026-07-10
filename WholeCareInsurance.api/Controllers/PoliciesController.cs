@@ -27,15 +27,17 @@ namespace WholeCareInsurance.api.Controllers
             [FromQuery] string? lastName = null,
             [FromQuery] string? policyNumber = null,
             [FromQuery] string? status = null,
-            [FromQuery] string? type = null)
+            [FromQuery] string? type = null,
+            [FromQuery] string? insuranceCompany = null)
         {
-            var found = await _policies.Search(customerId, firstName, lastName, policyNumber, status, type);
+            var found = await _policies.Search(customerId, firstName, lastName, policyNumber, status, type, insuranceCompany);
 
             var list = found.Select(p => new PolicyResponseDto
             {
                 Id = p.Id,
                 PolicyNumber = p.PolicyNumber,
                 Type = p.Type,
+                InsuranceCompany = p.InsuranceCompany,
                 StartDate = p.StartDate,
                 EndDate = p.EndDate,
                 Premium = p.Premium,
@@ -57,6 +59,7 @@ namespace WholeCareInsurance.api.Controllers
                 Id = policy.Id,
                 PolicyNumber = policy.PolicyNumber,
                 Type = policy.Type,
+                InsuranceCompany = policy.InsuranceCompany,
                 StartDate = policy.StartDate,
                 EndDate = policy.EndDate,
                 Premium = policy.Premium,
@@ -76,6 +79,7 @@ namespace WholeCareInsurance.api.Controllers
             {
                 PolicyNumber = dto.PolicyNumber,
                 Type = dto.Type,
+                InsuranceCompany = dto.InsuranceCompany,
                 StartDate = dto.StartDate,
                 EndDate = dto.EndDate,
                 Premium = dto.Premium,
@@ -90,6 +94,7 @@ namespace WholeCareInsurance.api.Controllers
                 Id = created.Id,
                 PolicyNumber = created.PolicyNumber,
                 Type = created.Type,
+                InsuranceCompany = created.InsuranceCompany,
                 StartDate = created.StartDate,
                 EndDate = created.EndDate,
                 Premium = created.Premium,
@@ -114,6 +119,7 @@ namespace WholeCareInsurance.api.Controllers
 
             existing.PolicyNumber = dto.PolicyNumber;
             existing.Type = dto.Type;
+            existing.InsuranceCompany = dto.InsuranceCompany;
             existing.StartDate = dto.StartDate;
             existing.EndDate = dto.EndDate;
             existing.Premium = dto.Premium;
@@ -126,6 +132,7 @@ namespace WholeCareInsurance.api.Controllers
                 Id = updated.Id,
                 PolicyNumber = updated.PolicyNumber,
                 Type = updated.Type,
+                InsuranceCompany = updated.InsuranceCompany,
                 StartDate = updated.StartDate,
                 EndDate = updated.EndDate,
                 Premium = updated.Premium,

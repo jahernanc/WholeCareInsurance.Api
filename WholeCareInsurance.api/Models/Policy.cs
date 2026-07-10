@@ -9,6 +9,8 @@
 
         public string Type { get; set; } = default!;
 
+        public string InsuranceCompany { get; set; } = default!;
+
         public DateTime StartDate { get; set; }
 
         public DateTime EndDate { get; set; }

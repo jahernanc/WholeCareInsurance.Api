@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { apiFetch } from "../api";
 
 const POLICY_TYPES = ["Obama Care", "Salud", "Auto", "Otro"];
+const INSURANCE_COMPANIES = ["WholeCareInsurance", "Otro"];
 
 function Policies() {
     const [policies, setPolicies] = useState([]);
@@ -11,6 +12,7 @@ function Policies() {
 
     const [policyNumber, setPolicyNumber] = useState("");
     const [type, setType] = useState("");
+    const [insuranceCompany, setInsuranceCompany] = useState("");
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
     const [premium, setPremium] = useState("");
@@ -30,6 +32,7 @@ function Policies() {
     const [filterLastName, setFilterLastName] = useState("");
     const [filterStatus, setFilterStatus] = useState("");
     const [filterType, setFilterType] = useState("");
+    const [filterInsuranceCompany, setFilterInsuranceCompany] = useState("");
 
     const [viewingPolicy, setViewingPolicy] = useState(null);
     const [detailDependents, setDetailDependents] = useState([]);
@@ -59,6 +62,7 @@ function Policies() {
             lastName: filterLastName,
             status: filterStatus,
             type: filterType,
+            insuranceCompany: filterInsuranceCompany,
             ...filterOverrides,
         };
 
@@ -104,7 +108,8 @@ function Policies() {
         setFilterLastName("");
         setFilterStatus("");
         setFilterType("");
-        loadData({ policyNumber: "", firstName: "", lastName: "", status: "", type: "" });
+        setFilterInsuranceCompany("");
+        loadData({ policyNumber: "", firstName: "", lastName: "", status: "", type: "", insuranceCompany: "" });
     };
     const loadDependents = async (policyId) => {
         try {
@@ -166,6 +171,7 @@ function Policies() {
 
         setPolicyNumber(policy.policyNumber);
         setType(policy.type);
+        setInsuranceCompany(policy.insuranceCompany);
         setStartDate(policy.startDate.slice(0, 10));
         setEndDate(policy.endDate.slice(0, 10));
         setPremium(policy.premium);
@@ -233,6 +239,7 @@ function Policies() {
         if (
             !policyNumber.trim() ||
             !type.trim() ||
+            !insuranceCompany.trim() ||
             !startDate ||
             !endDate ||
             !premium ||
@@ -257,6 +264,7 @@ function Policies() {
                 body: JSON.stringify({
                     policyNumber,
                     type,
+                    insuranceCompany,
                     startDate,
                     endDate,
                     premium: Number(premium),
@@ -278,6 +286,7 @@ function Policies() {
 
             setPolicyNumber("");
             setType("");
+            setInsuranceCompany("");
             setStartDate("");
             setEndDate("");
             setPremium("");
@@ -368,6 +377,20 @@ function Policies() {
                                     <option value="">Select type</option>
                                     {POLICY_TYPES.map((t) => (
                                         <option key={t} value={t}>{t}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div style={{ marginBottom: 12 }}>
+                                <label>Insurance Company</label>
+                                <select
+                                    value={insuranceCompany}
+                                    onChange={(e) => setInsuranceCompany(e.target.value)}
+                                    style={{ width: "100%", padding: 8, marginTop: 4 }}
+                                >
+                                    <option value="">Select insurance company</option>
+                                    {INSURANCE_COMPANIES.map((ic) => (
+                                        <option key={ic} value={ic}>{ic}</option>
                                     ))}
                                 </select>
                             </div>
@@ -614,6 +637,20 @@ function Policies() {
                     </select>
                 </div>
 
+                <div>
+                    <label style={{ display: "block", fontSize: 12 }}>Insurance Company</label>
+                    <select
+                        value={filterInsuranceCompany}
+                        onChange={(e) => setFilterInsuranceCompany(e.target.value)}
+                        style={{ padding: 6 }}
+                    >
+                        <option value="">All</option>
+                        {INSURANCE_COMPANIES.map((ic) => (
+                            <option key={ic} value={ic}>{ic}</option>
+                        ))}
+                    </select>
+                </div>
+
                 <button
                     type="button"
                     onClick={handleSearch}
@@ -657,6 +694,7 @@ function Policies() {
                                 <tr style={{ background: "#f3f4f6", textAlign: "left" }}>
                                     <th style={{ padding: 10 }}>Policy</th>
                                     <th style={{ padding: 10 }}>Type</th>
+                                    <th style={{ padding: 10 }}>Insurance Company</th>
                                     <th style={{ padding: 10 }}>Status</th>
                                     <th style={{ padding: 10 }}>Premium</th>
                                     <th style={{ padding: 10 }}>Customer</th>
@@ -669,6 +707,7 @@ function Policies() {
                                     <tr key={p.id}>
                                         <td style={{ padding: 10 }}>{p.policyNumber}</td>
                                         <td style={{ padding: 10 }}>{p.type}</td>
+                                        <td style={{ padding: 10 }}>{p.insuranceCompany}</td>
                                         <td style={{ padding: 10 }}>{p.status}</td>
                                         <td style={{ padding: 10 }}>{p.premium}</td>
                                         <td style={{ padding: 10 }}>
@@ -780,6 +819,7 @@ function Policies() {
 
                         <h4 style={{ marginBottom: 6 }}>Policy</h4>
                         <p style={{ margin: "2px 0" }}>Type: {viewingPolicy.type}</p>
+                        <p style={{ margin: "2px 0" }}>Insurance Company: {viewingPolicy.insuranceCompany}</p>
                         <p style={{ margin: "2px 0" }}>Status: {viewingPolicy.status}</p>
                         <p style={{ margin: "2px 0" }}>Start Date: {viewingPolicy.startDate?.slice(0, 10)}</p>
                         <p style={{ margin: "2px 0" }}>End Date: {viewingPolicy.endDate?.slice(0, 10)}</p>

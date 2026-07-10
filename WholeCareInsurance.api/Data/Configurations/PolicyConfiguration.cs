@@ -21,6 +21,10 @@ namespace WholeCareInsurance.api.Data.Configurations
                   .IsRequired()
                   .HasMaxLength(100);
 
+            entity.Property(p => p.InsuranceCompany)
+                  .IsRequired()
+                  .HasMaxLength(100);
+
             entity.Property(p => p.Status)
                   .IsRequired()
                   .HasMaxLength(50);
