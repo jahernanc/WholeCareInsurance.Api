@@ -137,37 +137,25 @@ El Dashboard hoy es un placeholder (`<h1>Dashboard ✅</h1>` en `App.jsx`). Pued
 
 ## 7. Hosting y despliegue (VPS)
 
-### 7.1 Infraestructura — ⏸ Pendiente de compra del VPS
-Se definió la arquitectura de hosting para ambiente bajo (pruebas) y producción, usando Hostinger.
+### 7.1 Infraestructura — ⏸ Pendiente de implementación (Dockerfiles + compose + README)
+VPS ya comprado y corriendo: Ubuntu 24.04, KVM2 (2 CPU, 8GB RAM, 100GB disco), con **EasyPanel** preinstalado (panel de gestión basado en Docker).
 
-**Decisión de arquitectura:**
-- Hostinger no ofrece VPS con Windows (solo Linux). La opción de "Windows Hosting + Plesk" es hosting compartido, con limitaciones serias para producción (una sola base de datos, sin ambientes separados) — descartada.
-- Se opta por **1 VPS Linux (Ubuntu 22.04)**, plan KVM2 o superior (RAM suficiente para correr .NET + SQL Server + dos ambientes a la vez).
-- SQL Server corre de forma nativa y oficialmente soportada en Linux (desde 2017) — no hace falta cambiar de motor de base de datos.
-- Un mismo VPS aloja **dos ambientes separados**: bajo/pruebas (subdominio, ej. `test.tudominio.com`) y producción (`tudominio.com`), cada uno con su propia base de datos y su propio proceso corriendo. Si producción crece en tráfico, se migra solo ese ambiente a un VPS más grande sin rehacer la configuración.
+**Cambio de plan respecto a la decisión original (Hostinger + Ubuntu 22.04 + SQL Server nativo + NGINX/Certbot/systemd manual):** en vez de instalar SQL Server nativo en el servidor (no soportado oficialmente en Ubuntu 24.04), todo corre **vía Docker a través de EasyPanel**: SQL Server como contenedor (imagen oficial de Microsoft), la API .NET como contenedor, y el frontend como contenedor NGINX sirviendo el build estático. EasyPanel maneja reverse proxy y SSL automático — ya no hace falta configurar NGINX/Certbot/systemd a mano.
 
-**Componentes a instalar/configurar en el VPS:**
-- .NET runtime
-- SQL Server para Linux
-- NGINX como reverse proxy hacia la API (Kestrel)
-- systemd para mantener la app corriendo (reinicio automático si crashea)
-- Certbot (Let's Encrypt) para SSL gratis en ambos dominios/subdominios
+Dos ambientes (test y producción) como proyectos separados dentro de EasyPanel, cada uno con sus propias variables de entorno y contenedores de API/frontend.
 
-**Bloqueado hasta:** compra del VPS en Hostinger (Ubuntu 22.04, plan KVM2+).
+**Decisiones tomadas para la dockerización (2026-07-10):**
+- **Frontend / `VITE_API_URL`:** Vite hornea esta variable en build time, no se puede cambiar en runtime. Se pasa como `ARG` de Docker (build-arg) — cada app de EasyPanel (test/prod) define su propio valor y reconstruye la imagen para ese ambiente.
+- **Migraciones EF Core:** auto-migrate al iniciar (`dbContext.Database.Migrate()` en `Program.cs`, junto al `AdminUserSeeder` que ya corre ahí) — sin esto habría que correr `dotnet ef database update` manualmente contra el contenedor en cada deploy.
+- **Topología de SQL Server:** un solo contenedor `mcr.microsoft.com/mssql/server` compartido entre test y producción, con dos bases de datos separadas dentro (no dos contenedores completos) — con 8GB de RAM totales repartidos entre 2 ambientes de API+frontend+DB, dos instancias completas de SQL Server quedarían ajustadas.
 
-**Próximo paso cuando el VPS esté comprado:** con acceso SSH ya disponible, pasarle a Claude Code (corriendo en el VPS o guiando paso a paso) lo siguiente:
+**Otros hallazgos a resolver durante la implementación (no solo config, requieren cambio de código):**
+- CORS (`Program.cs`, policy `AllowFrontend`) tiene `http://localhost:5173` hardcodeado — debe leerse de una variable de entorno (ej. `Cors:AllowedOrigin`) ya que el frontend en prod estará en otro dominio.
+- `app.UseHttpsRedirection()` fuera de Development puede causar redirect loops detrás del reverse proxy de EasyPanel (que termina el SSL y habla HTTP al contenedor) — hay que condicionarlo con una variable propia y agregar `UseForwardedHeaders` para `X-Forwarded-Proto`.
+- `App_Data/PolicyDocuments` (documentos subidos, §1.7) necesita un volumen persistente en el contenedor de la API — sin volumen, los documentos se pierden en cada redeploy.
+- `Jwt:Key`/connection string hardcodeados en `appsettings.json` (el placeholder de dev y la connection string de `localdb`) deben vaciarse/neutralizarse ahí; en prod se inyectan por variable de entorno (`Jwt__Key`, `ConnectionStrings__DefaultConnection`, convención de doble guion bajo de ASP.NET Core). El `Jwt:Key` de producción debe ser un valor nuevo y fuerte (≥32 chars), distinto del de `appsettings.Development.json`.
 
-> Necesito configurar este VPS Ubuntu 22.04 para alojar una app .NET (API) + SQL Server, con dos ambientes separados (test y producción) corriendo en el mismo servidor.
->
-> Necesito que me guíes/hagas paso a paso:
-> 1. Instalación del .NET runtime (verificar versión necesaria según el proyecto — .NET 9).
-> 2. Instalación de SQL Server para Linux, y creación de dos bases de datos separadas (una para test, otra para producción).
-> 3. Instalación y configuración de NGINX como reverse proxy: dos server blocks, uno para test.[dominio] apuntando al puerto de la app de test, otro para [dominio] apuntando al puerto de la app de producción.
-> 4. Configuración de dos servicios systemd (uno por ambiente) para que cada instancia de la API se mantenga corriendo y se reinicie sola si falla.
-> 5. Generación de certificados SSL gratuitos con Certbot para ambos dominios/subdominios.
-> 6. Verificación final: que ambos ambientes respondan correctamente por HTTPS y estén aislados entre sí (bases de datos y procesos separados).
->
-> Dame el plan completo antes de ejecutar cada paso, para revisarlo.
+**Próximo paso:** implementar `WholeCareInsurance.api/Dockerfile` (multi-stage SDK→runtime), `wholecare-admin-vs/Dockerfile` (multi-stage Node→NGINX), los cambios de código de arriba, un `docker-compose.yml` de referencia para probar localmente, y un `README.md` con los pasos de alta en EasyPanel (SQL Server compartido con 2 DBs → app API con sus env vars por ambiente → app frontend con su build-arg).
 
 ### 7.2 Migración de datos del sistema anterior — ⏸ Pendiente de archivo CSV
 El responsable del proyecto va a proveer un CSV con la información actual de clientes, agentes y pólizas del sistema anterior, para migrar a esta base de datos. Pendiente de recibir el archivo (o una muestra) para definir estructura y mapeo de relaciones antes de armar el script de migración. La migración se probará primero contra la base del ambiente de test (ver 7.1), nunca directo contra producción.
