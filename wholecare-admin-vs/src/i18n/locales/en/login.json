@@ -1,0 +1,7 @@
+{
+    "title": "Login",
+    "emailPlaceholder": "Email",
+    "passwordPlaceholder": "Password",
+    "submit": "Login",
+    "error": "Invalid credentials"
+}

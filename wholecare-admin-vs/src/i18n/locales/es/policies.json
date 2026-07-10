@@ -1,0 +1,102 @@
+{
+    "title": "Pólizas",
+    "newButton": "+ Crear póliza",
+    "closeFormButton": "Cerrar formulario",
+    "loading": "Cargando pólizas...",
+    "empty": "Todavía no hay pólizas",
+    "form": {
+        "title": "Crear póliza",
+        "fields": {
+            "policyNumber": "Número de póliza",
+            "type": "Tipo",
+            "insuranceCompany": "Compañía aseguradora",
+            "startDate": "Fecha de inicio",
+            "endDate": "Fecha de fin",
+            "premium": "Prima",
+            "status": "Estatus",
+            "customer": "Cliente"
+        },
+        "selectType": "Seleccionar tipo",
+        "selectInsuranceCompany": "Seleccionar compañía aseguradora",
+        "selectCustomer": "Seleccionar cliente",
+        "requiredError": "Todos los campos son obligatorios",
+        "saveError": "Error al guardar la póliza",
+        "submitCreating": "Creando...",
+        "submitCreate": "Crear póliza"
+    },
+    "dependents": {
+        "title": "Dependientes",
+        "empty": "Todavía no hay dependientes",
+        "isAplicante": "Es aplicante",
+        "removeTitle": "Quitar dependiente",
+        "addButton": "+ Agregar dependiente",
+        "cancelButton": "Cancelar",
+        "searchPlaceholder": "Buscar cliente por nombre...",
+        "addAction": "Agregar",
+        "noMatches": "Sin resultados",
+        "addError": "Error al agregar el dependiente",
+        "updateError": "Error al actualizar el dependiente",
+        "removeError": "Error al quitar el dependiente"
+    },
+    "filters": {
+        "policyNumber": "Número de póliza",
+        "firstName": "Nombre",
+        "lastName": "Apellido",
+        "status": "Estatus",
+        "type": "Tipo",
+        "insuranceCompany": "Compañía aseguradora",
+        "all": "Todos"
+    },
+    "table": {
+        "policy": "Póliza",
+        "type": "Tipo",
+        "insuranceCompany": "Compañía aseguradora",
+        "status": "Estatus",
+        "premium": "Prima",
+        "customer": "Cliente",
+        "actions": "Acciones"
+    },
+    "actionTitles": {
+        "viewDetails": "Ver detalle",
+        "editPolicy": "Editar póliza",
+        "deletePolicy": "Eliminar póliza",
+        "chatWhatsapp": "Chatear por WhatsApp"
+    },
+    "whatsappMessage": "Hola, te contactamos desde WholeCare Insurance.",
+    "deleteConfirm": "¿Seguro que querés eliminar esta póliza?",
+    "deleteError": "Error al eliminar la póliza",
+    "detail": {
+        "policyTitle": "Póliza {{number}}",
+        "policySection": "Póliza",
+        "type": "Tipo",
+        "insuranceCompany": "Compañía aseguradora",
+        "status": "Estatus",
+        "startDate": "Fecha de inicio",
+        "endDate": "Fecha de fin",
+        "premium": "Prima",
+        "titularSection": "Titular",
+        "ssn": "SSN",
+        "email": "Email",
+        "phone": "Teléfono",
+        "address": "Dirección",
+        "migrationStatus": "Estatus migratorio",
+        "unknown": "Desconocido",
+        "dependentsSection": "Dependientes",
+        "noDependents": "Sin dependientes"
+    },
+    "documents": {
+        "title": "Documentos",
+        "newButton": "Nuevo",
+        "uploading": "Subiendo...",
+        "empty": "No hay documentos",
+        "optionsTitle": "Opciones",
+        "download": "Descargar",
+        "delete": "Eliminar",
+        "deleteConfirm": "¿Eliminar el documento \"{{name}}\"?",
+        "invalidExtension": "Tipo de archivo no permitido. Se aceptan: .pdf, .docx, .jpg, .jpeg.",
+        "tooLarge": "El archivo supera el tamaño máximo permitido (5 MB).",
+        "uploadError": "Error al subir el documento",
+        "downloadError": "Error al descargar el documento",
+        "deleteError": "Error al eliminar el documento"
+    }
+}

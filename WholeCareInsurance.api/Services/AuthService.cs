@@ -63,7 +63,8 @@ namespace WholeCareInsurance.api.Services
             return new AuthResponseDto
             {
                 AccessToken = GenerateJwt(user),
-                RefreshToken = refreshToken
+                RefreshToken = refreshToken,
+                PreferredLanguage = user.PreferredLanguage
             };
         }
 
@@ -83,7 +84,8 @@ namespace WholeCareInsurance.api.Services
             return new AuthResponseDto
             {
                 AccessToken = GenerateJwt(user),
-                RefreshToken = newRefreshToken
+                RefreshToken = newRefreshToken,
+                PreferredLanguage = user.PreferredLanguage
             };
         }
 

@@ -1,0 +1,46 @@
+{
+    "policyType": {
+        "Obama Care": "Obama Care",
+        "Salud": "Salud",
+        "Auto": "Auto",
+        "Otro": "Otro"
+    },
+    "insuranceCompany": {
+        "WholeCareInsurance": "WholeCareInsurance",
+        "Otro": "Otro"
+    },
+    "policyStatus": {
+        "Active": "Activa",
+        "Expired": "Vencida",
+        "Cancelled": "Cancelada",
+        "activa": "Activa"
+    },
+    "migrationStatus": {
+        "Permiso de trabajo": "Permiso de trabajo",
+        "Residente permanente": "Residente permanente",
+        "Ciudadano": "Ciudadano",
+        "Otro": "Otro"
+    },
+    "relacionConPrincipal": {
+        "Cónyuge": "Cónyuge",
+        "Hijo/a": "Hijo/a",
+        "Madre": "Madre",
+        "Padre": "Padre",
+        "Sobrino/a": "Sobrino/a",
+        "Nieto/a": "Nieto/a",
+        "Hijastro/a": "Hijastro/a",
+        "Hermano/a": "Hermano/a",
+        "Otro": "Otro"
+    },
+    "maritalStatus": {
+        "Soltero/a": "Soltero/a",
+        "Casado/a": "Casado/a",
+        "Divorciado/a": "Divorciado/a",
+        "Viudo/a": "Viudo/a",
+        "Unión libre": "Unión libre"
+    },
+    "userRol": {
+        "Admin": "Admin",
+        "Agente": "Agente"
+    }
+}

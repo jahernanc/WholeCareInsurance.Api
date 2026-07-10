@@ -1,0 +1,27 @@
+{
+    "title": "Agents",
+    "newButton": "+ New agent",
+    "closeFormButton": "Close form",
+    "form": {
+        "titleCreate": "New agent",
+        "titleEdit": "Edit agent",
+        "fields": {
+            "name": "Name",
+            "email": "Email",
+            "password": "Password",
+            "role": "Role",
+            "isEncargado": "Manager"
+        },
+        "saveError": "Error saving agent",
+        "submitCreate": "Create agent"
+    },
+    "loading": "Loading agents...",
+    "empty": "No agents registered.",
+    "card": {
+        "email": "Email",
+        "role": "Role",
+        "isEncargado": "Manager",
+        "yes": "Yes",
+        "no": "No"
+    }
+}

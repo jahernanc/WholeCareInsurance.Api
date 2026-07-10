@@ -8,6 +8,7 @@
         public string PasswordHash { get; set; } = default!;
         public string Rol { get; set; } = default!;
         public bool IsEncargado { get; set; }
+        public string PreferredLanguage { get; set; } = "en";
 
         // ✅ Refresh token
         public string? RefreshToken { get; set; }

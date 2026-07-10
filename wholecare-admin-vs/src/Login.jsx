@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 function Login() {
+    const { t, i18n } = useTranslation("login");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
@@ -33,22 +35,28 @@ function Login() {
             localStorage.setItem("accessToken", data.token.accessToken);
             localStorage.setItem("refreshToken", data.token.refreshToken);
 
+            // el idioma es la fuente de verdad del backend; se cachea acá
+            // para que el próximo arranque de la app pinte instantáneo
+            const language = data.token.preferredLanguage === "es" ? "es" : "en";
+            localStorage.setItem("preferredLanguage", language);
+            i18n.changeLanguage(language);
+
             window.location.replace("/");
 
         } catch (err) {
             console.error(err);
-            setError("Invalid credentials");
+            setError(t("error"));
         }
     };
 
     return (
         <div style={{ display: "grid", placeItems: "center", height: "100vh" }}>
             <form onSubmit={handleSubmit} style={{ width: 300 }}>
-                <h2>Login</h2>
+                <h2>{t("title")}</h2>
 
                 <input
                     type="email"
-                    placeholder="Email"
+                    placeholder={t("emailPlaceholder")}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     style={{ width: "100%", marginBottom: 10, padding: 8 }}
@@ -56,14 +64,14 @@ function Login() {
 
                 <input
                     type="password"
-                    placeholder="Password"
+                    placeholder={t("passwordPlaceholder")}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     style={{ width: "100%", marginBottom: 10, padding: 8 }}
                 />
 
                 <button type="submit" style={{ width: "100%", padding: 10 }}>
-                    Login
+                    {t("submit")}
                 </button>
 
                 {error && <p style={{ color: "red" }}>{error}</p>}

@@ -1,0 +1,28 @@
+{
+    "nav": {
+        "dashboard": "Dashboard",
+        "customers": "Customers",
+        "policies": "Policies",
+        "agentes": "Agents"
+    },
+    "header": {
+        "appName": "WholeCare",
+        "profile": "Profile",
+        "help": "Help",
+        "logout": "Logout"
+    },
+    "actions": {
+        "save": "Save",
+        "saveChanges": "Save changes",
+        "cancel": "Cancel",
+        "edit": "Edit",
+        "delete": "Delete",
+        "search": "Search",
+        "clear": "Clear",
+        "creating": "Creating...",
+        "saving": "Saving..."
+    },
+    "dashboard": {
+        "title": "Dashboard"
+    }
+}

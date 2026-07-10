@@ -1,0 +1,27 @@
+{
+    "title": "Agentes",
+    "newButton": "+ Nuevo agente",
+    "closeFormButton": "Cerrar formulario",
+    "form": {
+        "titleCreate": "Nuevo agente",
+        "titleEdit": "Editar agente",
+        "fields": {
+            "name": "Nombre",
+            "email": "Correo electrónico",
+            "password": "Contraseña",
+            "role": "Rol",
+            "isEncargado": "Encargado"
+        },
+        "saveError": "Error al guardar el agente",
+        "submitCreate": "Crear agente"
+    },
+    "loading": "Cargando agentes...",
+    "empty": "No hay agentes registrados.",
+    "card": {
+        "email": "Email",
+        "role": "Rol",
+        "isEncargado": "Encargado",
+        "yes": "Sí",
+        "no": "No"
+    }
+}

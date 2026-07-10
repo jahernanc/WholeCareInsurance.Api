@@ -1,0 +1,102 @@
+{
+    "title": "Policies",
+    "newButton": "+ Create Policy",
+    "closeFormButton": "Close Form",
+    "loading": "Loading policies...",
+    "empty": "No policies yet",
+    "form": {
+        "title": "Create Policy",
+        "fields": {
+            "policyNumber": "Policy Number",
+            "type": "Type",
+            "insuranceCompany": "Insurance Company",
+            "startDate": "Start Date",
+            "endDate": "End Date",
+            "premium": "Premium",
+            "status": "Status",
+            "customer": "Customer"
+        },
+        "selectType": "Select type",
+        "selectInsuranceCompany": "Select insurance company",
+        "selectCustomer": "Select customer",
+        "requiredError": "All fields are required",
+        "saveError": "Error saving policy",
+        "submitCreating": "Creating...",
+        "submitCreate": "Create Policy"
+    },
+    "dependents": {
+        "title": "Dependents",
+        "empty": "No dependents yet",
+        "isAplicante": "Is applicant",
+        "removeTitle": "Remove dependent",
+        "addButton": "+ Add dependent",
+        "cancelButton": "Cancel",
+        "searchPlaceholder": "Search customer by name...",
+        "addAction": "Add",
+        "noMatches": "No matches",
+        "addError": "Error adding dependent",
+        "updateError": "Error updating dependent",
+        "removeError": "Error removing dependent"
+    },
+    "filters": {
+        "policyNumber": "Policy Number",
+        "firstName": "First Name",
+        "lastName": "Last Name",
+        "status": "Status",
+        "type": "Type",
+        "insuranceCompany": "Insurance Company",
+        "all": "All"
+    },
+    "table": {
+        "policy": "Policy",
+        "type": "Type",
+        "insuranceCompany": "Insurance Company",
+        "status": "Status",
+        "premium": "Premium",
+        "customer": "Customer",
+        "actions": "Actions"
+    },
+    "actionTitles": {
+        "viewDetails": "View details",
+        "editPolicy": "Edit policy",
+        "deletePolicy": "Delete policy",
+        "chatWhatsapp": "Chat by WhatsApp"
+    },
+    "whatsappMessage": "Hi, we're reaching out from WholeCare Insurance.",
+    "deleteConfirm": "Are you sure you want to delete this policy?",
+    "deleteError": "Error deleting policy",
+    "detail": {
+        "policyTitle": "Policy {{number}}",
+        "policySection": "Policy",
+        "type": "Type",
+        "insuranceCompany": "Insurance Company",
+        "status": "Status",
+        "startDate": "Start Date",
+        "endDate": "End Date",
+        "premium": "Premium",
+        "titularSection": "Policyholder",
+        "ssn": "SSN",
+        "email": "Email",
+        "phone": "Phone",
+        "address": "Address",
+        "migrationStatus": "Migration Status",
+        "unknown": "Unknown",
+        "dependentsSection": "Dependents",
+        "noDependents": "No dependents"
+    },
+    "documents": {
+        "title": "Documents",
+        "newButton": "New",
+        "uploading": "Uploading...",
+        "empty": "No documents",
+        "optionsTitle": "Options",
+        "download": "Download",
+        "delete": "Delete",
+        "deleteConfirm": "Delete document \"{{name}}\"?",
+        "invalidExtension": "File type not allowed. Accepted: .pdf, .docx, .jpg, .jpeg.",
+        "tooLarge": "File exceeds the maximum allowed size (5 MB).",
+        "uploadError": "Error uploading document",
+        "downloadError": "Error downloading document",
+        "deleteError": "Error deleting document"
+    }
+}

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { apiFetch } from "../api";
+import { translateEnum } from "../i18n/translateEnum";
 
 const ROLES = ["Admin", "Agente"];
 
@@ -12,6 +14,7 @@ const emptyForm = {
 };
 
 function Agentes() {
+    const { t } = useTranslation(["agentes", "common"]);
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
@@ -84,7 +87,7 @@ function Agentes() {
 
             if (!res.ok) {
                 const err = await res.json().catch(() => null);
-                setFormError(err?.title ?? err ?? "Error al guardar el agente");
+                setFormError(err?.title ?? err ?? t("form.saveError"));
                 return;
             }
 
@@ -93,7 +96,7 @@ function Agentes() {
             setEditingId(null);
             await loadUsers();
         } catch {
-            setFormError("Error al guardar el agente");
+            setFormError(t("form.saveError"));
         } finally {
             setSubmitting(false);
         }
@@ -104,45 +107,45 @@ function Agentes() {
 
     return (
         <div>
-            <h2 style={{ marginBottom: 20 }}>Agentes</h2>
+            <h2 style={{ marginBottom: 20 }}>{t("title")}</h2>
 
             <button
                 onClick={showForm ? () => setShowForm(false) : openCreate}
                 type="button"
                 style={{ marginBottom: 20, background: "#2563eb", color: "white", padding: "8px 14px", border: "none", borderRadius: 6, cursor: "pointer" }}
             >
-                {showForm ? "Cerrar formulario" : "+ Nuevo agente"}
+                {showForm ? t("closeFormButton") : t("newButton")}
             </button>
 
             {showForm && (
                 <div style={{ border: "1px solid #ddd", borderRadius: 10, padding: 24, marginBottom: 30, background: "#fafafa", maxWidth: 480 }}>
-                    <h3 style={{ marginTop: 0 }}>{editingId ? "Editar agente" : "Nuevo agente"}</h3>
+                    <h3 style={{ marginTop: 0 }}>{editingId ? t("form.titleEdit") : t("form.titleCreate")}</h3>
 
                     <form onSubmit={handleSubmit}>
                         <div style={{ display: "grid", gap: 12 }}>
 
                             <div>
-                                <label style={labelStyle}>Nombre</label>
+                                <label style={labelStyle}>{t("form.fields.name")}</label>
                                 <input name="nombre" value={form.nombre} onChange={handleField} required style={inputStyle} />
                             </div>
 
                             <div>
-                                <label style={labelStyle}>Correo electrónico</label>
+                                <label style={labelStyle}>{t("form.fields.email")}</label>
                                 <input type="email" name="email" value={form.email} onChange={handleField} required style={inputStyle} />
                             </div>
 
                             {!editingId && (
                                 <div>
-                                    <label style={labelStyle}>Contraseña</label>
+                                    <label style={labelStyle}>{t("form.fields.password")}</label>
                                     <input type="password" name="password" value={form.password} onChange={handleField} required style={inputStyle} />
                                 </div>
                             )}
 
                             <div>
-                                <label style={labelStyle}>Rol</label>
+                                <label style={labelStyle}>{t("form.fields.role")}</label>
                                 <select name="rol" value={form.rol} onChange={handleField} required style={inputStyle}>
                                     {ROLES.map((r) => (
-                                        <option key={r} value={r}>{r}</option>
+                                        <option key={r} value={r}>{translateEnum("userRol", r)}</option>
                                     ))}
                                 </select>
                             </div>
@@ -150,7 +153,7 @@ function Agentes() {
                             <div>
                                 <label style={{ ...labelStyle, display: "flex", alignItems: "center", gap: 6 }}>
                                     <input type="checkbox" name="isEncargado" checked={form.isEncargado} onChange={handleField} />
-                                    Encargado
+                                    {t("form.fields.isEncargado")}
                                 </label>
                             </div>
 
@@ -164,17 +167,17 @@ function Agentes() {
                             style={{ marginTop: 16, background: "#2563eb", color: "white", padding: "9px 20px", border: "none", borderRadius: 6, cursor: "pointer" }}
                         >
                             {editingId
-                                ? (submitting ? "Guardando..." : "Guardar cambios")
-                                : (submitting ? "Creando..." : "Crear agente")}
+                                ? (submitting ? t("common:actions.saving") : t("common:actions.saveChanges"))
+                                : (submitting ? t("common:actions.creating") : t("form.submitCreate"))}
                         </button>
                     </form>
                 </div>
             )}
 
             {loading ? (
-                <p>Cargando agentes...</p>
+                <p>{t("loading")}</p>
             ) : users.length === 0 ? (
-                <p>No hay agentes registrados.</p>
+                <p>{t("empty")}</p>
             ) : (
                 <div style={{ display: "grid", gap: 12 }}>
                     {users.map((u) => (
@@ -183,13 +186,13 @@ function Agentes() {
                                 {u.nombre}
                             </div>
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 20px", fontSize: 14, color: "#444" }}>
-                                <span>Email: {u.email}</span>
-                                <span>Rol: {u.rol}</span>
-                                <span>Encargado: {u.isEncargado ? "Sí" : "No"}</span>
+                                <span>{t("card.email")}: {u.email}</span>
+                                <span>{t("card.role")}: {translateEnum("userRol", u.rol)}</span>
+                                <span>{t("card.isEncargado")}: {u.isEncargado ? t("card.yes") : t("card.no")}</span>
                             </div>
                             <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
                                 <button onClick={() => handleEdit(u)} style={{ background: "#007bff", color: "white", border: "none", padding: "5px 12px", borderRadius: 5, cursor: "pointer" }}>
-                                    Editar
+                                    {t("common:actions.edit")}
                                 </button>
                             </div>
                         </div>

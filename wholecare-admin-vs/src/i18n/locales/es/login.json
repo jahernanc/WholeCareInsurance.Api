@@ -1,0 +1,7 @@
+{
+    "title": "Iniciar sesión",
+    "emailPlaceholder": "Correo electrónico",
+    "passwordPlaceholder": "Contraseña",
+    "submit": "Iniciar sesión",
+    "error": "Credenciales inválidas"
+}

@@ -1,14 +1,16 @@
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { isAdmin } from "../api";
 
 const menu = [
-    { path: "/", label: "Dashboard", icon: "📊" },
-    { path: "/customers", label: "Customers", icon: "👤" },
-    { path: "/policies", label: "Policies", icon: "📄" },
-    { path: "/agentes", label: "Agentes", icon: "🧑‍💼", adminOnly: true },
+    { path: "/", labelKey: "nav.dashboard", icon: "📊" },
+    { path: "/customers", labelKey: "nav.customers", icon: "👤" },
+    { path: "/policies", labelKey: "nav.policies", icon: "📄" },
+    { path: "/agentes", labelKey: "nav.agentes", icon: "🧑‍💼", adminOnly: true },
 ];
 
 function Sidebar() {
+    const { t } = useTranslation("common");
     const userIsAdmin = isAdmin();
 
     return (
@@ -25,7 +27,7 @@ function Sidebar() {
                 <Link
                     key={item.path}
                     to={item.path}
-                    title={item.label} // ✅ tooltip nativo
+                    title={t(item.labelKey)} // ✅ tooltip nativo
                     style={{
                         color: "white",
                         textDecoration: "none",

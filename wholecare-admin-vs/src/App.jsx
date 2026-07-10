@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import Login from "./Login";
 import AppLayout from "./layout/AppLayout";
 import Customers from "./pages/Customers";
@@ -7,7 +8,8 @@ import Agentes from "./pages/Agentes";
 import { isAdmin } from "./api";
 
 function Dashboard() {
-    return <h1>Dashboard ✅</h1>;
+    const { t } = useTranslation("common");
+    return <h1>{t("dashboard.title")} ✅</h1>;
 }
 
 function App() {

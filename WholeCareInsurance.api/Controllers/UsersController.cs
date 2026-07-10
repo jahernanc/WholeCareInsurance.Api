@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using WholeCareInsurance.api.DTOs.Users;
 using WholeCareInsurance.api.Models;
 using WholeCareInsurance.api.Services;
@@ -48,6 +49,20 @@ namespace WholeCareInsurance.api.Controllers
             return Ok(ToMeResponse(user));
         }
 
+        [HttpPut("me/language")]
+        [Authorize]
+        public async Task<IActionResult> UpdateMyLanguage([FromBody] UpdateLanguageDto dto)
+        {
+            var userId = int.Parse(User.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value);
+            var user = await _usersService.GetById(userId);
+            if (user == null) return NotFound();
+
+            user.PreferredLanguage = dto.Language;
+            await _usersService.Update(user);
+
+            return NoContent();
+        }
+
         [HttpPut("{id:int}")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Update(int id, [FromBody] UserUpdateDto dto)
@@ -70,7 +85,8 @@ namespace WholeCareInsurance.api.Controllers
             Nombre = u.Nombre,
             Email = u.Email,
             Rol = u.Rol,
-            IsEncargado = u.IsEncargado
+            IsEncargado = u.IsEncargado,
+            PreferredLanguage = u.PreferredLanguage
         };
 
         private static UserMeDto ToMeResponse(User u) => new()
@@ -78,7 +94,8 @@ namespace WholeCareInsurance.api.Controllers
             Nombre = u.Nombre,
             Email = u.Email,
             Rol = u.Rol,
-            IsEncargado = u.IsEncargado
+            IsEncargado = u.IsEncargado,
+            PreferredLanguage = u.PreferredLanguage
         };
     }
 }

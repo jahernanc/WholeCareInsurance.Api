@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { logout } from "../api";
+import { useTranslation } from "react-i18next";
+import { logout, apiFetch } from "../api";
 
 function Header() {
+    const { t, i18n } = useTranslation("common");
     const [open, setOpen] = useState(false);
 
     // ✅ Función dentro del componente
@@ -32,6 +34,20 @@ function Header() {
         await logout();
     };
 
+    const handleLanguageChange = async (lang) => {
+        i18n.changeLanguage(lang);
+        localStorage.setItem("preferredLanguage", lang);
+
+        try {
+            await apiFetch("/users/me/language", {
+                method: "PUT",
+                body: JSON.stringify({ language: lang }),
+            });
+        } catch {
+            // best-effort: la UI ya refleja el cambio localmente aunque falle el guardado
+        }
+    };
+
     return (
         <div
             style={{
@@ -44,36 +60,47 @@ function Header() {
             }}
         >
             {/* Logo */}
-            <div style={{ fontWeight: "bold" }}>WholeCare</div>
+            <div style={{ fontWeight: "bold" }}>{t("header.appName")}</div>
 
-            {/* Usuario */}
-            <div style={{ position: "relative" }}>
-                <button onClick={() => setOpen(!open)}>
-                    {getInitials()} ▼
-                </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <select
+                    value={i18n.language}
+                    onChange={(e) => handleLanguageChange(e.target.value)}
+                    style={{ padding: "4px 6px", borderRadius: 4, border: "1px solid #ccc" }}
+                >
+                    <option value="en">English</option>
+                    <option value="es">Español</option>
+                </select>
 
-                {open && (
-                    <div
-                        style={{
-                            position: "absolute",
-                            right: 0,
-                            top: 40,
-                            background: "white",
-                            border: "1px solid #ccc",
-                            borderRadius: 8,
-                            padding: 10,
-                        }}
-                    >
-                        <div style={{ marginBottom: 10 }}>Profile</div>
-                        <div style={{ marginBottom: 10 }}>Help</div>
+                {/* Usuario */}
+                <div style={{ position: "relative" }}>
+                    <button onClick={() => setOpen(!open)}>
+                        {getInitials()} ▼
+                    </button>
+
+                    {open && (
                         <div
-                            onClick={handleLogout}
-                            style={{ cursor: "pointer", color: "red" }}
+                            style={{
+                                position: "absolute",
+                                right: 0,
+                                top: 40,
+                                background: "white",
+                                border: "1px solid #ccc",
+                                borderRadius: 8,
+                                padding: 10,
+                            }}
                         >
-                            Logout
+                            <div style={{ marginBottom: 10 }}>{t("header.profile")}</div>
+                            <div style={{ marginBottom: 10 }}>{t("header.help")}</div>
+                            <div
+                                onClick={handleLogout}
+                                style={{ cursor: "pointer", color: "red" }}
+                            >
+                                {t("header.logout")}
+                            </div>
                         </div>
-                    </div>
-                )}
+                    )}
+                </div>
             </div>
         </div>
     );

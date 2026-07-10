@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { apiFetch, isAdmin } from "../api";
+import { translateEnum } from "../i18n/translateEnum";
 import { US_STATES } from "../data/usStates";
 import US_COUNTIES from "../data/usCounties.json";
 
@@ -45,6 +47,7 @@ const emptyForm = {
 };
 
 function Customers() {
+    const { t } = useTranslation(["customers", "common"]);
     const [customers, setCustomers] = useState([]);
     const [agents, setAgents] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -152,7 +155,7 @@ function Customers() {
 
             if (!res.ok) {
                 const err = await res.json().catch(() => null);
-                setFormError(err?.title ?? err ?? "Error al guardar el cliente");
+                setFormError(err?.title ?? err ?? t("form.saveError"));
                 return;
             }
 
@@ -161,20 +164,20 @@ function Customers() {
             setEditingId(null);
             await loadCustomers();
         } catch {
-            setFormError("Error al guardar el cliente");
+            setFormError(t("form.saveError"));
         } finally {
             setSubmitting(false);
         }
     };
 
     const handleDelete = async (id) => {
-        if (!confirm("¿Eliminar este cliente?")) return;
+        if (!confirm(t("deleteConfirm"))) return;
         try {
             const res = await apiFetch(`${API}/${id}`, { method: "DELETE" });
             if (!res.ok) throw new Error();
             await loadCustomers();
         } catch {
-            alert("Error al eliminar el cliente");
+            alert(t("deleteError"));
         }
     };
 
@@ -184,87 +187,87 @@ function Customers() {
 
     return (
         <div>
-            <h2 style={{ marginBottom: 20 }}>Clientes</h2>
+            <h2 style={{ marginBottom: 20 }}>{t("title")}</h2>
 
             <button
                 onClick={showForm ? () => setShowForm(false) : openCreate}
                 type="button"
                 style={{ marginBottom: 20, background: "#2563eb", color: "white", padding: "8px 14px", border: "none", borderRadius: 6, cursor: "pointer" }}
             >
-                {showForm ? "Cerrar formulario" : "+ Nuevo cliente"}
+                {showForm ? t("closeFormButton") : t("newButton")}
             </button>
 
             {showForm && (
                 <div style={{ border: "1px solid #ddd", borderRadius: 10, padding: 24, marginBottom: 30, background: "#fafafa", maxWidth: 560 }}>
-                    <h3 style={{ marginTop: 0 }}>{editingId ? "Editar cliente" : "Nuevo cliente"}</h3>
+                    <h3 style={{ marginTop: 0 }}>{editingId ? t("form.titleEdit") : t("form.titleCreate")}</h3>
 
                     <form onSubmit={handleSubmit}>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
 
                             <div>
-                                <label style={labelStyle}>Número de seguro social</label>
+                                <label style={labelStyle}>{t("form.fields.ssn")}</label>
                                 <input name="socialSecurityNumber" value={form.socialSecurityNumber} onChange={handleField} required style={inputStyle} />
                             </div>
 
                             <div>
-                                <label style={labelStyle}>Fecha de nacimiento</label>
+                                <label style={labelStyle}>{t("form.fields.dateOfBirth")}</label>
                                 <input type="date" name="dateOfBirth" value={form.dateOfBirth} onChange={handleField} required style={inputStyle} />
                             </div>
 
                             <div>
-                                <label style={labelStyle}>Nombre</label>
+                                <label style={labelStyle}>{t("form.fields.firstName")}</label>
                                 <input name="firstName" value={form.firstName} onChange={handleField} required style={inputStyle} />
                             </div>
 
                             <div>
-                                <label style={labelStyle}>Apellido</label>
+                                <label style={labelStyle}>{t("form.fields.lastName")}</label>
                                 <input name="lastName" value={form.lastName} onChange={handleField} required style={inputStyle} />
                             </div>
 
                             <div style={{ gridColumn: "1 / -1" }}>
-                                <label style={labelStyle}>Correo electrónico</label>
+                                <label style={labelStyle}>{t("form.fields.email")}</label>
                                 <input type="email" name="email" value={form.email} onChange={handleField} required style={inputStyle} />
                             </div>
 
                             <div style={{ gridColumn: "1 / -1" }}>
-                                <label style={labelStyle}>Dirección</label>
+                                <label style={labelStyle}>{t("form.fields.address")}</label>
                                 <input name="address" value={form.address} onChange={handleField} required style={inputStyle} />
                             </div>
 
                             <div>
-                                <label style={labelStyle}>Teléfono</label>
+                                <label style={labelStyle}>{t("form.fields.phone")}</label>
                                 <input name="phone" value={form.phone} onChange={handleField} required style={inputStyle} />
                             </div>
 
                             <div>
-                                <label style={labelStyle}>Estatus migratorio</label>
+                                <label style={labelStyle}>{t("form.fields.migrationStatus")}</label>
                                 <select name="migrationStatus" value={form.migrationStatus} onChange={handleField} required style={inputStyle}>
-                                    <option value="">-- Seleccionar --</option>
+                                    <option value="">{t("form.selectPlaceholder")}</option>
                                     {MIGRATION_STATUSES.map((s) => (
-                                        <option key={s} value={s}>{s}</option>
+                                        <option key={s} value={s}>{translateEnum("migrationStatus", s)}</option>
                                     ))}
                                 </select>
                             </div>
 
                             <div>
-                                <label style={labelStyle}>Relación con el principal</label>
+                                <label style={labelStyle}>{t("form.fields.relacionConPrincipal")}</label>
                                 <select name="relacionConPrincipal" value={form.relacionConPrincipal} onChange={handleField} required style={inputStyle}>
-                                    <option value="">-- Seleccionar --</option>
+                                    <option value="">{t("form.selectPlaceholder")}</option>
                                     {RELACIONES_PRINCIPAL.map((r) => (
-                                        <option key={r} value={r}>{r}</option>
+                                        <option key={r} value={r}>{translateEnum("relacionConPrincipal", r)}</option>
                                     ))}
                                 </select>
                             </div>
 
                             <div>
-                                <label style={labelStyle}>Código postal</label>
+                                <label style={labelStyle}>{t("form.fields.zipCode")}</label>
                                 <input name="zipCode" value={form.zipCode} onChange={handleField} style={inputStyle} />
                             </div>
 
                             <div>
-                                <label style={labelStyle}>Estado</label>
+                                <label style={labelStyle}>{t("form.fields.state")}</label>
                                 <select name="state" value={form.state} onChange={handleField} style={inputStyle}>
-                                    <option value="">-- Seleccionar --</option>
+                                    <option value="">{t("form.selectPlaceholder")}</option>
                                     {US_STATES.map((s) => (
                                         <option key={s.code} value={s.code}>{s.name}</option>
                                     ))}
@@ -272,14 +275,14 @@ function Customers() {
                             </div>
 
                             <div>
-                                <label style={labelStyle}>Ciudad</label>
+                                <label style={labelStyle}>{t("form.fields.city")}</label>
                                 <input name="city" value={form.city} onChange={handleField} style={inputStyle} />
                             </div>
 
                             <div>
-                                <label style={labelStyle}>Condado</label>
+                                <label style={labelStyle}>{t("form.fields.county")}</label>
                                 <select name="county" value={form.county} onChange={handleField} disabled={!form.state} style={inputStyle}>
-                                    <option value="">{form.state ? "-- Seleccionar --" : "Elegí un estado primero"}</option>
+                                    <option value="">{form.state ? t("form.selectPlaceholder") : t("form.selectStateFirst")}</option>
                                     {countiesForState.map((c) => (
                                         <option key={c} value={c}>{c}</option>
                                     ))}
@@ -287,26 +290,26 @@ function Customers() {
                             </div>
 
                             <div>
-                                <label style={labelStyle}>Estado civil</label>
+                                <label style={labelStyle}>{t("form.fields.maritalStatus")}</label>
                                 <select name="maritalStatus" value={form.maritalStatus} onChange={handleField} style={inputStyle}>
-                                    <option value="">-- Seleccionar --</option>
+                                    <option value="">{t("form.selectPlaceholder")}</option>
                                     {MARITAL_STATUSES.map((m) => (
-                                        <option key={m} value={m}>{m}</option>
+                                        <option key={m} value={m}>{translateEnum("maritalStatus", m)}</option>
                                     ))}
                                 </select>
                             </div>
 
                             <div>
-                                <label style={labelStyle}>Ocupación</label>
+                                <label style={labelStyle}>{t("form.fields.occupation")}</label>
                                 <input name="occupation" value={form.occupation} onChange={handleField} style={inputStyle} />
                             </div>
 
                             {userIsAdmin && (
                                 <>
                                     <div>
-                                        <label style={labelStyle}>Agente</label>
+                                        <label style={labelStyle}>{t("form.fields.agent")}</label>
                                         <select name="agentId" value={form.agentId} onChange={handleField} style={inputStyle}>
-                                            <option value="">-- Sin asignar --</option>
+                                            <option value="">{t("form.unassigned")}</option>
                                             {agents.map((a) => (
                                                 <option key={a.id} value={a.id}>{a.nombre}</option>
                                             ))}
@@ -314,9 +317,9 @@ function Customers() {
                                     </div>
 
                                     <div>
-                                        <label style={labelStyle}>Agente Asistente</label>
+                                        <label style={labelStyle}>{t("form.fields.assistantAgent")}</label>
                                         <select name="assistantAgentId" value={form.assistantAgentId} onChange={handleField} style={inputStyle}>
-                                            <option value="">-- Sin asignar --</option>
+                                            <option value="">{t("form.unassigned")}</option>
                                             {agents.map((a) => (
                                                 <option key={a.id} value={a.id}>{a.nombre}</option>
                                             ))}
@@ -324,9 +327,9 @@ function Customers() {
                                     </div>
 
                                     <div>
-                                        <label style={labelStyle}>Agente Record</label>
+                                        <label style={labelStyle}>{t("form.fields.recordAgent")}</label>
                                         <select name="recordAgentId" value={form.recordAgentId} onChange={handleField} style={inputStyle}>
-                                            <option value="">-- Sin asignar --</option>
+                                            <option value="">{t("form.unassigned")}</option>
                                             {encargados.map((a) => (
                                                 <option key={a.id} value={a.id}>{a.nombre}</option>
                                             ))}
@@ -345,17 +348,17 @@ function Customers() {
                             style={{ marginTop: 16, background: "#2563eb", color: "white", padding: "9px 20px", border: "none", borderRadius: 6, cursor: "pointer" }}
                         >
                             {editingId
-                                ? (submitting ? "Guardando..." : "Guardar cambios")
-                                : (submitting ? "Creando..." : "Crear cliente")}
+                                ? (submitting ? t("common:actions.saving") : t("form.submitEdit"))
+                                : (submitting ? t("common:actions.creating") : t("form.submitCreate"))}
                         </button>
                     </form>
                 </div>
             )}
 
             {loading ? (
-                <p>Cargando clientes...</p>
+                <p>{t("loading")}</p>
             ) : customers.length === 0 ? (
-                <p>No hay clientes registrados.</p>
+                <p>{t("empty")}</p>
             ) : (
                 <div style={{ display: "grid", gap: 12 }}>
                     {customers.map((c) => (
@@ -364,28 +367,28 @@ function Customers() {
                                 {c.firstName} {c.lastName}
                             </div>
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 20px", fontSize: 14, color: "#444" }}>
-                                <span>SSN: {c.socialSecurityNumber}</span>
-                                <span>Nacimiento: {c.dateOfBirth?.substring(0, 10)}</span>
-                                <span>Email: {c.email}</span>
-                                <span>Teléfono: {c.phone}</span>
-                                <span style={{ gridColumn: "1 / -1" }}>Dirección: {c.address}</span>
-                                <span>Estatus: {c.migrationStatus}</span>
-                                <span>Relación con el principal: {c.relacionConPrincipal}</span>
-                                <span>Código postal: {c.zipCode || "-"}</span>
-                                <span>Estado/Ciudad/Condado: {[c.city, c.county, c.state].filter(Boolean).join(", ") || "-"}</span>
-                                <span>Estado civil: {c.maritalStatus || "-"}</span>
-                                <span>Ocupación: {c.occupation || "-"}</span>
-                                <span>Agente: {c.agentName || "-"}</span>
-                                {userIsAdmin && <span>Agente Asistente: {c.assistantAgentName || "-"}</span>}
-                                {userIsAdmin && <span>Agente Record: {c.recordAgentName || "-"}</span>}
-                                <span>Pólizas: {c.policiesCount}</span>
+                                <span>{t("card.ssn")}: {c.socialSecurityNumber}</span>
+                                <span>{t("card.birth")}: {c.dateOfBirth?.substring(0, 10)}</span>
+                                <span>{t("card.email")}: {c.email}</span>
+                                <span>{t("card.phone")}: {c.phone}</span>
+                                <span style={{ gridColumn: "1 / -1" }}>{t("card.address")}: {c.address}</span>
+                                <span>{t("card.status")}: {translateEnum("migrationStatus", c.migrationStatus)}</span>
+                                <span>{t("card.relacionConPrincipal")}: {translateEnum("relacionConPrincipal", c.relacionConPrincipal)}</span>
+                                <span>{t("card.zipCode")}: {c.zipCode || "-"}</span>
+                                <span>{t("card.locationLabel")}: {[c.city, c.county, c.state].filter(Boolean).join(", ") || "-"}</span>
+                                <span>{t("card.maritalStatus")}: {translateEnum("maritalStatus", c.maritalStatus) || "-"}</span>
+                                <span>{t("card.occupation")}: {c.occupation || "-"}</span>
+                                <span>{t("card.agent")}: {c.agentName || "-"}</span>
+                                {userIsAdmin && <span>{t("card.assistantAgent")}: {c.assistantAgentName || "-"}</span>}
+                                {userIsAdmin && <span>{t("card.recordAgent")}: {c.recordAgentName || "-"}</span>}
+                                <span>{t("card.policiesCount")}: {c.policiesCount}</span>
                             </div>
                             <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
                                 <button onClick={() => handleEdit(c)} style={{ background: "#007bff", color: "white", border: "none", padding: "5px 12px", borderRadius: 5, cursor: "pointer" }}>
-                                    Editar
+                                    {t("common:actions.edit")}
                                 </button>
                                 <button onClick={() => handleDelete(c.id)} style={{ background: "#dc2626", color: "white", border: "none", padding: "5px 12px", borderRadius: 5, cursor: "pointer" }}>
-                                    Eliminar
+                                    {t("common:actions.delete")}
                                 </button>
                             </div>
                         </div>

@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { apiFetch } from "../api";
+import { translateEnum } from "../i18n/translateEnum";
 
 const POLICY_TYPES = ["Obama Care", "Salud", "Auto", "Otro"];
 const INSURANCE_COMPANIES = ["WholeCareInsurance", "Otro"];
+const POLICY_STATUSES = ["Active", "Expired", "Cancelled", "activa"];
 const ALLOWED_DOCUMENT_EXTENSIONS = [".pdf", ".docx", ".jpg", ".jpeg"];
 const MAX_DOCUMENT_SIZE_BYTES = 5 * 1024 * 1024;
 
@@ -22,6 +25,7 @@ const formatDocumentDate = (iso) => {
 };
 
 function Policies() {
+    const { t } = useTranslation(["policies", "common"]);
     const [policies, setPolicies] = useState([]);
     const [customers, setCustomers] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -72,7 +76,7 @@ function Policies() {
 
     const buildWhatsAppUrl = (phone) => {
         const digits = phone.replace(/\D/g, "");
-        const message = encodeURIComponent("Hola, te contactamos desde WholeCare Insurance.");
+        const message = encodeURIComponent(t("whatsappMessage"));
         return `https://wa.me/${digits}?text=${message}`;
     };
 
@@ -185,12 +189,12 @@ function Policies() {
 
         const extension = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
         if (!ALLOWED_DOCUMENT_EXTENSIONS.includes(extension)) {
-            setDocumentError("Tipo de archivo no permitido. Se aceptan: .pdf, .docx, .jpg, .jpeg.");
+            setDocumentError(t("documents.invalidExtension"));
             return;
         }
 
         if (file.size > MAX_DOCUMENT_SIZE_BYTES) {
-            setDocumentError("El archivo supera el tamaño máximo permitido (5 MB).");
+            setDocumentError(t("documents.tooLarge"));
             return;
         }
 
@@ -206,14 +210,14 @@ function Policies() {
 
             if (!res.ok) {
                 const err = await res.json().catch(() => null);
-                setDocumentError(typeof err === "string" ? err : "Error al subir el documento.");
+                setDocumentError(typeof err === "string" ? err : t("documents.uploadError"));
                 return;
             }
 
             await loadDocuments(viewingPolicy.id);
         } catch (error) {
             console.error(error);
-            setDocumentError("Error al subir el documento.");
+            setDocumentError(t("documents.uploadError"));
         } finally {
             setUploadingDocument(false);
         }
@@ -235,12 +239,12 @@ function Policies() {
             URL.revokeObjectURL(url);
         } catch (error) {
             console.error(error);
-            alert("Error al descargar el documento");
+            alert(t("documents.downloadError"));
         }
     };
 
     const handleDeleteDocument = async (doc) => {
-        if (!confirm(`¿Eliminar el documento "${doc.originalFileName}"?`)) return;
+        if (!confirm(t("documents.deleteConfirm", { name: doc.originalFileName }))) return;
 
         try {
             const res = await apiFetch(`/api/policies/${viewingPolicy.id}/documents/${doc.id}`, {
@@ -250,7 +254,7 @@ function Policies() {
             await loadDocuments(viewingPolicy.id);
         } catch (error) {
             console.error(error);
-            alert("Error al eliminar el documento");
+            alert(t("documents.deleteError"));
         }
     };
 
@@ -265,7 +269,7 @@ function Policies() {
             await loadDependents(editingId);
         } catch (error) {
             console.error(error);
-            alert("Error adding dependent");
+            alert(t("dependents.addError"));
         }
     };
 
@@ -279,7 +283,7 @@ function Policies() {
             await loadDependents(editingId);
         } catch (error) {
             console.error(error);
-            alert("Error updating dependent");
+            alert(t("dependents.updateError"));
         }
     };
 
@@ -292,7 +296,7 @@ function Policies() {
             await loadDependents(editingId);
         } catch (error) {
             console.error(error);
-            alert("Error removing dependent");
+            alert(t("dependents.removeError"));
         }
     };
 
@@ -316,7 +320,7 @@ function Policies() {
     };
 
     const handleDelete = async (id) => {
-        if (!confirm("Are you sure you want to delete this policy?")) return;
+        if (!confirm(t("deleteConfirm"))) return;
 
         try {
             const response = await apiFetch(`/api/policies/${id}`, { method: "DELETE" });
@@ -329,7 +333,7 @@ function Policies() {
 
         } catch (error) {
             console.error(error);
-            alert("Error deleting policy");
+            alert(t("deleteError"));
         }
     };
 
@@ -376,7 +380,7 @@ function Policies() {
             !status.trim() ||
             !customerId
         ) {
-            setFormError("All fields are required");
+            setFormError(t("form.requiredError"));
             return;
         }
 
@@ -431,7 +435,7 @@ function Policies() {
         } catch (error) {
 
             console.error(error);
-            setFormError("Error saving policy");
+            setFormError(t("form.saveError"));
 
         } finally {
             setSubmitting(false);
@@ -446,12 +450,12 @@ function Policies() {
     );
 
     if (loading) {
-        return <p>Loading policies...</p>;
+        return <p>{t("loading")}</p>;
     }
 
     return (
         <div>
-            <h2 style={{ marginBottom: 20 }}>Policies</h2>
+            <h2 style={{ marginBottom: 20 }}>{t("title")}</h2>
 
             {/* ✅ BOTÓN */}
             <button
@@ -467,7 +471,7 @@ function Policies() {
                     cursor: "pointer"
                 }}
             >
-                {showForm ? "Close Form" : "+ Create Policy"}
+                {showForm ? t("closeFormButton") : t("newButton")}
             </button>
 
             {/* ✅ FORMULARIO CONDICIONAL */}
@@ -483,12 +487,12 @@ function Policies() {
                             maxWidth: 600,
                         }}
                     >
-                        <h3 style={{ marginTop: 0 }}>Create Policy</h3>
+                        <h3 style={{ marginTop: 0 }}>{t("form.title")}</h3>
 
                         <form onSubmit={handleSubmit}>
 
                             <div style={{ marginBottom: 12 }}>
-                                <label>Policy Number</label>
+                                <label>{t("form.fields.policyNumber")}</label>
                                 <input
                                     type="text"
                                     value={policyNumber}
@@ -498,35 +502,35 @@ function Policies() {
                             </div>
 
                             <div style={{ marginBottom: 12 }}>
-                                <label>Type</label>
+                                <label>{t("form.fields.type")}</label>
                                 <select
                                     value={type}
                                     onChange={(e) => setType(e.target.value)}
                                     style={{ width: "100%", padding: 8, marginTop: 4 }}
                                 >
-                                    <option value="">Select type</option>
-                                    {POLICY_TYPES.map((t) => (
-                                        <option key={t} value={t}>{t}</option>
+                                    <option value="">{t("form.selectType")}</option>
+                                    {POLICY_TYPES.map((t2) => (
+                                        <option key={t2} value={t2}>{translateEnum("policyType", t2)}</option>
                                     ))}
                                 </select>
                             </div>
 
                             <div style={{ marginBottom: 12 }}>
-                                <label>Insurance Company</label>
+                                <label>{t("form.fields.insuranceCompany")}</label>
                                 <select
                                     value={insuranceCompany}
                                     onChange={(e) => setInsuranceCompany(e.target.value)}
                                     style={{ width: "100%", padding: 8, marginTop: 4 }}
                                 >
-                                    <option value="">Select insurance company</option>
+                                    <option value="">{t("form.selectInsuranceCompany")}</option>
                                     {INSURANCE_COMPANIES.map((ic) => (
-                                        <option key={ic} value={ic}>{ic}</option>
+                                        <option key={ic} value={ic}>{translateEnum("insuranceCompany", ic)}</option>
                                     ))}
                                 </select>
                             </div>
 
                             <div style={{ marginBottom: 12 }}>
-                                <label>Start Date</label>
+                                <label>{t("form.fields.startDate")}</label>
                                 <input
                                     type="date"
                                     value={startDate}
@@ -536,7 +540,7 @@ function Policies() {
                             </div>
 
                             <div style={{ marginBottom: 12 }}>
-                                <label>End Date</label>
+                                <label>{t("form.fields.endDate")}</label>
                                 <input
                                     type="date"
                                     value={endDate}
@@ -546,7 +550,7 @@ function Policies() {
                             </div>
 
                             <div style={{ marginBottom: 12 }}>
-                                <label>Premium</label>
+                                <label>{t("form.fields.premium")}</label>
                                 <input
                                     type="number"
                                     value={premium}
@@ -556,27 +560,26 @@ function Policies() {
                             </div>
 
                             <div style={{ marginBottom: 12 }}>
-                                <label>Status</label>
+                                <label>{t("form.fields.status")}</label>
                                 <select
                                     value={status}
                                     onChange={(e) => setStatus(e.target.value)}
                                     style={{ width: "100%", padding: 8, marginTop: 4 }}
                                 >
-                                    <option value="Active">Active</option>
-                                    <option value="Expired">Expired</option>
-                                    <option value="Cancelled">Cancelled</option>
-                                    <option value="activa">activa</option>
+                                    {POLICY_STATUSES.map((s) => (
+                                        <option key={s} value={s}>{translateEnum("policyStatus", s)}</option>
+                                    ))}
                                 </select>
                             </div>
 
                             <div style={{ marginBottom: 12 }}>
-                                <label>Customer</label>
+                                <label>{t("form.fields.customer")}</label>
                                 <select
                                     value={customerId}
                                     onChange={(e) => setCustomerId(e.target.value)}
                                     style={{ width: "100%", padding: 8, marginTop: 4 }}
                                 >
-                                    <option value="">Select customer</option>
+                                    <option value="">{t("form.selectCustomer")}</option>
                                     {customers.map((c) => (
                                         <option key={c.id} value={c.id}>
                                             {c.firstName} {c.lastName} ({c.socialSecurityNumber})
@@ -587,10 +590,10 @@ function Policies() {
 
                             {editingId && (
                                 <div style={{ marginBottom: 12, borderTop: "1px solid #ddd", paddingTop: 12 }}>
-                                    <label style={{ fontWeight: "bold" }}>Dependientes</label>
+                                    <label style={{ fontWeight: "bold" }}>{t("dependents.title")}</label>
 
                                     {dependents.length === 0 ? (
-                                        <p style={{ color: "#666", margin: "8px 0" }}>No dependents yet</p>
+                                        <p style={{ color: "#666", margin: "8px 0" }}>{t("dependents.empty")}</p>
                                     ) : (
                                         <ul style={{ listStyle: "none", padding: 0, margin: "8px 0" }}>
                                             {dependents.map((d) => (
@@ -610,12 +613,12 @@ function Policies() {
                                                             checked={d.isAplicante}
                                                             onChange={(e) => handleToggleAplicante(d.customerId, e.target.checked)}
                                                         />
-                                                        Es aplicante
+                                                        {t("dependents.isAplicante")}
                                                     </label>
                                                     <button
                                                         type="button"
                                                         onClick={() => handleRemoveDependent(d.customerId)}
-                                                        title="Remove dependent"
+                                                        title={t("dependents.removeTitle")}
                                                         style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 16 }}
                                                     >
                                                         🗑
@@ -638,14 +641,14 @@ function Policies() {
                                             marginBottom: 8,
                                         }}
                                     >
-                                        {showDependentPicker ? "Cancelar" : "+ Agregar dependiente"}
+                                        {showDependentPicker ? t("dependents.cancelButton") : t("dependents.addButton")}
                                     </button>
 
                                     {showDependentPicker && (
                                         <div>
                                             <input
                                                 type="text"
-                                                placeholder="Buscar cliente por nombre..."
+                                                placeholder={t("dependents.searchPlaceholder")}
                                                 value={dependentQuery}
                                                 onChange={(e) => setDependentQuery(e.target.value)}
                                                 style={{ width: "100%", padding: 8, marginBottom: 8 }}
@@ -675,12 +678,12 @@ function Policies() {
                                                                 cursor: "pointer",
                                                             }}
                                                         >
-                                                            Add
+                                                            {t("dependents.addAction")}
                                                         </button>
                                                     </li>
                                                 ))}
                                                 {dependentCandidates.length === 0 && (
-                                                    <li style={{ color: "#666", padding: "6px 0" }}>No matches</li>
+                                                    <li style={{ color: "#666", padding: "6px 0" }}>{t("dependents.noMatches")}</li>
                                                 )}
                                             </ul>
                                         </div>
@@ -695,7 +698,7 @@ function Policies() {
                             )}
 
                             <button type="submit" disabled={submitting}>
-                                {submitting ? "Creating..." : "Create Policy"}
+                                {submitting ? t("form.submitCreating") : t("form.submitCreate")}
                             </button>
 
                         </form>
@@ -717,7 +720,7 @@ function Policies() {
                 }}
             >
                 <div>
-                    <label style={{ display: "block", fontSize: 12 }}>Policy Number</label>
+                    <label style={{ display: "block", fontSize: 12 }}>{t("filters.policyNumber")}</label>
                     <input
                         type="text"
                         value={filterPolicyNumber}
@@ -727,7 +730,7 @@ function Policies() {
                 </div>
 
                 <div>
-                    <label style={{ display: "block", fontSize: 12 }}>First Name</label>
+                    <label style={{ display: "block", fontSize: 12 }}>{t("filters.firstName")}</label>
                     <input
                         type="text"
                         value={filterFirstName}
@@ -737,7 +740,7 @@ function Policies() {
                 </div>
 
                 <div>
-                    <label style={{ display: "block", fontSize: 12 }}>Last Name</label>
+                    <label style={{ display: "block", fontSize: 12 }}>{t("filters.lastName")}</label>
                     <input
                         type="text"
                         value={filterLastName}
@@ -747,44 +750,43 @@ function Policies() {
                 </div>
 
                 <div>
-                    <label style={{ display: "block", fontSize: 12 }}>Status</label>
+                    <label style={{ display: "block", fontSize: 12 }}>{t("filters.status")}</label>
                     <select
                         value={filterStatus}
                         onChange={(e) => setFilterStatus(e.target.value)}
                         style={{ padding: 6 }}
                     >
-                        <option value="">All</option>
-                        <option value="Active">Active</option>
-                        <option value="Expired">Expired</option>
-                        <option value="Cancelled">Cancelled</option>
-                        <option value="activa">activa</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label style={{ display: "block", fontSize: 12 }}>Type</label>
-                    <select
-                        value={filterType}
-                        onChange={(e) => setFilterType(e.target.value)}
-                        style={{ padding: 6 }}
-                    >
-                        <option value="">All</option>
-                        {POLICY_TYPES.map((t) => (
-                            <option key={t} value={t}>{t}</option>
+                        <option value="">{t("filters.all")}</option>
+                        {POLICY_STATUSES.map((s) => (
+                            <option key={s} value={s}>{translateEnum("policyStatus", s)}</option>
                         ))}
                     </select>
                 </div>
 
                 <div>
-                    <label style={{ display: "block", fontSize: 12 }}>Insurance Company</label>
+                    <label style={{ display: "block", fontSize: 12 }}>{t("filters.type")}</label>
+                    <select
+                        value={filterType}
+                        onChange={(e) => setFilterType(e.target.value)}
+                        style={{ padding: 6 }}
+                    >
+                        <option value="">{t("filters.all")}</option>
+                        {POLICY_TYPES.map((t2) => (
+                            <option key={t2} value={t2}>{translateEnum("policyType", t2)}</option>
+                        ))}
+                    </select>
+                </div>
+
+                <div>
+                    <label style={{ display: "block", fontSize: 12 }}>{t("filters.insuranceCompany")}</label>
                     <select
                         value={filterInsuranceCompany}
                         onChange={(e) => setFilterInsuranceCompany(e.target.value)}
                         style={{ padding: 6 }}
                     >
-                        <option value="">All</option>
+                        <option value="">{t("filters.all")}</option>
                         {INSURANCE_COMPANIES.map((ic) => (
-                            <option key={ic} value={ic}>{ic}</option>
+                            <option key={ic} value={ic}>{translateEnum("insuranceCompany", ic)}</option>
                         ))}
                     </select>
                 </div>
@@ -801,7 +803,7 @@ function Policies() {
                         cursor: "pointer",
                     }}
                 >
-                    Search
+                    {t("common:actions.search")}
                 </button>
 
                 <button
@@ -815,14 +817,14 @@ function Policies() {
                         cursor: "pointer",
                     }}
                 >
-                    Clear
+                    {t("common:actions.clear")}
                 </button>
             </div>
 
             {/* ✅ TABLA SIEMPRE VISIBLE */}
             {
                 policies.length === 0 ? (
-                    <p>No policies yet</p>
+                    <p>{t("empty")}</p>
                 ) : (
 
                     <div style={{ overflowX: "auto" }}>
@@ -830,13 +832,13 @@ function Policies() {
 
                             <thead>
                                 <tr style={{ background: "#f3f4f6", textAlign: "left" }}>
-                                    <th style={{ padding: 10 }}>Policy</th>
-                                    <th style={{ padding: 10 }}>Type</th>
-                                    <th style={{ padding: 10 }}>Insurance Company</th>
-                                    <th style={{ padding: 10 }}>Status</th>
-                                    <th style={{ padding: 10 }}>Premium</th>
-                                    <th style={{ padding: 10 }}>Customer</th>
-                                    <th style={{ padding: 10 }}>Actions</th>
+                                    <th style={{ padding: 10 }}>{t("table.policy")}</th>
+                                    <th style={{ padding: 10 }}>{t("table.type")}</th>
+                                    <th style={{ padding: 10 }}>{t("table.insuranceCompany")}</th>
+                                    <th style={{ padding: 10 }}>{t("table.status")}</th>
+                                    <th style={{ padding: 10 }}>{t("table.premium")}</th>
+                                    <th style={{ padding: 10 }}>{t("table.customer")}</th>
+                                    <th style={{ padding: 10 }}>{t("table.actions")}</th>
                                 </tr>
                             </thead>
 
@@ -844,9 +846,9 @@ function Policies() {
                                 {policies.map((p) => (
                                     <tr key={p.id}>
                                         <td style={{ padding: 10 }}>{p.policyNumber}</td>
-                                        <td style={{ padding: 10 }}>{p.type}</td>
-                                        <td style={{ padding: 10 }}>{p.insuranceCompany}</td>
-                                        <td style={{ padding: 10 }}>{p.status}</td>
+                                        <td style={{ padding: 10 }}>{translateEnum("policyType", p.type)}</td>
+                                        <td style={{ padding: 10 }}>{translateEnum("insuranceCompany", p.insuranceCompany)}</td>
+                                        <td style={{ padding: 10 }}>{translateEnum("policyStatus", p.status)}</td>
                                         <td style={{ padding: 10 }}>{p.premium}</td>
                                         <td style={{ padding: 10 }}>
                                             {getCustomerName(p.customerId)}
@@ -855,7 +857,7 @@ function Policies() {
 
                                             <button
                                                 onClick={() => openDetail(p)}
-                                                title="View details"
+                                                title={t("actionTitles.viewDetails")}
                                                 style={{
                                                     marginRight: 8,
                                                     background: "transparent",
@@ -869,7 +871,7 @@ function Policies() {
 
                                             <button
                                                 onClick={() => handleEdit(p)}
-                                                title="Edit policy"
+                                                title={t("actionTitles.editPolicy")}
                                                 style={{
                                                     marginRight: 8,
                                                     background: "transparent",
@@ -885,7 +887,7 @@ function Policies() {
 
                                             <button
                                                 onClick={() => handleDelete(p.id)}
-                                                title="Delete policy"
+                                                title={t("actionTitles.deletePolicy")}
                                                 style={{
                                                     background: "transparent",
                                                     border: "none",
@@ -901,7 +903,7 @@ function Policies() {
                                                     href={buildWhatsAppUrl(getCustomerPhone(p.customerId))}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    title="Chat by WhatsApp"
+                                                    title={t("actionTitles.chatWhatsapp")}
                                                     style={{ marginLeft: 8, fontSize: 16, textDecoration: "none" }}
                                                 >
                                                     💬
@@ -946,7 +948,7 @@ function Policies() {
                         }}
                     >
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                            <h3 style={{ margin: 0 }}>Policy {viewingPolicy.policyNumber}</h3>
+                            <h3 style={{ margin: 0 }}>{t("detail.policyTitle", { number: viewingPolicy.policyNumber })}</h3>
                             <button
                                 onClick={closeDetail}
                                 style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 18 }}
@@ -955,33 +957,33 @@ function Policies() {
                             </button>
                         </div>
 
-                        <h4 style={{ marginBottom: 6 }}>Policy</h4>
-                        <p style={{ margin: "2px 0" }}>Type: {viewingPolicy.type}</p>
-                        <p style={{ margin: "2px 0" }}>Insurance Company: {viewingPolicy.insuranceCompany}</p>
-                        <p style={{ margin: "2px 0" }}>Status: {viewingPolicy.status}</p>
-                        <p style={{ margin: "2px 0" }}>Start Date: {viewingPolicy.startDate?.slice(0, 10)}</p>
-                        <p style={{ margin: "2px 0" }}>End Date: {viewingPolicy.endDate?.slice(0, 10)}</p>
-                        <p style={{ margin: "2px 0" }}>Premium: {viewingPolicy.premium}</p>
+                        <h4 style={{ marginBottom: 6 }}>{t("detail.policySection")}</h4>
+                        <p style={{ margin: "2px 0" }}>{t("detail.type")}: {translateEnum("policyType", viewingPolicy.type)}</p>
+                        <p style={{ margin: "2px 0" }}>{t("detail.insuranceCompany")}: {translateEnum("insuranceCompany", viewingPolicy.insuranceCompany)}</p>
+                        <p style={{ margin: "2px 0" }}>{t("detail.status")}: {translateEnum("policyStatus", viewingPolicy.status)}</p>
+                        <p style={{ margin: "2px 0" }}>{t("detail.startDate")}: {viewingPolicy.startDate?.slice(0, 10)}</p>
+                        <p style={{ margin: "2px 0" }}>{t("detail.endDate")}: {viewingPolicy.endDate?.slice(0, 10)}</p>
+                        <p style={{ margin: "2px 0" }}>{t("detail.premium")}: {viewingPolicy.premium}</p>
 
-                        <h4 style={{ marginTop: 16, marginBottom: 6 }}>Titular</h4>
+                        <h4 style={{ marginTop: 16, marginBottom: 6 }}>{t("detail.titularSection")}</h4>
                         {(() => {
                             const titular = getCustomer(viewingPolicy.customerId);
-                            if (!titular) return <p>Unknown</p>;
+                            if (!titular) return <p>{t("detail.unknown")}</p>;
                             return (
                                 <>
                                     <p style={{ margin: "2px 0" }}>{titular.firstName} {titular.lastName}</p>
-                                    <p style={{ margin: "2px 0" }}>SSN: {titular.socialSecurityNumber}</p>
-                                    <p style={{ margin: "2px 0" }}>Email: {titular.email}</p>
-                                    <p style={{ margin: "2px 0" }}>Phone: {titular.phone}</p>
-                                    <p style={{ margin: "2px 0" }}>Address: {titular.address}</p>
-                                    <p style={{ margin: "2px 0" }}>Migration Status: {titular.migrationStatus}</p>
+                                    <p style={{ margin: "2px 0" }}>{t("detail.ssn")}: {titular.socialSecurityNumber}</p>
+                                    <p style={{ margin: "2px 0" }}>{t("detail.email")}: {titular.email}</p>
+                                    <p style={{ margin: "2px 0" }}>{t("detail.phone")}: {titular.phone}</p>
+                                    <p style={{ margin: "2px 0" }}>{t("detail.address")}: {titular.address}</p>
+                                    <p style={{ margin: "2px 0" }}>{t("detail.migrationStatus")}: {translateEnum("migrationStatus", titular.migrationStatus)}</p>
                                 </>
                             );
                         })()}
 
-                        <h4 style={{ marginTop: 16, marginBottom: 6 }}>Dependents</h4>
+                        <h4 style={{ marginTop: 16, marginBottom: 6 }}>{t("detail.dependentsSection")}</h4>
                         {detailDependents.length === 0 ? (
-                            <p style={{ color: "#666" }}>No dependents</p>
+                            <p style={{ color: "#666" }}>{t("detail.noDependents")}</p>
                         ) : (
                             <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
                                 {detailDependents.map((d) => (
@@ -1001,7 +1003,7 @@ function Policies() {
                             }}
                         >
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                                <h4 style={{ margin: 0 }}>Documents</h4>
+                                <h4 style={{ margin: 0 }}>{t("documents.title")}</h4>
                                 <label
                                     style={{
                                         display: "inline-flex",
@@ -1016,7 +1018,7 @@ function Policies() {
                                         fontSize: 14,
                                     }}
                                 >
-                                    📎 {uploadingDocument ? "Subiendo..." : "New"}
+                                    📎 {uploadingDocument ? t("documents.uploading") : t("documents.newButton")}
                                     <input
                                         type="file"
                                         accept={ALLOWED_DOCUMENT_EXTENSIONS.join(",")}
@@ -1032,7 +1034,7 @@ function Policies() {
                             )}
 
                             {detailDocuments.length === 0 ? (
-                                <p style={{ color: "#666" }}>No hay documentos</p>
+                                <p style={{ color: "#666" }}>{t("documents.empty")}</p>
                             ) : (
                                 <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
                                     {detailDocuments.map((doc) => (
@@ -1063,7 +1065,7 @@ function Policies() {
                                                         e.stopPropagation();
                                                         setOpenDocMenuId(openDocMenuId === doc.id ? null : doc.id);
                                                     }}
-                                                    title="Options"
+                                                    title={t("documents.optionsTitle")}
                                                     style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 18, padding: "0 6px", lineHeight: 1 }}
                                                 >
                                                     ⋮
@@ -1101,7 +1103,7 @@ function Policies() {
                                                                 fontSize: 14,
                                                             }}
                                                         >
-                                                            Descargar
+                                                            {t("documents.download")}
                                                         </button>
                                                         <button
                                                             type="button"
@@ -1121,7 +1123,7 @@ function Policies() {
                                                                 color: "#dc2626",
                                                             }}
                                                         >
-                                                            Eliminar
+                                                            {t("documents.delete")}
                                                         </button>
                                                     </div>
                                                 )}
