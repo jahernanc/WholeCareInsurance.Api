@@ -33,6 +33,7 @@ Filtros disponibles: nombre del titular, apellido del titular, número de póliz
   - Datos del titular: nombre, SSN, email, teléfono, dirección, estatus migratorio (de `customers`, ya cargado en el frontend, sin fetch nuevo).
   - Lista de dependientes (reutiliza `GET /api/policies/{id}/dependents`).
 - **Pendiente:** el responsable del requerimiento aún no definió qué información adicional debería mostrarse en el detalle (más allá de los datos que ya existen hoy en `Policy`/`Customer`). Cuando se defina, sumar esos campos al modal — no debería requerir cambios de estructura, solo agregar más `<p>` en la sección correspondiente (o nuevos campos en el modelo si la info no existe todavía).
+- Ver §1.7 para la sección "Documentos" (subir/descargar/eliminar archivos) agregada después dentro de este mismo modal.
 
 ### 1.5 Campo Compañía aseguradora (dropdown) — ✅ Hecho
 - `InsuranceCompany` nuevo en `Policy`, requerido, restringido a `WholeCareInsurance`, `Otro` vía `[AllowedValues]` en `PolicyCreateDto` — mismo patrón que `Type` (§1.1).
@@ -45,6 +46,17 @@ Filtros disponibles: nombre del titular, apellido del titular, número de póliz
 - `IsAplicante` (bool) nuevo en `PolicyDependent` (la tabla intermedia), no en `Customer`: a diferencia de `RelacionConPrincipal`, la misma persona puede ser aplicante en una póliza (ej. Obama Care) y no en otra (ej. Auto). Default `false` para los dependientes ya existentes — no marcado significa que sigue siendo parte del grupo familiar de esa póliza pero no se contabiliza como aplicante en reportes futuros.
 - Nuevo endpoint `PUT /api/policies/{id}/dependents/{customerId}` para togglear `IsAplicante` de un dependiente ya agregado, sin tener que quitarlo y volver a agregarlo.
 - Frontend: `<select>` de Relación con el principal en el formulario de Customers (y visible en la tarjeta de cada cliente); checkbox "Es aplicante" junto a cada dependiente ya agregado en la sección Dependientes del formulario de Policies.
+
+### 1.7 Documentos de póliza (subir / descargar / eliminar) — ✅ Hecho
+Nueva sección "Documentos" dentro del modal de detalle de póliza (§1.4). Tipos permitidos: `.pdf`, `.docx`, `.jpg`, `.jpeg`; tamaño máximo 5 MB.
+
+- Nuevo modelo `PolicyDocument` (tabla nueva vía migración `AddPolicyDocuments`, sin impacto en datos existentes) con `PolicyId` (FK cascade), nombre original, nombre en disco, tipo de contenido, tamaño y fecha de subida.
+- Archivos guardados en disco del servidor (no en la nube), organizados en una carpeta por `PolicyId` (`App_Data/PolicyDocuments/{policyId}/`), **fuera de `wwwroot`** y sin `UseStaticFiles()` — solo accesibles vía el endpoint autenticado, nunca por URL directa. Nombre en disco es un GUID (evita path traversal y colisiones); el nombre original del usuario nunca se usa para construir una ruta.
+- Validación en el backend de extensión, tamaño **y contenido real del archivo** (magic bytes para PDF/JPEG; para `.docx` se verifica además que las entradas OOXML — `[Content_Types].xml`, `word/document.xml` — existan dentro del ZIP, no solo la firma de ZIP), todo con clases del BCL sin agregar ningún paquete NuGet nuevo.
+- Endpoints: `POST/GET /api/policies/{id}/documents`, `GET/DELETE /api/policies/{id}/documents/{documentId}` (el GET de descarga valida `PolicyId` y `documentId` combinados para evitar acceso cruzado entre pólizas). Al borrar una `Policy` se limpia también su carpeta de documentos en disco.
+- Frontend: tarjeta "Documents" con botón "+ New" para subir, lista de documentos con nombre (link azul), tamaño y fecha, y menú de tres puntos (⋮) con "Descargar"/"Eliminar" por documento — con confirmación antes de eliminar.
+- De paso se corrigió un bug en `apiFetch` (`src/api.js`): forzaba `Content-Type: application/json` en cualquier request con body, lo que rompía los uploads `multipart/form-data` (el browser necesita fijar su propio `Content-Type` con el boundary).
+- Verificado con curl (extensión inválida, tamaño excedido, contenido falso vs. real, acceso cruzado entre pólizas → 404, borrado físico, cleanup de carpeta al borrar la póliza) y con Playwright (subida real por la UI, validación de extensión en cliente, descarga con el nombre original correcto).
 
 ---
 
@@ -119,6 +131,7 @@ Agregar un botón/selector en `Header.jsx` para cambiar el idioma de la UI entre
 7. ~~Mover DTOs de Customer/Policy a archivos separados~~ ✅ Hecho (ver §3.2)
 8. ~~Campo Compañía aseguradora en Policy~~ ✅ Hecho (ver §1.5)
 9. ~~Relación con el principal (Customer) + Es aplicante (dependiente de póliza)~~ ✅ Hecho (ver §1.6)
-10. Firma digital de consentimiento — bloqueado hasta que el responsable elija proveedor (ver §2.1)
-11. Dashboard — bloqueado hasta la reunión con el responsable (ver §5.1)
-12. Selector de idioma ES/EN — bloqueado hasta tener definiciones (ver §5.2)
+10. ~~Documentos de póliza (subir/descargar/eliminar)~~ ✅ Hecho (ver §1.7)
+11. Firma digital de consentimiento — bloqueado hasta que el responsable elija proveedor (ver §2.1)
+12. Dashboard — bloqueado hasta la reunión con el responsable (ver §5.1)
+13. Selector de idioma ES/EN — bloqueado hasta tener definiciones (ver §5.2)
