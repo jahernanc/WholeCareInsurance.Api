@@ -30,7 +30,8 @@ namespace WholeCareInsurance.api.Services
                 Nombre = dto.Nombre,
                 Email = dto.Email,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
-                Rol = dto.Rol
+                Rol = dto.Rol,
+                IsEncargado = dto.IsEncargado
             };
 
             var created = await _usersService.Create(user);
@@ -40,7 +41,8 @@ namespace WholeCareInsurance.api.Services
                 Id = created.Id,
                 Nombre = created.Nombre,
                 Email = created.Email,
-                Rol = created.Rol
+                Rol = created.Rol,
+                IsEncargado = created.IsEncargado
             };
         }
 

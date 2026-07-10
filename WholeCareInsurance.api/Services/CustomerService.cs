@@ -14,11 +14,19 @@ namespace WholeCareInsurance.api.Services
         }
 
         public async Task<IEnumerable<Customer>> GetAll()
-            => await _context.Customers.Include(c => c.Policies).ToListAsync();
+            => await _context.Customers
+                .Include(c => c.Policies)
+                .Include(c => c.Agent)
+                .Include(c => c.AssistantAgent)
+                .Include(c => c.RecordAgent)
+                .ToListAsync();
 
         public async Task<Customer?> GetById(int id)
             => await _context.Customers
                 .Include(c => c.Policies)
+                .Include(c => c.Agent)
+                .Include(c => c.AssistantAgent)
+                .Include(c => c.RecordAgent)
                 .FirstOrDefaultAsync(c => c.Id == id);
 
         public async Task<Customer> Create(Customer customer)

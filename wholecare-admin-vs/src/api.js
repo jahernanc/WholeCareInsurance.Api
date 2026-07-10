@@ -57,6 +57,22 @@ export async function logout() {
     return logoutPromise;
 }
 
+export function getCurrentUserRole() {
+    const token = localStorage.getItem("accessToken");
+    if (!token) return null;
+
+    try {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        return payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ?? null;
+    } catch {
+        return null;
+    }
+}
+
+export function isAdmin() {
+    return getCurrentUserRole() === "Admin";
+}
+
 export async function apiFetch(path, options = {}) {
     const doFetch = (accessToken) =>
         fetch(`${BASE_URL}${path}`, {

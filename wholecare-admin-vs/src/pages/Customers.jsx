@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import { apiFetch } from "../api";
+import { apiFetch, isAdmin } from "../api";
+import { US_STATES } from "../data/usStates";
+import US_COUNTIES from "../data/usCounties.json";
 
 const API = "/api/customers";
 const MIGRATION_STATUSES = [
@@ -19,6 +21,7 @@ const RELACIONES_PRINCIPAL = [
     "Hermano/a",
     "Otro",
 ];
+const MARITAL_STATUSES = ["Soltero/a", "Casado/a", "Divorciado/a", "Viudo/a", "Unión libre"];
 
 const emptyForm = {
     socialSecurityNumber: "",
@@ -30,16 +33,29 @@ const emptyForm = {
     phone: "",
     migrationStatus: "",
     relacionConPrincipal: "",
+    zipCode: "",
+    state: "",
+    city: "",
+    county: "",
+    maritalStatus: "",
+    occupation: "",
+    agentId: "",
+    assistantAgentId: "",
+    recordAgentId: "",
 };
 
 function Customers() {
     const [customers, setCustomers] = useState([]);
+    const [agents, setAgents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [form, setForm] = useState(emptyForm);
     const [editingId, setEditingId] = useState(null);
     const [formError, setFormError] = useState("");
     const [submitting, setSubmitting] = useState(false);
+
+    const userIsAdmin = isAdmin();
+    const encargados = agents.filter((a) => a.isEncargado);
 
     const loadCustomers = async () => {
         try {
@@ -54,9 +70,31 @@ function Customers() {
         }
     };
 
-    useEffect(() => { loadCustomers(); }, []);
+    const loadAgents = async () => {
+        try {
+            const res = await apiFetch("/users?role=Agente");
+            if (!res.ok) throw new Error();
+            setAgents(await res.json());
+        } catch {
+            console.error("No se pudieron cargar los agentes");
+        }
+    };
 
-    const handleField = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+    useEffect(() => {
+        loadCustomers();
+        if (userIsAdmin) loadAgents();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const handleField = (e) => {
+        const { name, value } = e.target;
+        if (name === "state") {
+            // el condado depende del estado: si cambia el estado, se resetea
+            setForm((f) => ({ ...f, state: value, county: "" }));
+            return;
+        }
+        setForm((f) => ({ ...f, [name]: value }));
+    };
 
     const openCreate = () => {
         setEditingId(null);
@@ -77,6 +115,15 @@ function Customers() {
             phone: c.phone,
             migrationStatus: c.migrationStatus,
             relacionConPrincipal: c.relacionConPrincipal,
+            zipCode: c.zipCode ?? "",
+            state: c.state ?? "",
+            city: c.city ?? "",
+            county: c.county ?? "",
+            maritalStatus: c.maritalStatus ?? "",
+            occupation: c.occupation ?? "",
+            agentId: c.agentId ?? "",
+            assistantAgentId: c.assistantAgentId ?? "",
+            recordAgentId: c.recordAgentId ?? "",
         });
         setFormError("");
         setShowForm(true);
@@ -89,16 +136,23 @@ function Customers() {
         const url = editingId ? `${API}/${editingId}` : API;
         const method = editingId ? "PUT" : "POST";
 
+        const body = {
+            ...form,
+            agentId: form.agentId ? Number(form.agentId) : null,
+            assistantAgentId: form.assistantAgentId ? Number(form.assistantAgentId) : null,
+            recordAgentId: form.recordAgentId ? Number(form.recordAgentId) : null,
+        };
+
         try {
             setSubmitting(true);
             const res = await apiFetch(url, {
                 method,
-                body: JSON.stringify(form),
+                body: JSON.stringify(body),
             });
 
             if (!res.ok) {
                 const err = await res.json().catch(() => null);
-                setFormError(err?.title ?? "Error al guardar el cliente");
+                setFormError(err?.title ?? err ?? "Error al guardar el cliente");
                 return;
             }
 
@@ -126,6 +180,7 @@ function Customers() {
 
     const inputStyle = { width: "100%", padding: "7px 10px", marginTop: 4, boxSizing: "border-box", borderRadius: 5, border: "1px solid #ccc" };
     const labelStyle = { fontWeight: 500, fontSize: 13 };
+    const countiesForState = form.state ? (US_COUNTIES[form.state] ?? []) : [];
 
     return (
         <div>
@@ -201,6 +256,85 @@ function Customers() {
                                 </select>
                             </div>
 
+                            <div>
+                                <label style={labelStyle}>Código postal</label>
+                                <input name="zipCode" value={form.zipCode} onChange={handleField} style={inputStyle} />
+                            </div>
+
+                            <div>
+                                <label style={labelStyle}>Estado</label>
+                                <select name="state" value={form.state} onChange={handleField} style={inputStyle}>
+                                    <option value="">-- Seleccionar --</option>
+                                    {US_STATES.map((s) => (
+                                        <option key={s.code} value={s.code}>{s.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label style={labelStyle}>Ciudad</label>
+                                <input name="city" value={form.city} onChange={handleField} style={inputStyle} />
+                            </div>
+
+                            <div>
+                                <label style={labelStyle}>Condado</label>
+                                <select name="county" value={form.county} onChange={handleField} disabled={!form.state} style={inputStyle}>
+                                    <option value="">{form.state ? "-- Seleccionar --" : "Elegí un estado primero"}</option>
+                                    {countiesForState.map((c) => (
+                                        <option key={c} value={c}>{c}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label style={labelStyle}>Estado civil</label>
+                                <select name="maritalStatus" value={form.maritalStatus} onChange={handleField} style={inputStyle}>
+                                    <option value="">-- Seleccionar --</option>
+                                    {MARITAL_STATUSES.map((m) => (
+                                        <option key={m} value={m}>{m}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label style={labelStyle}>Ocupación</label>
+                                <input name="occupation" value={form.occupation} onChange={handleField} style={inputStyle} />
+                            </div>
+
+                            {userIsAdmin && (
+                                <>
+                                    <div>
+                                        <label style={labelStyle}>Agente</label>
+                                        <select name="agentId" value={form.agentId} onChange={handleField} style={inputStyle}>
+                                            <option value="">-- Sin asignar --</option>
+                                            {agents.map((a) => (
+                                                <option key={a.id} value={a.id}>{a.nombre}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label style={labelStyle}>Agente Asistente</label>
+                                        <select name="assistantAgentId" value={form.assistantAgentId} onChange={handleField} style={inputStyle}>
+                                            <option value="">-- Sin asignar --</option>
+                                            {agents.map((a) => (
+                                                <option key={a.id} value={a.id}>{a.nombre}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label style={labelStyle}>Agente Record</label>
+                                        <select name="recordAgentId" value={form.recordAgentId} onChange={handleField} style={inputStyle}>
+                                            <option value="">-- Sin asignar --</option>
+                                            {encargados.map((a) => (
+                                                <option key={a.id} value={a.id}>{a.nombre}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </>
+                            )}
+
                         </div>
 
                         {formError && <p style={{ color: "red", marginTop: 12 }}>{formError}</p>}
@@ -237,6 +371,13 @@ function Customers() {
                                 <span style={{ gridColumn: "1 / -1" }}>Dirección: {c.address}</span>
                                 <span>Estatus: {c.migrationStatus}</span>
                                 <span>Relación con el principal: {c.relacionConPrincipal}</span>
+                                <span>Código postal: {c.zipCode || "-"}</span>
+                                <span>Estado/Ciudad/Condado: {[c.city, c.county, c.state].filter(Boolean).join(", ") || "-"}</span>
+                                <span>Estado civil: {c.maritalStatus || "-"}</span>
+                                <span>Ocupación: {c.occupation || "-"}</span>
+                                <span>Agente: {c.agentName || "-"}</span>
+                                {userIsAdmin && <span>Agente Asistente: {c.assistantAgentName || "-"}</span>}
+                                {userIsAdmin && <span>Agente Record: {c.recordAgentName || "-"}</span>}
                                 <span>Pólizas: {c.policiesCount}</span>
                             </div>
                             <div style={{ marginTop: 10, display: "flex", gap: 8 }}>

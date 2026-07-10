@@ -7,6 +7,7 @@
         public string Email { get; set; } = default!;
         public string PasswordHash { get; set; } = default!;
         public string Rol { get; set; } = default!;
+        public bool IsEncargado { get; set; }
 
         // ✅ Refresh token
         public string? RefreshToken { get; set; }

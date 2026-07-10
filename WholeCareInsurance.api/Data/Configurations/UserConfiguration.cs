@@ -34,6 +34,9 @@ namespace WholeCareInsurance.api.Data.Configurations
                   .IsRequired()
                   .HasMaxLength(50);
 
+            entity.Property(u => u.IsEncargado)
+                  .IsRequired();
+
             // Refresh token hash (SHA-256 hex = 64 chars)
             entity.Property(u => u.RefreshTokenHash)
                   .HasMaxLength(64);

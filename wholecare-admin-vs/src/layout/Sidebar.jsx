@@ -1,12 +1,16 @@
 import { Link } from "react-router-dom";
+import { isAdmin } from "../api";
 
 const menu = [
     { path: "/", label: "Dashboard", icon: "📊" },
     { path: "/customers", label: "Customers", icon: "👤" },
     { path: "/policies", label: "Policies", icon: "📄" },
+    { path: "/agentes", label: "Agentes", icon: "🧑‍💼", adminOnly: true },
 ];
 
 function Sidebar() {
+    const userIsAdmin = isAdmin();
+
     return (
         <div style={{
             width: 70,
@@ -17,7 +21,7 @@ function Sidebar() {
             alignItems: "center",
             paddingTop: 10
         }}>
-            {menu.map(item => (
+            {menu.filter(item => !item.adminOnly || userIsAdmin).map(item => (
                 <Link
                     key={item.path}
                     to={item.path}

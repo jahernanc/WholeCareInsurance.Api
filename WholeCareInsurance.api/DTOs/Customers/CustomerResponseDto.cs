@@ -12,6 +12,21 @@ namespace WholeCareInsurance.api.DTOs.Customers
         public string Phone { get; set; } = default!;
         public string MigrationStatus { get; set; } = default!;
         public string RelacionConPrincipal { get; set; } = default!;
+
+        public string? ZipCode { get; set; }
+        public string? State { get; set; }
+        public string? City { get; set; }
+        public string? County { get; set; }
+        public string? MaritalStatus { get; set; }
+        public string? Occupation { get; set; }
+
+        public int? AgentId { get; set; }
+        public string? AgentName { get; set; }
+        public int? AssistantAgentId { get; set; }
+        public string? AssistantAgentName { get; set; }
+        public int? RecordAgentId { get; set; }
+        public string? RecordAgentName { get; set; }
+
         public int PoliciesCount { get; set; }
     }
 }

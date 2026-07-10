@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using WholeCareInsurance.api.DTOs.Users;
+using WholeCareInsurance.api.Models;
 using WholeCareInsurance.api.Services;
 
 namespace WholeCareInsurance.api.Controllers
@@ -17,9 +19,14 @@ namespace WholeCareInsurance.api.Controllers
 
         [HttpGet]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetAll([FromQuery] string? role = null)
         {
-            return Ok(await _usersService.GetAll());
+            var users = await _usersService.GetAll();
+
+            if (!string.IsNullOrWhiteSpace(role))
+                users = users.Where(u => u.Rol == role);
+
+            return Ok(users.Select(ToResponse));
         }
 
         [HttpGet("{id}")]
@@ -28,7 +35,7 @@ namespace WholeCareInsurance.api.Controllers
         {
             var user = await _usersService.GetById(id);
             if (user == null) return NotFound();
-            return Ok(user);
+            return Ok(ToResponse(user));
         }
 
         [HttpGet("me")]
@@ -37,7 +44,41 @@ namespace WholeCareInsurance.api.Controllers
         {
             var email = User.Identity!.Name!;
             var user = await _usersService.GetByEmail(email);
-            return Ok(user);
+            if (user == null) return NotFound();
+            return Ok(ToMeResponse(user));
         }
+
+        [HttpPut("{id:int}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> Update(int id, [FromBody] UserUpdateDto dto)
+        {
+            var existing = await _usersService.GetById(id);
+            if (existing == null) return NotFound();
+
+            existing.Nombre = dto.Nombre;
+            existing.Email = dto.Email;
+            existing.Rol = dto.Rol;
+            existing.IsEncargado = dto.IsEncargado;
+
+            var updated = await _usersService.Update(existing);
+            return Ok(ToResponse(updated));
+        }
+
+        private static UserResponseDto ToResponse(User u) => new()
+        {
+            Id = u.Id,
+            Nombre = u.Nombre,
+            Email = u.Email,
+            Rol = u.Rol,
+            IsEncargado = u.IsEncargado
+        };
+
+        private static UserMeDto ToMeResponse(User u) => new()
+        {
+            Nombre = u.Nombre,
+            Email = u.Email,
+            Rol = u.Rol,
+            IsEncargado = u.IsEncargado
+        };
     }
 }

@@ -25,10 +25,34 @@ namespace WholeCareInsurance.api.Data.Configurations
             entity.Property(c => c.MigrationStatus).IsRequired().HasMaxLength(50);
             entity.Property(c => c.RelacionConPrincipal).IsRequired().HasMaxLength(50);
 
+            entity.Property(c => c.ZipCode).HasMaxLength(10);
+            entity.Property(c => c.State).HasMaxLength(2);
+            entity.Property(c => c.City).HasMaxLength(100);
+            entity.Property(c => c.County).HasMaxLength(100);
+            entity.Property(c => c.MaritalStatus).HasMaxLength(20);
+            entity.Property(c => c.Occupation).HasMaxLength(100);
+
             entity.HasMany(c => c.Policies)
                   .WithOne(p => p.Customer)
                   .HasForeignKey(p => p.CustomerId)
                   .OnDelete(DeleteBehavior.Cascade);
+
+            // Tres FKs distintas a User (misma tabla) -> Restrict para no arrastrar
+            // el borrado de un agente a los Customers que todavía lo referencian.
+            entity.HasOne(c => c.Agent)
+                  .WithMany()
+                  .HasForeignKey(c => c.AgentId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(c => c.AssistantAgent)
+                  .WithMany()
+                  .HasForeignKey(c => c.AssistantAgentId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(c => c.RecordAgent)
+                  .WithMany()
+                  .HasForeignKey(c => c.RecordAgentId)
+                  .OnDelete(DeleteBehavior.Restrict);
         }
     }
 }
