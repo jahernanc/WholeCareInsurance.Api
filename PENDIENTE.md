@@ -123,8 +123,8 @@ Permitir que el agente contacte directamente al cliente (para pedir documentaci�
 
 ## 5. Dashboard y UX general
 
-### 5.1 Dashboard — pendiente de definiciones
-El Dashboard hoy es un placeholder (`<h1>Dashboard ✅</h1>` en `App.jsx`). Puede haber contenido nuevo para definir luego de la reunión con el responsable del requerimiento.
+### 5.1 Dashboard — ver §8
+El Dashboard hoy es un placeholder (`<h1>Dashboard ✅</h1>` en `App.jsx`). Definiciones y alcance movidos a la §8 (bloqueado hasta tener la data migrada, ver §7.2).
 
 ### 5.2 Selector de idioma (Español/Inglés) en el Header — ✅ Hecho
 `react-i18next` con diccionarios por namespace (`common`, `login`, `customers`, `policies`, `agentes`, `enums`) en inglés/español, Inglés como default.
@@ -162,6 +162,75 @@ El responsable del proyecto va a proveer un CSV con la información actual de cl
 
 ---
 
+## 8. Dashboard — ⏸ Bloqueado hasta tener la data migrada
+
+No implementar hasta que la migración de datos del sistema anterior (§7.2) esté completa — el diseño y las estadísticas tienen mucho más sentido validados contra datos reales que contra una base vacía o de prueba.
+
+### 8.1 Paleta de colores general (aplica a toda la app, no solo Dashboard)
+- Colores a resaltar: verde, blanco y azul.
+- Botones semánticos (donde aplique en cualquier pantalla, no solo Dashboard):
+  - Submit/Guardar → verde
+  - Eliminar → rojo
+  - Editar → amarillo
+
+### 8.2 Referencia visual del Dashboard
+Se tomó como referencia un dashboard de otro sistema del rubro, con esta estructura (adaptar al estilo/paleta propios, no copiar tal cual):
+
+Fila de tarjetas KPI (parte superior):
+- Agencias (cantidad)
+- Agentes (cantidad)
+- Pólizas (cantidad + cantidad de miembros)
+- Recordatorios (cantidad)
+
+Fila de tarjetas por estado de póliza (cantidad + cantidad de miembros por cada una):
+- Draft
+- Cancelado
+- Por procesar
+- En proceso
+- Procesado
+- Actualizado
+- Cambio de agente
+
+(Nota: estos estados deberían coincidir con los valores reales del campo Status de Policy que ya existe en el sistema — revisar que los nombres calcen o definir el mapeo antes de implementar.)
+
+Gráficos:
+- Torta "Pólizas por Tipo" (usando el campo Type que ya existe)
+- Torta "Pólizas por Status"
+
+### 8.3 Estadísticas adicionales solicitadas (más allá de la referencia visual)
+- Cantidad de pólizas/clientes por Compañía aseguradora (campo agregado en el punto de Compañía aseguradora)
+- Cantidad por Cliente
+- Cantidad por Miembros (dependientes + titulares)
+- Cantidad por Condado
+- Cantidad por Ciudad
+
+(Nota: Condado y Ciudad son campos que se agregan en el punto pendiente "Campos nuevos de Customer" — el Dashboard depende de que ese punto esté implementado y con datos cargados/migrados para poder graficar por esas dimensiones.)
+
+### 8.4 Pendiente de definir antes de implementar
+- ¿Los reportes/gráficos deben poder filtrarse por rango de fechas o por agente (según el rol logueado), o siempre muestran el total general?
+- ¿"Reminders" (recordatorios) es un concepto que ya existe en el sistema o es una funcionalidad nueva a definir aparte?
+- ¿Existe algún rol intermedio (ej. supervisor de agencia) que deba ver un subconjunto más amplio que "solo lo propio" pero menor que "todo"? Confirmar si aplica o si el sistema hoy solo maneja Admin/Agente.
+
+### 8.5 Alcance de datos según rol — IMPORTANTE, cambia el diseño de las queries
+La vista de referencia corresponde a un Administrador (ve todo: todas las agencias, todos los agentes, todas las pólizas). Para el resto de los roles, el Dashboard debe mostrar solo lo que le corresponde a ese agente logueado, no el total del sistema.
+- Administrador: ve los KPIs y gráficos globales.
+- Agente (rol normal): ve únicamente sus propias pólizas/clientes — mismo criterio de scoping que ya se usa hoy para que un agente solo vea sus propios Customers (AgentId = agente logueado).
+- Esto implica que los endpoints de estadísticas del backend deben aplicar el mismo filtro por rol/agente que ya usa el resto de la API — no exponer un endpoint que devuelva el total global sin control de acceso.
+
+### 8.6 Widget "Últimas pólizas" (Latest policies)
+- Lista de las últimas pólizas creadas/actualizadas, ordenadas por fecha (más reciente primero).
+- Cantidad por defecto: 10 (configurable más adelante, no ahora).
+- Columnas: Cliente (nombre, como link), teléfono/email, Status (badge de color según estado), fecha y hora de última actualización.
+- Sujeto al mismo scoping por rol que el resto del Dashboard (§8.5).
+
+### 8.7 Widget "Próximos/recientes a cumplir 65 años" (elegibilidad Medicare)
+- Ventana: desde 4 meses antes hasta 4 meses después de la fecha de cumpleaños 65 (incluye a quienes ya cumplieron, dentro de los 4 meses posteriores).
+- Columnas: nombre (link al cliente), fecha de nacimiento, edad.
+- Decisión de implementación: SIN job/proceso aparte. Se calcula directamente a partir de FechaNacimiento en la query del Dashboard (comparando contra la fecha actual), no se guarda un campo persistido ni se necesita un proceso periódico. Más simple, siempre exacto, evita la complejidad de un BackgroundService.
+- Sujeto al mismo scoping por rol que el resto del Dashboard (§8.5).
+
+---
+
 ## 6. Orden sugerido de trabajo
 
 1. ~~Tipo en Policy (backend + frontend)~~ ✅ Hecho
@@ -177,6 +246,6 @@ El responsable del proyecto va a proveer un CSV con la información actual de cl
 11. ~~Agentes (Agente/Asistente/Record) + datos demográficos en Customer~~ ✅ Hecho (ver §4.1)
 12. ~~Selector de idioma ES/EN~~ ✅ Hecho (ver §5.2)
 13. Firma digital de consentimiento — bloqueado hasta que el responsable elija proveedor (ver §2.1)
-14. Dashboard — bloqueado hasta la reunión con el responsable (ver §5.1)
+14. Dashboard — bloqueado hasta tener la data migrada (ver §8)
 15. Infraestructura de hosting (VPS) — bloqueado hasta la compra del VPS en Hostinger (ver §7.1)
 16. Migración de datos del sistema anterior — bloqueado hasta recibir el CSV (ver §7.2)
