@@ -1,251 +1,221 @@
 # Pendientes — WholeCareInsurance
 
+> Auditado contra código real el 2026-07-13 (modelos, DTOs, migraciones aplicadas y componentes de frontend). Donde el pedido del responsable no coincidía con lo implementado, se priorizó lo verificado en código — ver notas "⚠️ Discrepancia" en los puntos afectados.
+
 ---
 
-## 1. Policies — campos y funcionalidades nuevas
+## 1. Policies — campos y funcionalidades
 
 ### 1.1 Campo Tipo (dropdown) — ✅ Hecho
-- `Type` en `Policy` restringido a `Obama Care`, `Salud`, `Auto`, `Otro` vía `[AllowedValues]` en `PolicyCreateDto`.
-- Frontend: `<select>` en el formulario de Policies, igual al de estatus migratorio en Customers.
-- El campo `Type` ya existía en el modelo/DB; no hizo falta migración nueva, solo la validación.
+`Type` en `Policy` restringido a `Obama Care`, `Salud`, `Auto`, `Otro` vía `[AllowedValues]` en `PolicyCreateDto`. `<select>` en el formulario, igual patrón que el resto de los enums.
 
-### 1.2 Dependientes — ✅ Hecho
-Los dependientes son **Customers** vinculados a un Customer principal dentro de una póliza.
-Ejemplo: Javier Hernández es el titular; su esposa e hijo son dependientes en la misma póliza.
-
-- Tabla intermedia `PolicyDependents` (`PolicyId`, `CustomerId` — clave compuesta). Cascade al borrar la póliza; Restrict en el FK a Customer (necesario para evitar múltiples cascade paths en SQL Server, ya que Customer también cascadea a Policy vía el titular).
-- Endpoints: `GET/POST /api/policies/{id}/dependents`, `DELETE /api/policies/{id}/dependents/{customerId}` (el GET no estaba en el diseño original pero es necesario para listar los dependientes actuales en el frontend).
-- Frontend: sección "Dependientes" en el formulario de Policies, visible solo al **editar** una póliza ya guardada (no al crear una nueva). Buscador de clientes filtra en el cliente la lista ya cargada de `customers` (sin nuevo endpoint de búsqueda).
-- De paso se corrigió un bug preexistente: el `<select>` de Customer y la columna Customer de la tabla referenciaban `c.name`/`c.documentNumber` (inexistentes) en lugar de `firstName`/`lastName`/`socialSecurityNumber`.
-- Ver §1.6 para los campos `RelacionConPrincipal` (en `Customer`) e `IsAplicante` (en `PolicyDependent`) agregados después sobre esta misma base.
+### 1.2 Dependientes (vínculo con Customers existentes) — ✅ Hecho
+Los dependientes son **Customers** vinculados a un Customer principal dentro de una póliza (tabla intermedia `PolicyDependents`, `PolicyId`+`CustomerId`).
+- Endpoints: `GET/POST /api/policies/{id}/dependents`, `PUT/DELETE /api/policies/{id}/dependents/{customerId}`.
+- Frontend: sección "Dependientes" en el formulario de Policies, visible solo al **editar** una póliza ya guardada. El buscador filtra en el cliente sobre la lista de `customers` ya cargada — **solo permite vincular Customers que ya existen en el sistema, no crear uno nuevo desde ahí.** Ver §2 (nuevo pendiente).
 
 ### 1.3 Buscador / filtro de pólizas — ✅ Hecho
-Filtros disponibles: nombre del titular, apellido del titular, número de póliza, status, tipo.
-
-- Implementado con la opción B (recomendada): `GET /api/policies?firstName=&lastName=&policyNumber=&status=&type=` con `Where` dinámico contra la DB (`PolicyService.Search`), no filtrado en memoria — así escala mejor que el `GetAll()` + filtro in-memory que había antes.
-- `firstName`/`lastName` filtran por `Customer.FirstName`/`LastName` (contains, case-insensitive por la collation default de SQL Server); `policyNumber` es contains; `status`/`type` son match exacto. Todos combinables (AND).
-- Frontend: barra de filtros arriba de la tabla de Policies con inputs de texto + selects de Status/Type, botones Search y Clear.
-- De paso se eliminó la duplicación de código: el filtrado en memoria que hacía `GetAll` antes de tener query params ya no existe; `GetById`/`GetPoliciesForCustomer` (en `CustomersController`) siguen usando `GetAll()` sin cambios.
+`GET /api/policies?firstName=&lastName=&policyNumber=&status=&type=&insuranceCompany=` con `Where` dinámico contra la DB (`PolicyService.Search`). Filtros combinables (AND), barra de filtros en el frontend con Search/Clear.
 
 ### 1.4 Vista de detalle de póliza — ✅ Hecho (contenido base, faltan campos por definir)
-- Botón 🔍 "View details" en cada fila de la tabla de Policies, abre un modal con:
-  - Datos de la póliza: tipo, status, fechas, prima, número de póliza.
-  - Datos del titular: nombre, SSN, email, teléfono, dirección, estatus migratorio (de `customers`, ya cargado en el frontend, sin fetch nuevo).
-  - Lista de dependientes (reutiliza `GET /api/policies/{id}/dependents`).
-- **Pendiente:** el responsable del requerimiento aún no definió qué información adicional debería mostrarse en el detalle (más allá de los datos que ya existen hoy en `Policy`/`Customer`). Cuando se defina, sumar esos campos al modal — no debería requerir cambios de estructura, solo agregar más `<p>` en la sección correspondiente (o nuevos campos en el modelo si la info no existe todavía).
-- Ver §1.7 para la sección "Documentos" (subir/descargar/eliminar archivos) agregada después dentro de este mismo modal.
+Modal con datos de la póliza, datos del titular, lista de dependientes y documentos (§1.7). Pendiente: el responsable aún no definió qué información adicional debería mostrarse — sumar cuando se defina.
 
-### 1.5 Campo Compañía aseguradora (dropdown) — ✅ Hecho
-- `InsuranceCompany` nuevo en `Policy`, requerido, restringido a `WholeCareInsurance`, `Otro` vía `[AllowedValues]` en `PolicyCreateDto` — mismo patrón que `Type` (§1.1).
-- Migración EF Core aplicada: pólizas ya existentes en la base recibieron `WholeCareInsurance` como default (columna `NOT NULL`, no podía quedar en `null`).
-- Frontend: `<select>` en el formulario de Policies, columna nueva en la tabla, filtro superior y línea nueva en el modal de detalle (§1.4).
-- `PolicyService.Search` extendido con filtro opcional `insuranceCompany` (mismo patrón que `type`).
+### 1.5 Campo Compañía aseguradora (dropdown) — ✅ Hecho, confirmado cerrado
+`InsuranceCompany` en `Policy` (`Models/Policy.cs`), `[Required]` + `[AllowedValues("WholeCareInsurance", "Otro")]` en `PolicyCreateDto`. Migración `20260710172345_AddPolicyInsuranceCompany` aplicada. `<select>` en formulario, columna en tabla, filtro superior y línea en modal de detalle. `PolicyService.Search` soporta filtro `insuranceCompany`. No quedó nada abierto en este punto.
 
 ### 1.6 Relación con el principal (Customer) + Es aplicante (dependiente de póliza) — ✅ Hecho
-- `RelacionConPrincipal` nuevo en `Customer` (no en `PolicyDependent`): es un atributo fijo de la persona, no cambia según la póliza. Requerido, `[AllowedValues]` con `Cónyuge`, `Hijo/a`, `Madre`, `Padre`, `Sobrino/a`, `Nieto/a`, `Hijastro/a`, `Hermano/a`, `Otro` — mismo patrón que `MigrationStatus`/`Type`. Clientes ya existentes recibieron `Otro` como default en la migración.
-- `IsAplicante` (bool) nuevo en `PolicyDependent` (la tabla intermedia), no en `Customer`: a diferencia de `RelacionConPrincipal`, la misma persona puede ser aplicante en una póliza (ej. Obama Care) y no en otra (ej. Auto). Default `false` para los dependientes ya existentes — no marcado significa que sigue siendo parte del grupo familiar de esa póliza pero no se contabiliza como aplicante en reportes futuros.
-- Nuevo endpoint `PUT /api/policies/{id}/dependents/{customerId}` para togglear `IsAplicante` de un dependiente ya agregado, sin tener que quitarlo y volver a agregarlo.
-- Frontend: `<select>` de Relación con el principal en el formulario de Customers (y visible en la tarjeta de cada cliente); checkbox "Es aplicante" junto a cada dependiente ya agregado en la sección Dependientes del formulario de Policies.
+- `RelacionConPrincipal` en `Customer` (`[Required]`, `[AllowedValues]`: `Cónyuge`, `Hijo/a`, `Madre`, `Padre`, `Sobrino/a`, `Nieto/a`, `Hijastro/a`, `Hermano/a`, `Otro`) — atributo fijo de la persona, no cambia según la póliza.
+- `IsAplicante` (bool) en `PolicyDependent` (`Models/PolicyDependent.cs:11`) — confirmado en el modelo y en la migración `20260710173730_AddRelacionPrincipalAndIsAplicante`. La misma persona puede ser aplicante en una póliza y no en otra.
+- `PUT /api/policies/{id}/dependents/{customerId}` togglea `IsAplicante`. Checkbox "Es aplicante" junto a cada dependiente en el frontend.
 
 ### 1.7 Documentos de póliza (subir / descargar / eliminar) — ✅ Hecho
-Nueva sección "Documentos" dentro del modal de detalle de póliza (§1.4). Tipos permitidos: `.pdf`, `.docx`, `.jpg`, `.jpeg`; tamaño máximo 5 MB.
+Modelo `PolicyDocument`, migración `AddPolicyDocuments` aplicada. Archivos en disco fuera de `wwwroot`, validación de extensión/tamaño/magic bytes. Endpoints `POST/GET /api/policies/{id}/documents`, `GET/DELETE /api/policies/{id}/documents/{documentId}`. Frontend: tarjeta "Documents" en el modal de detalle.
 
-- Nuevo modelo `PolicyDocument` (tabla nueva vía migración `AddPolicyDocuments`, sin impacto en datos existentes) con `PolicyId` (FK cascade), nombre original, nombre en disco, tipo de contenido, tamaño y fecha de subida.
-- Archivos guardados en disco del servidor (no en la nube), organizados en una carpeta por `PolicyId` (`App_Data/PolicyDocuments/{policyId}/`), **fuera de `wwwroot`** y sin `UseStaticFiles()` — solo accesibles vía el endpoint autenticado, nunca por URL directa. Nombre en disco es un GUID (evita path traversal y colisiones); el nombre original del usuario nunca se usa para construir una ruta.
-- Validación en el backend de extensión, tamaño **y contenido real del archivo** (magic bytes para PDF/JPEG; para `.docx` se verifica además que las entradas OOXML — `[Content_Types].xml`, `word/document.xml` — existan dentro del ZIP, no solo la firma de ZIP), todo con clases del BCL sin agregar ningún paquete NuGet nuevo.
-- Endpoints: `POST/GET /api/policies/{id}/documents`, `GET/DELETE /api/policies/{id}/documents/{documentId}` (el GET de descarga valida `PolicyId` y `documentId` combinados para evitar acceso cruzado entre pólizas). Al borrar una `Policy` se limpia también su carpeta de documentos en disco.
-- Frontend: tarjeta "Documents" con botón "+ New" para subir, lista de documentos con nombre (link azul), tamaño y fecha, y menú de tres puntos (⋮) con "Descargar"/"Eliminar" por documento — con confirmación antes de eliminar.
-- De paso se corrigió un bug en `apiFetch` (`src/api.js`): forzaba `Content-Type: application/json` en cualquier request con body, lo que rompía los uploads `multipart/form-data` (el browser necesita fijar su propio `Content-Type` con el boundary).
-- Verificado con curl (extensión inválida, tamaño excedido, contenido falso vs. real, acceso cruzado entre pólizas → 404, borrado físico, cleanup de carpeta al borrar la póliza) y con Playwright (subida real por la UI, validación de extensión en cliente, descarga con el nombre original correcto).
+### 1.8 Period (año de vigencia/cobertura) — 🔲 Pendiente, no implementado
+No existe ningún campo `Period` en `Models/Policy.cs` ni en los DTOs (`PolicyCreateDto`/`PolicyUpdateDto`/`PolicyResponseDto`). Falta: campo en el modelo (dropdown o numérico de año), migración, validación `[Required]`, y el `<select>`/input correspondiente en `Policies.jsx`.
 
----
+### 1.9 Number of applicants — 🔲 Pendiente, no implementado
+No existe en el modelo ni en los DTOs de Policy/Dependent. Debe ser numérico, carga manual del agente, ubicado en la sección de Members/Dependientes de la póliza (§1.2).
 
-## 2. Consentimiento firmado y comunicación con clientes
-
-### 2.1 Firma digital de consentimiento de póliza — ⏸ Pendiente de decisión del responsable
-Al generar una póliza, enviar notificación (SMS y/o email) al cliente para que firme digitalmente el consentimiento; nosotros recibimos la notificación y el PDF firmado.
-
-**Opciones de proveedor de firma electrónica (a elegir por quien paga/decide):**
-- **SignWell** — API simple, plan pago accesible (~$8-20/mes según volumen), hosted signing page, webhook al firmar. Menor curva de integración.
-- **Dropbox Sign (HelloSign)** — muy conocido, API similar de simple, precio parecido, buena documentación.
-- **Documenso** (self-host, open source) — sin costo por envío, pero hay que hostearlo nosotros mismos (más trabajo inicial de infraestructura).
-- **DocuSign** — el más robusto/enterprise, pero más complejo de dar de alta (aprobación de cuenta developer) y más caro; probablemente overkill para este caso.
-
-**Notificación — SMS vs. email:**
-- Solo email (más simple): el proveedor de firma ya envía el email con el link, cero integraciones extra.
-- Email + SMS: sumar Twilio (~10-15 líneas) para reenviar el mismo link de firma por SMS. Requiere cuenta de Twilio.
-
-**Flujo general (independiente del proveedor elegido):**
-1. Al crear la póliza, generar el PDF de consentimiento y crear la solicitud de firma vía la API del proveedor.
-2. El proveedor notifica al cliente (email, y opcionalmente SMS con el mismo link).
-3. Cliente firma en la hosted signing page del proveedor.
-4. Proveedor llama a un webhook nuestro cuando se firma → descargamos el PDF firmado y lo asociamos a la `Policy` (nuevo campo de estado de consentimiento + ubicación del PDF).
-
-Implementación pausada hasta que el responsable del requerimiento elija proveedor (y quién lo paga).
-
-### 2.2 Botón de WhatsApp para agentes — ✅ Hecho
-Permitir que el agente contacte directamente al cliente (para pedir documentación u otro trámite) desde la vista de Policies.
-- Implementado como click-to-chat: botón 💬 en cada fila de la tabla de Policies (junto a Editar/Eliminar) que abre `https://wa.me/<telefono>?text=...` en una pestaña nueva, tomando el `Phone` del `Customer` titular y limpiándolo a solo dígitos.
-- Cada agente escribe desde su propio WhatsApp Web/Desktop activo en su computadora — el link no tiene un "número emisor" configurable, solo define el destinatario.
-- Se descartó integrar WhatsApp Business API (mensajes automatizados desde el backend, número fijo de la empresa): decisión del usuario, no se necesita por ahora.
+### 1.10 Enum de Status de Policy — ⚠️ Discrepancia importante, requiere decisión
+`PolicyCreateDto.Status` **no tiene `[AllowedValues]`** (es un `string` libre, default `"Active"`). Los valores realmente usados hoy en el frontend (`Policies.jsx:8`) son:
+```
+Active, Expired, Cancelled, activa
+```
+Esto **no coincide en nada** con los 7 valores solicitados (`Draft, Cancelado, Por procesar, En proceso, Procesado, Actualizado, Cambio de agente`) — ni los nombres ni la cantidad. Además `"activa"` en minúscula sugiere datos sucios/duplicados ya cargados con el enum viejo.
+- Impacto: este cambio también bloquea el widget de tarjetas por estado del Dashboard (§9.2), que asume que el enum de Status ya tiene esos 7 valores.
+- Falta decidir: ¿se migran las pólizas existentes con status `Active`/`Expired`/`Cancelled`/`activa` a los 7 nuevos valores (mapeo manual, ¿cuál mapea a cuál?), o conviven ambos temporalmente? Este mapeo debe definirse con el responsable antes de tocar el modelo.
 
 ---
 
-## 3. Refactorizaciones
+## 2. Extensión del flujo de Dependientes — crear Customer nuevo desde Members — 🔲 Pendiente prioritario
 
-### 3.1 Cliente API centralizado + variable de entorno + manejo de 401 — ✅ Hecho
-- `VITE_API_URL` en `wholecare-admin-vs/.env` (gitignorado, mismo patrón que `appsettings.Development.json`) + `.env.example` commiteado documentando el valor esperado.
-- `src/api.js`: módulo plano (no un hook, ninguna llamada necesita lifecycle de React) con `apiFetch(path, options)` que adjunta el `accessToken` automáticamente y agrega `Content-Type` cuando hay body.
-- Manejo de 401: si la respuesta es 401 y hay `refreshToken`, `apiFetch` refresca y reintenta la request original una vez. El refresh está deduplicado (una sola llamada a `/auth/refresh` aunque varias requests en paralelo devuelvan 401 al mismo tiempo) — necesario porque el refresh token rota en cada uso, así que dos refrescos concurrentes con el token viejo se pisarían. Si el refresh falla, se llama a `logout()` (también deduplicado) y redirige a `/login`.
-- De paso se conectó el botón de Logout (`Header.jsx`) a `POST /auth/logout`, que antes no se llamaba — el refresh token quedaba vivo en la DB hasta expirar (7 días) en vez de invalidarse al instante.
-- `Login.jsx` no pasa por `apiFetch` (sin token, no aplica refresh) — solo usa `import.meta.env.VITE_API_URL` para la URL.
-- Verificado con Playwright: login real, CRUD de una póliza vía UI, simulación de access token corrupto (auto-refresh transparente, un solo POST /auth/refresh), simulación de ambos tokens corruptos (logout automático deduplicado, redirect a /login, localStorage limpio).
+Hoy la sección Dependientes de Policies (§1.2) **solo permite buscar y vincular Customers que ya existen** (`dependentCandidates` en `Policies.jsx` filtra sobre la lista de `customers` ya cargada — no hay ningún flujo de alta). Falta:
+- Opción de crear un Customer **nuevo** directamente desde la sección Members/Dependientes de la póliza (para personas que todavía no existen en el sistema), con paridad de campos con el formulario de Customer completo (incluyendo los campos nuevos de §3).
+- Al crearlo así, debe quedar guardado como un Customer normal en la base y vinculado automáticamente vía `PolicyDependents`.
 
-### 3.2 Mover DTOs de Customer/Policy a archivos separados — ✅ Hecho
-- Nuevas carpetas `DTOs/Customers/` (`CustomerCreateDto`, `CustomerUpdateDto`, `CustomerResponseDto`) y `DTOs/Policies/` (`PolicyCreateDto`, `PolicyUpdateDto`, `PolicyResponseDto`, `DependentCreateDto`, `DependentResponseDto`), mismo patrón que `DTOs/Auth/` y `DTOs/Users/`.
-- De paso se eliminó una duplicación: `PolicyResponseDto` estaba definida idéntica dentro de `PoliciesController` y de `CustomersController` (usada en `GetPoliciesForCustomer`) — ahora es una sola clase compartida.
-- Verificado con curl: validaciones (`MigrationStatus`, `Type` inválidos → 400), alta de póliza, alta/listado de dependientes, todo funcionando igual que antes de mover los archivos.
+No implementar todavía — se documenta como pendiente prioritario según lo pedido. Como depende de que el formulario de Customer esté completo, conviene resolver primero §3.2.
 
 ---
 
-## 4. Customers — asignación de agentes y datos demográficos
+## 3. Customers — campos nuevos
 
-### 4.1 Agente / Agente Asistente / Agente Record + datos demográficos en Customer — ✅ Hecho
-- Nuevos campos opcionales en `Customer`: `ZipCode`, `State`, `City`, `County`, `MaritalStatus`, `Occupation`. Ninguno usa `[AllowedValues]` salvo lo constreñido por el `<select>` del frontend — se probó que `[AllowedValues]` de .NET rechaza `null` en vez de tratarlo como "sin validar", así que hubiera roto estos campos por ser opcionales (mismo motivo por el que `County` tampoco lo usa: además la lista es demasiado grande).
-- `Condado`: dataset de los 3143 condados oficiales del US Census Bureau (`national_county.txt`), bundleado como JSON estático en `wholecare-admin-vs/src/data/usCounties.json`, agrupado por estado. El `<select>` de Condado se resetea si cambia el Estado.
-- `AgentId`/`AssistantAgentId`/`RecordAgentId` nuevos en `Customer` (FKs a `User`, `OnDelete Restrict`, todas nullable — los Customers ya existentes quedan sin agente asignado, no se les inventó un valor). `IsEncargado` nuevo en `User` para poder filtrar el dropdown de Agente Record (solo agentes marcados como Encargado).
-- **La asociación automática de un Customer al agente logueado no existía antes de este cambio** (se creía que sí, se confirmó auditando el código que no había ningún vínculo). Ahora está enteramente en el servidor, no solo oculto en el UI: un usuario no-Admin siempre se auto-asigna como `AgentId` al crear un Customer (el backend ignora cualquier valor que mande el body) y no puede reasignar agentes al editar uno existente; un Admin puede setear los tres campos, validados server-side contra `Rol == "Agente"` (y `IsEncargado == true` para Agente Record).
-- Nueva página `/agentes` (solo visible/accesible para Admin, con redirect si un no-Admin navega ahí directamente) para alta y edición de agentes, con el checkbox "Encargado". Requirió agregar `PUT /users/{id}`, que no existía — antes no había ninguna forma de editar un `User` ya creado.
-- De paso, fix de seguridad: `GET /users` y `GET /users/me` devolvían la entidad `User` cruda (`PasswordHash`/`RefreshTokenHash` incluidos en el JSON) — ahora usan los DTOs de respuesta que ya existían pero no se usaban.
-- Verificado con curl (auto-asignación de agente para no-Admin, validación de `Rol`/`IsEncargado` en los 3 campos de agente, filtro `GET /users?role=Agente`, que un no-Admin no puede reasignar agentes al editar) y con Playwright (formulario de Customers con y sin los dropdowns según rol, alta/edición de agentes, reset de Condado al cambiar Estado, redirect de `/agentes` para no-Admin).
+### 3.1 Ya implementado: Agente / Agente Asistente / Agente Record + datos demográficos — ✅ Hecho
+- `Customer`: `ZipCode`, `State`, `City`, `County`, `MaritalStatus`, `Occupation` (todos opcionales, sin `[AllowedValues]` a propósito — ver comentario en `CustomerCreateDto.cs`).
+- `County`: dataset de los 3143 condados del US Census Bureau, bundleado en `src/data/usCounties.json`, filtrado por Estado (`<select>` de Condado se resetea si cambia el Estado).
+- `AgentId`/`AssistantAgentId`/`RecordAgentId` en `Customer` (FKs a `User`, nullable, `OnDelete Restrict`). No-Admin se auto-asigna como `AgentId` al crear (forzado server-side); Admin puede setear los tres, validados contra `Rol == "Agente"` (`RecordAgentId` además contra `IsEncargado == true`).
+- Página `/agentes` (solo Admin) para alta/edición de agentes.
 
----
+### 3.2 Campos pendientes de agregar — 🔲 Pendiente, ninguno implementado
+Auditado `Models/Customer.cs` completo — el modelo hoy solo tiene: `SocialSecurityNumber`, `FirstName`, `LastName`, `DateOfBirth`, `Email`, `Address` (campo único, no separado en #1/#2), `Phone`, `MigrationStatus`, `RelacionConPrincipal`, más lo listado en §3.1. **Ninguno de los siguientes campos existe en el modelo, DTOs, migraciones ni formulario**:
+- Middle name (texto, opcional)
+- Gender (dropdown: Masculino, Femenino, Otro)
+- Green card (texto, número de tarjeta, opcional)
+- Work permit (texto, número de permiso, opcional)
+- Address # 1 (texto, obligatorio) / Address # 2 (texto, opcional) — hoy es un solo campo `Address`, habría que decidir si se migra el dato existente a Address#1 o se agregan campos nuevos en paralelo
+- Employer name (texto, opcional)
+- Company Phone (texto, opcional)
+- Annual income (numérico/moneda, obligatorio)
+- Tags (texto libre — PENDIENTE de definir uso exacto con el responsable, no bloqueante para implementar como campo simple)
+- Language (dropdown English/Spanish) — idioma de preferencia de **contacto** del cliente. **No confundir con `User.PreferredLanguage`** (§6.2), que es el idioma de la interfaz del usuario logueado — son conceptos distintos, ninguno de los dos cubre al otro.
 
-## 5. Dashboard y UX general
+### 3.3 Renombrado "Legal Status" (label, sin cambio de modelo) — 🔲 Pendiente, no implementado
+El campo `MigrationStatus` sigue mostrándose en el formulario como **"Migration Status"** (`src/i18n/locales/en/customers.json:16`, `src/i18n/locales/es/customers.json:16` dice "Estatus migratorio", que ya está bien en español). Falta solo cambiar la clave de traducción en inglés a "Legal Status" — el campo, los valores (`Permiso de trabajo`, `Residente permanente`, `Ciudadano`, `Otro`) y el modelo no cambian. Es un cambio de una línea cuando se priorice.
 
-### 5.1 Dashboard — ver §8
-El Dashboard hoy es un placeholder (`<h1>Dashboard ✅</h1>` en `App.jsx`). Definiciones y alcance movidos a la §8 (bloqueado hasta tener la data migrada, ver §7.2).
-
-### 5.2 Selector de idioma (Español/Inglés) en el Header — ✅ Hecho
-`react-i18next` con diccionarios por namespace (`common`, `login`, `customers`, `policies`, `agentes`, `enums`) en inglés/español, Inglés como default.
-- Alcance: toda la UI (labels, botones, títulos, mensajes) **y** los valores mostrados en los dropdowns (`Type`, `MigrationStatus`, `RelacionConPrincipal`, `MaritalStatus`, `InsuranceCompany`, `Status`, `Rol`). El `translateEnum()` de `src/i18n/translateEnum.js` desacopla el valor guardado en la DB (siempre en español, el backend no cambió) del texto mostrado — no usa `t()` a propósito porque varios valores tienen `/` o espacios (`Hijo/a`, `Unión libre`) que romperían el key-parsing por defecto de i18next.
-- Persistencia: `User.PreferredLanguage` nuevo en el backend (default `"en"`, migración aplicada), incluido directo en la respuesta de `/auth/login` (sin round-trip extra) y actualizable vía `PUT /users/me/language` (self-service, cualquier usuario autenticado, no solo Admin).
-- Carga antes de renderizar: al hacer login el idioma llega en la misma respuesta; al recargar con sesión ya activa, `localStorage` actúa solo como cache de arranque rápido (pinta instantáneo) y `AppLayout` reconcilia en segundo plano contra `GET /users/me` sin bloquear el primer render — si el usuario cambió el idioma desde otra computadora, se corrige apenas responde esa llamada.
-- Verificado con curl (`preferredLanguage` en la respuesta de login, `PUT /users/me/language`, rechazo de idioma inválido) y con Playwright (traducción de dropdowns en ambos idiomas, cambio de idioma en caliente con el modal de detalle de póliza abierto, persistencia tras logout/login, y el escenario de "otra computadora" con un browser context sin cache).
-
----
-
-## 7. Hosting y despliegue (VPS)
-
-### 7.1 Infraestructura — ⏸ Pendiente de implementación (Dockerfiles + compose + README)
-VPS ya comprado y corriendo: Ubuntu 24.04, KVM2 (2 CPU, 8GB RAM, 100GB disco), con **EasyPanel** preinstalado (panel de gestión basado en Docker).
-
-**Cambio de plan respecto a la decisión original (Hostinger + Ubuntu 22.04 + SQL Server nativo + NGINX/Certbot/systemd manual):** en vez de instalar SQL Server nativo en el servidor (no soportado oficialmente en Ubuntu 24.04), todo corre **vía Docker a través de EasyPanel**: SQL Server como contenedor (imagen oficial de Microsoft), la API .NET como contenedor, y el frontend como contenedor NGINX sirviendo el build estático. EasyPanel maneja reverse proxy y SSL automático — ya no hace falta configurar NGINX/Certbot/systemd a mano.
-
-Dos ambientes (test y producción) como proyectos separados dentro de EasyPanel, cada uno con sus propias variables de entorno y contenedores de API/frontend.
-
-**Decisiones tomadas para la dockerización (2026-07-10):**
-- **Frontend / `VITE_API_URL`:** Vite hornea esta variable en build time, no se puede cambiar en runtime. Se pasa como `ARG` de Docker (build-arg) — cada app de EasyPanel (test/prod) define su propio valor y reconstruye la imagen para ese ambiente.
-- **Migraciones EF Core:** auto-migrate al iniciar (`dbContext.Database.Migrate()` en `Program.cs`, junto al `AdminUserSeeder` que ya corre ahí) — sin esto habría que correr `dotnet ef database update` manualmente contra el contenedor en cada deploy.
-- **Topología de SQL Server:** un solo contenedor `mcr.microsoft.com/mssql/server` compartido entre test y producción, con dos bases de datos separadas dentro (no dos contenedores completos) — con 8GB de RAM totales repartidos entre 2 ambientes de API+frontend+DB, dos instancias completas de SQL Server quedarían ajustadas.
-
-**Otros hallazgos a resolver durante la implementación (no solo config, requieren cambio de código):**
-- CORS (`Program.cs`, policy `AllowFrontend`) tiene `http://localhost:5173` hardcodeado — debe leerse de una variable de entorno (ej. `Cors:AllowedOrigin`) ya que el frontend en prod estará en otro dominio.
-- `app.UseHttpsRedirection()` fuera de Development puede causar redirect loops detrás del reverse proxy de EasyPanel (que termina el SSL y habla HTTP al contenedor) — hay que condicionarlo con una variable propia y agregar `UseForwardedHeaders` para `X-Forwarded-Proto`.
-- `App_Data/PolicyDocuments` (documentos subidos, §1.7) necesita un volumen persistente en el contenedor de la API — sin volumen, los documentos se pierden en cada redeploy.
-- `Jwt:Key`/connection string hardcodeados en `appsettings.json` (el placeholder de dev y la connection string de `localdb`) deben vaciarse/neutralizarse ahí; en prod se inyectan por variable de entorno (`Jwt__Key`, `ConnectionStrings__DefaultConnection`, convención de doble guion bajo de ASP.NET Core). El `Jwt:Key` de producción debe ser un valor nuevo y fuerte (≥32 chars), distinto del de `appsettings.Development.json`.
-
-**Próximo paso:** implementar `WholeCareInsurance.api/Dockerfile` (multi-stage SDK→runtime), `wholecare-admin-vs/Dockerfile` (multi-stage Node→NGINX), los cambios de código de arriba, un `docker-compose.yml` de referencia para probar localmente, y un `README.md` con los pasos de alta en EasyPanel (SQL Server compartido con 2 DBs → app API con sus env vars por ambiente → app frontend con su build-arg).
-
-### 7.2 Migración de datos del sistema anterior — ⏸ Pendiente de archivo CSV
-El responsable del proyecto va a proveer un CSV con la información actual de clientes, agentes y pólizas del sistema anterior, para migrar a esta base de datos. Pendiente de recibir el archivo (o una muestra) para definir estructura y mapeo de relaciones antes de armar el script de migración. La migración se probará primero contra la base del ambiente de test (ver 7.1), nunca directo contra producción.
+### 3.4 Cambio en modelo de Agente — `IsEncargado` (NPM) — ✅ Hecho
+`IsEncargado` (bool) en `Models/User.cs:10`, checkbox en el formulario de Agentes (`Agentes.jsx:155`), usado para filtrar el dropdown de Agente Record en Customers (§3.1). No queda nada pendiente en este punto.
 
 ---
 
-## 8. Dashboard — ⏸ Bloqueado hasta tener la data migrada
+## 4. Consentimiento firmado y comunicación con clientes
 
-No implementar hasta que la migración de datos del sistema anterior (§7.2) esté completa — el diseño y las estadísticas tienen mucho más sentido validados contra datos reales que contra una base vacía o de prueba.
+### 4.1 Firma digital de consentimiento de póliza — ⏸ Pendiente de decisión del responsable
+Sin cambios desde la última revisión — confirmado que sigue sin implementar (no hay ninguna referencia a SignWell/DocuSign/HelloSign/Documenso en el código, solo en este documento).
 
-### 8.1 Paleta de colores general (aplica a toda la app, no solo Dashboard)
+**Opciones de proveedor:** SignWell, Dropbox Sign (HelloSign), Documenso (self-host), DocuSign — ver comparación completa más abajo en el historial de este documento si hace falta retomarla. **Notificación:** email solo, o email + SMS (Twilio). **Flujo:** generar PDF al crear la póliza → proveedor notifica al cliente → cliente firma en hosted signing page → webhook nuestro descarga el PDF firmado y lo asocia a la `Policy` (nuevo campo de estado de consentimiento + ubicación del PDF).
+
+Implementación pausada hasta que el responsable elija proveedor (y quién lo paga).
+
+### 4.2 Botón de WhatsApp para agentes — ✅ Hecho
+Click-to-chat: botón 💬 en cada fila de la tabla de Policies, abre `https://wa.me/<telefono>?text=...` con el `Phone` del Customer titular.
+
+---
+
+## 5. Refactorizaciones
+
+### 5.1 Cliente API centralizado + variable de entorno + manejo de 401 — ✅ Hecho
+`VITE_API_URL`, `src/api.js` con `apiFetch`, refresh automático deduplicado en 401, logout deduplicado.
+
+### 5.2 Mover DTOs de Customer/Policy a archivos separados — ✅ Hecho
+`DTOs/Customers/`, `DTOs/Policies/`, mismo patrón que `DTOs/Auth/` y `DTOs/Users/`.
+
+---
+
+## 6. Dashboard y UX general
+
+### 6.1 Dashboard — ver §9
+Placeholder, bloqueado hasta tener la data migrada (§7).
+
+### 6.2 Selector de idioma (Español/Inglés) en el Header — ✅ Hecho, confirmado
+`react-i18next` con diccionarios por namespace. `translateEnum()` desacopla el valor guardado en la DB (español) del texto mostrado. `User.PreferredLanguage` (default `"en"`) persistido vía `PUT /users/me/language`. Sin cambios desde la última revisión — sigue sin nada pendiente en este punto.
+
+---
+
+## 7. Migración de datos del sistema anterior — ⏸ Bloqueado, en espera de respuesta
+
+Se solicitó al responsable del proyecto el archivo de export **completo** (todas las pólizas, todos los tipos en un solo archivo, no separado por tipo). Quedaron 4 preguntas enviadas, **en espera de respuesta**:
+1. Si la columna "Members" trae solo cantidad o el detalle completo de cada dependiente.
+2. Si existe un ID interno para Agentes/Agencias además del nombre.
+3. Si el export incluye solo pólizas activas o también históricas/canceladas.
+4. Diccionario de datos para: Reference, Marketplace ID, Contract identification, Renewal status, Confirmed consent.
+
+**Columnas detectadas** en la pantalla de export del sistema anterior (referencia para el futuro mapeo): Reference, Agency, Agent, Full name, First/Middle/Last name, DOB, Gender, Email, Phone, Legal Status, SSN, Green card, Work permit, Estado civil, Address 1/2, City, State/Province, Zip code, County, Employer name, Company Phone, Position/Occupation, Annual income, Policy number, Marketplace ID, Contract identification, Number of applicants, Effective date, Company, Insurance plan, Type of plan, Tax Credit/Subsidy, Monthly premium amount, Status, Tags, Period, Confirmed consent, Registration date, Update date, Renewal status, Members.
+
+> Nota: buena parte de estas columnas mapean directo a los campos nuevos de Customer/Policy pendientes en §3.2, §1.8 y §1.9 — conviene cerrar esos campos antes de diseñar el script de migración, para no mapear dos veces.
+
+**BLOQUEADO:** no diseñar el script de migración hasta recibir el archivo real + las 4 respuestas. Se probará primero contra la base del ambiente de test (§8.1), nunca directo contra producción.
+
+**Punto abierto no bloqueante:** cada dependiente en el sistema anterior tiene un campo "Policy number" individual — no está claro su propósito, aclarar con el responsable más adelante (no urgente).
+
+---
+
+## 8. Hosting y despliegue (VPS)
+
+### 8.1 Infraestructura — ⏸ Pendiente de implementación (Dockerfiles + compose + README)
+VPS ya comprado y corriendo: Ubuntu 24.04, KVM2 (2 CPU, 8GB RAM, 100GB disco), con **EasyPanel** preinstalado.
+
+**Decisiones tomadas:**
+- SQL Server como **contenedor** Docker (`mcr.microsoft.com/mssql/server`) — no instalación nativa, por incompatibilidad de Ubuntu 24.04 con SQL Server nativo.
+- Un solo contenedor de SQL Server compartido entre test y producción, con 2 bases de datos separadas (`WholeCareInsuranceDb_Test` y `WholeCareInsuranceDb_Prod`) — por limitación de RAM (8GB totales).
+- Frontend: `VITE_API_URL` se resuelve vía build-arg por ambiente (no runtime) — cada ambiente reconstruye su propia imagen.
+- Migraciones EF Core: auto-migrate al iniciar el contenedor de la API (`dbContext.Database.Migrate()` en el startup).
+- Variables de entorno mapeadas: `ConnectionStrings__DefaultConnection`, `Jwt__Key`, `Jwt__Issuer`, `Jwt__Audience`, `Jwt__AccessTokenMinutes`, `Cors__AllowedOrigin`, `ASPNETCORE_ENVIRONMENT`.
+
+**Cambios de código pendientes identificados** (no solo config):
+- Quitar/condicionar `app.UseHttpsRedirection()` fuera de Development (conflicto con el proxy de EasyPanel) + agregar `UseForwardedHeaders` para `X-Forwarded-Proto`.
+- Mover CORS `AllowedOrigin` (hoy hardcodeado a `http://localhost:5173`) a variable de entorno.
+- Volumen persistente para `App_Data/PolicyDocuments` (§1.7) — sin volumen, los documentos se pierden en cada redeploy.
+- Vaciar `Jwt:Key`/connection string hardcodeados en `appsettings.json`; en prod se inyectan por variable de entorno.
+
+**Próximo paso:** `WholeCareInsurance.api/Dockerfile`, `wholecare-admin-vs/Dockerfile`, los cambios de código de arriba, `docker-compose.yml` de referencia, `README.md` de despliegue en EasyPanel. Se decidió posponer la ejecución para una próxima sesión dedicada.
+
+### 8.2 Ver §7 para la migración de datos (antes en esta sección, movida para agrupar con el resto de la migración).
+
+---
+
+## 9. Dashboard — ⏸ Bloqueado hasta tener la data migrada
+
+No implementar hasta que la migración de datos del sistema anterior (§7) esté completa.
+
+### 9.1 Paleta de colores general (aplica a toda la app, no solo Dashboard)
 - Colores a resaltar: verde, blanco y azul.
-- Botones semánticos (donde aplique en cualquier pantalla, no solo Dashboard):
-  - Submit/Guardar → verde
-  - Eliminar → rojo
-  - Editar → amarillo
+- Botones semánticos: Submit/Guardar → verde, Eliminar → rojo, Editar → amarillo.
 
-### 8.2 Referencia visual del Dashboard
-Se tomó como referencia un dashboard de otro sistema del rubro, con esta estructura (adaptar al estilo/paleta propios, no copiar tal cual):
+### 9.2 Referencia visual del Dashboard
+Fila de tarjetas KPI: Agencias, Agentes, Pólizas (+ miembros), Recordatorios.
+Fila de tarjetas por estado de póliza (cantidad + miembros por cada una): Draft, Cancelado, Por procesar, En proceso, Procesado, Actualizado, Cambio de agente.
+⚠️ **Depende de §1.10** — el enum de Status hoy no tiene estos 7 valores, hay que resolver eso primero.
+Gráficos: torta "Pólizas por Tipo" (campo `Type`, ya existe), torta "Pólizas por Status".
 
-Fila de tarjetas KPI (parte superior):
-- Agencias (cantidad)
-- Agentes (cantidad)
-- Pólizas (cantidad + cantidad de miembros)
-- Recordatorios (cantidad)
+### 9.3 Estadísticas adicionales solicitadas
+Cantidad de pólizas/clientes por Compañía aseguradora (ya existe, §1.5), por Cliente, por Miembros (dependientes + titulares), por Condado, por Ciudad.
+⚠️ Condado y Ciudad ya existen en `Customer` (§3.1) — este punto ya no está bloqueado por falta del campo, pero sigue bloqueado por falta de datos migrados (§7).
 
-Fila de tarjetas por estado de póliza (cantidad + cantidad de miembros por cada una):
-- Draft
-- Cancelado
-- Por procesar
-- En proceso
-- Procesado
-- Actualizado
-- Cambio de agente
+### 9.4 Pendiente de definir antes de implementar
+- ¿Filtros por rango de fechas o por agente, o siempre total general?
+- ¿"Reminders" es un concepto ya existente o una funcionalidad nueva a definir aparte? (auditado: no existe ningún modelo/tabla de recordatorios hoy en el backend)
+- ¿Existe algún rol intermedio (ej. supervisor de agencia)? Hoy el sistema solo maneja `Admin`/`Agente` (`User.Rol`, sin otros valores en uso).
 
-(Nota: estos estados deberían coincidir con los valores reales del campo Status de Policy que ya existe en el sistema — revisar que los nombres calcen o definir el mapeo antes de implementar.)
+### 9.5 Alcance de datos según rol
+Admin ve todo; Agente ve solo lo propio (mismo criterio de scoping que ya usa el resto de la API vía `AgentId`). Los endpoints de estadísticas deben aplicar el mismo filtro — no exponer un endpoint que devuelva el total global sin control de acceso.
 
-Gráficos:
-- Torta "Pólizas por Tipo" (usando el campo Type que ya existe)
-- Torta "Pólizas por Status"
+### 9.6 Widget "Últimas pólizas" (Latest policies)
+Últimas 10 pólizas por fecha de actualización. Columnas: Cliente (link), teléfono/email, Status (badge), fecha/hora de última actualización. Mismo scoping por rol (§9.5).
 
-### 8.3 Estadísticas adicionales solicitadas (más allá de la referencia visual)
-- Cantidad de pólizas/clientes por Compañía aseguradora (campo agregado en el punto de Compañía aseguradora)
-- Cantidad por Cliente
-- Cantidad por Miembros (dependientes + titulares)
-- Cantidad por Condado
-- Cantidad por Ciudad
-
-(Nota: Condado y Ciudad son campos que se agregan en el punto pendiente "Campos nuevos de Customer" — el Dashboard depende de que ese punto esté implementado y con datos cargados/migrados para poder graficar por esas dimensiones.)
-
-### 8.4 Pendiente de definir antes de implementar
-- ¿Los reportes/gráficos deben poder filtrarse por rango de fechas o por agente (según el rol logueado), o siempre muestran el total general?
-- ¿"Reminders" (recordatorios) es un concepto que ya existe en el sistema o es una funcionalidad nueva a definir aparte?
-- ¿Existe algún rol intermedio (ej. supervisor de agencia) que deba ver un subconjunto más amplio que "solo lo propio" pero menor que "todo"? Confirmar si aplica o si el sistema hoy solo maneja Admin/Agente.
-
-### 8.5 Alcance de datos según rol — IMPORTANTE, cambia el diseño de las queries
-La vista de referencia corresponde a un Administrador (ve todo: todas las agencias, todos los agentes, todas las pólizas). Para el resto de los roles, el Dashboard debe mostrar solo lo que le corresponde a ese agente logueado, no el total del sistema.
-- Administrador: ve los KPIs y gráficos globales.
-- Agente (rol normal): ve únicamente sus propias pólizas/clientes — mismo criterio de scoping que ya se usa hoy para que un agente solo vea sus propios Customers (AgentId = agente logueado).
-- Esto implica que los endpoints de estadísticas del backend deben aplicar el mismo filtro por rol/agente que ya usa el resto de la API — no exponer un endpoint que devuelva el total global sin control de acceso.
-
-### 8.6 Widget "Últimas pólizas" (Latest policies)
-- Lista de las últimas pólizas creadas/actualizadas, ordenadas por fecha (más reciente primero).
-- Cantidad por defecto: 10 (configurable más adelante, no ahora).
-- Columnas: Cliente (nombre, como link), teléfono/email, Status (badge de color según estado), fecha y hora de última actualización.
-- Sujeto al mismo scoping por rol que el resto del Dashboard (§8.5).
-
-### 8.7 Widget "Próximos/recientes a cumplir 65 años" (elegibilidad Medicare)
-- Ventana: desde 4 meses antes hasta 4 meses después de la fecha de cumpleaños 65 (incluye a quienes ya cumplieron, dentro de los 4 meses posteriores).
-- Columnas: nombre (link al cliente), fecha de nacimiento, edad.
-- Decisión de implementación: SIN job/proceso aparte. Se calcula directamente a partir de FechaNacimiento en la query del Dashboard (comparando contra la fecha actual), no se guarda un campo persistido ni se necesita un proceso periódico. Más simple, siempre exacto, evita la complejidad de un BackgroundService.
-- Sujeto al mismo scoping por rol que el resto del Dashboard (§8.5).
+### 9.7 Widget "Próximos/recientes a cumplir 65 años" (elegibilidad Medicare)
+Ventana: 4 meses antes/después del cumpleaños 65. Columnas: nombre (link), fecha de nacimiento, edad. Sin job ni campo persistido — calculado al vuelo desde `DateOfBirth` en la query. Mismo scoping por rol (§9.5).
 
 ---
 
-## 6. Orden sugerido de trabajo
+## 10. Orden sugerido de trabajo
 
-1. ~~Tipo en Policy (backend + frontend)~~ ✅ Hecho
-2. ~~Dependientes (backend: modelo + endpoints → frontend: buscador + botón agregar)~~ ✅ Hecho
-3. ~~Botón de WhatsApp (click-to-chat)~~ ✅ Hecho
+1. ~~Tipo en Policy~~ ✅ Hecho
+2. ~~Dependientes (vínculo con Customers existentes)~~ ✅ Hecho
+3. ~~Botón de WhatsApp~~ ✅ Hecho
 4. ~~Buscador/filtro de pólizas~~ ✅ Hecho
-5. ~~Modal de detalle de póliza~~ ✅ Hecho (contenido base; faltan campos por definir, ver §1.4)
-6. ~~Refactorizaciones: variable de entorno, cliente API, refresh automático~~ ✅ Hecho (ver §3.1)
-7. ~~Mover DTOs de Customer/Policy a archivos separados~~ ✅ Hecho (ver §3.2)
-8. ~~Campo Compañía aseguradora en Policy~~ ✅ Hecho (ver §1.5)
-9. ~~Relación con el principal (Customer) + Es aplicante (dependiente de póliza)~~ ✅ Hecho (ver §1.6)
-10. ~~Documentos de póliza (subir/descargar/eliminar)~~ ✅ Hecho (ver §1.7)
-11. ~~Agentes (Agente/Asistente/Record) + datos demográficos en Customer~~ ✅ Hecho (ver §4.1)
-12. ~~Selector de idioma ES/EN~~ ✅ Hecho (ver §5.2)
-13. Firma digital de consentimiento — bloqueado hasta que el responsable elija proveedor (ver §2.1)
-14. Dashboard — bloqueado hasta tener la data migrada (ver §8)
-15. Infraestructura de hosting (VPS) — bloqueado hasta la compra del VPS en Hostinger (ver §7.1)
-16. Migración de datos del sistema anterior — bloqueado hasta recibir el CSV (ver §7.2)
+5. ~~Modal de detalle de póliza~~ ✅ Hecho (contenido base, ver §1.4)
+6. ~~Refactorizaciones (API client, variable de entorno, refresh automático)~~ ✅ Hecho
+7. ~~Mover DTOs de Customer/Policy a archivos separados~~ ✅ Hecho
+8. ~~Compañía aseguradora en Policy~~ ✅ Hecho (confirmado cerrado, §1.5)
+9. ~~Relación con el principal + Es aplicante~~ ✅ Hecho
+10. ~~Documentos de póliza~~ ✅ Hecho
+11. ~~Agentes (Agente/Asistente/Record) + datos demográficos en Customer~~ ✅ Hecho
+12. ~~Selector de idioma ES/EN~~ ✅ Hecho
+13. **Definir y cerrar el enum de Status de Policy (§1.10)** — bloquea el Dashboard, conviene resolverlo antes de seguir sumando campos nuevos
+14. Campos nuevos de Customer (§3.2) + renombrado "Legal Status" (§3.3)
+15. Period + Number of applicants en Policy (§1.8, §1.9)
+16. Crear Customer nuevo desde Members/Dependientes de la póliza (§2)
+17. Firma digital de consentimiento — bloqueado hasta que el responsable elija proveedor (§4.1)
+18. Infraestructura de hosting (VPS) — plan definido, pendiente de ejecución (§8.1)
+19. Migración de datos del sistema anterior — bloqueado hasta recibir el archivo + respuestas (§7)
+20. Dashboard — bloqueado hasta tener la data migrada, y hasta resolver §1.10 (§9)
