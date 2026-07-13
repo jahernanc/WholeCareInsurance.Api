@@ -25,6 +25,8 @@ const RELACIONES_PRINCIPAL = [
     "Otro",
 ];
 const MARITAL_STATUSES = ["Soltero/a", "Casado/a", "Divorciado/a", "Viudo/a", "Unión libre"];
+const GENDERS = ["Masculino", "Femenino"];
+const CONTACT_LANGUAGES = ["Inglés", "Español"];
 
 const emptyForm = {
     socialSecurityNumber: "",
@@ -32,7 +34,7 @@ const emptyForm = {
     lastName: "",
     dateOfBirth: "",
     email: "",
-    address: "",
+    address1: "",
     phone: "",
     migrationStatus: "",
     relacionConPrincipal: "",
@@ -45,6 +47,16 @@ const emptyForm = {
     agentId: "",
     assistantAgentId: "",
     recordAgentId: "",
+    middleName: "",
+    gender: "",
+    greenCard: "",
+    workPermit: "",
+    address2: "",
+    employerName: "",
+    companyPhone: "",
+    annualIncome: "",
+    tags: "",
+    contactLanguage: "",
 };
 
 function Customers() {
@@ -115,7 +127,7 @@ function Customers() {
             lastName: c.lastName,
             dateOfBirth: c.dateOfBirth?.substring(0, 10) ?? "",
             email: c.email,
-            address: c.address,
+            address1: c.address1,
             phone: c.phone,
             migrationStatus: c.migrationStatus,
             relacionConPrincipal: c.relacionConPrincipal,
@@ -128,6 +140,16 @@ function Customers() {
             agentId: c.agentId ?? "",
             assistantAgentId: c.assistantAgentId ?? "",
             recordAgentId: c.recordAgentId ?? "",
+            middleName: c.middleName ?? "",
+            gender: c.gender ?? "",
+            greenCard: c.greenCard ?? "",
+            workPermit: c.workPermit ?? "",
+            address2: c.address2 ?? "",
+            employerName: c.employerName ?? "",
+            companyPhone: c.companyPhone ?? "",
+            annualIncome: c.annualIncome ?? "",
+            tags: c.tags ?? "",
+            contactLanguage: c.contactLanguage ?? "",
         });
         setFormError("");
         setShowForm(true);
@@ -145,6 +167,7 @@ function Customers() {
             agentId: form.agentId ? Number(form.agentId) : null,
             assistantAgentId: form.assistantAgentId ? Number(form.assistantAgentId) : null,
             recordAgentId: form.recordAgentId ? Number(form.recordAgentId) : null,
+            annualIncome: form.annualIncome === "" ? 0 : Number(form.annualIncome),
         };
 
         try {
@@ -225,14 +248,34 @@ function Customers() {
                                 <input name="lastName" value={form.lastName} onChange={handleField} required style={inputStyle} />
                             </div>
 
+                            <div>
+                                <label style={labelStyle}>{t("form.fields.middleName")}</label>
+                                <input name="middleName" value={form.middleName} onChange={handleField} style={inputStyle} />
+                            </div>
+
+                            <div>
+                                <label style={labelStyle}>{t("form.fields.gender")}</label>
+                                <select name="gender" value={form.gender} onChange={handleField} style={inputStyle}>
+                                    <option value="">{t("form.selectPlaceholder")}</option>
+                                    {GENDERS.map((g) => (
+                                        <option key={g} value={g}>{translateEnum("gender", g)}</option>
+                                    ))}
+                                </select>
+                            </div>
+
                             <div style={{ gridColumn: "1 / -1" }}>
                                 <label style={labelStyle}>{t("form.fields.email")}</label>
                                 <input type="email" name="email" value={form.email} onChange={handleField} required style={inputStyle} />
                             </div>
 
                             <div style={{ gridColumn: "1 / -1" }}>
-                                <label style={labelStyle}>{t("form.fields.address")}</label>
-                                <input name="address" value={form.address} onChange={handleField} required style={inputStyle} />
+                                <label style={labelStyle}>{t("form.fields.address1")}</label>
+                                <input name="address1" value={form.address1} onChange={handleField} required style={inputStyle} />
+                            </div>
+
+                            <div style={{ gridColumn: "1 / -1" }}>
+                                <label style={labelStyle}>{t("form.fields.address2")}</label>
+                                <input name="address2" value={form.address2} onChange={handleField} style={inputStyle} />
                             </div>
 
                             <div>
@@ -305,6 +348,46 @@ function Customers() {
                                 <input name="occupation" value={form.occupation} onChange={handleField} style={inputStyle} />
                             </div>
 
+                            <div>
+                                <label style={labelStyle}>{t("form.fields.greenCard")}</label>
+                                <input name="greenCard" value={form.greenCard} onChange={handleField} style={inputStyle} />
+                            </div>
+
+                            <div>
+                                <label style={labelStyle}>{t("form.fields.workPermit")}</label>
+                                <input name="workPermit" value={form.workPermit} onChange={handleField} style={inputStyle} />
+                            </div>
+
+                            <div>
+                                <label style={labelStyle}>{t("form.fields.employerName")}</label>
+                                <input name="employerName" value={form.employerName} onChange={handleField} style={inputStyle} />
+                            </div>
+
+                            <div>
+                                <label style={labelStyle}>{t("form.fields.companyPhone")}</label>
+                                <input name="companyPhone" value={form.companyPhone} onChange={handleField} style={inputStyle} />
+                            </div>
+
+                            <div>
+                                <label style={labelStyle}>{t("form.fields.annualIncome")}</label>
+                                <input type="number" min="0" step="0.01" name="annualIncome" value={form.annualIncome} onChange={handleField} required style={inputStyle} />
+                            </div>
+
+                            <div>
+                                <label style={labelStyle}>{t("form.fields.contactLanguage")}</label>
+                                <select name="contactLanguage" value={form.contactLanguage} onChange={handleField} style={inputStyle}>
+                                    <option value="">{t("form.selectPlaceholder")}</option>
+                                    {CONTACT_LANGUAGES.map((l) => (
+                                        <option key={l} value={l}>{translateEnum("contactLanguage", l)}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div style={{ gridColumn: "1 / -1" }}>
+                                <label style={labelStyle}>{t("form.fields.tags")}</label>
+                                <input name="tags" value={form.tags} onChange={handleField} style={inputStyle} />
+                            </div>
+
                             {userIsAdmin && (
                                 <>
                                     <div>
@@ -372,13 +455,22 @@ function Customers() {
                                 <span>{t("card.birth")}: {c.dateOfBirth?.substring(0, 10)}</span>
                                 <span>{t("card.email")}: {c.email}</span>
                                 <span>{t("card.phone")}: {c.phone}</span>
-                                <span style={{ gridColumn: "1 / -1" }}>{t("card.address")}: {c.address}</span>
+                                <span style={{ gridColumn: "1 / -1" }}>{t("card.address")}: {[c.address1, c.address2].filter(Boolean).join(", ")}</span>
                                 <span>{t("card.status")}: {translateEnum("migrationStatus", c.migrationStatus)}</span>
                                 <span>{t("card.relacionConPrincipal")}: {translateEnum("relacionConPrincipal", c.relacionConPrincipal)}</span>
                                 <span>{t("card.zipCode")}: {c.zipCode || "-"}</span>
                                 <span>{t("card.locationLabel")}: {[c.city, c.county, c.state].filter(Boolean).join(", ") || "-"}</span>
                                 <span>{t("card.maritalStatus")}: {translateEnum("maritalStatus", c.maritalStatus) || "-"}</span>
                                 <span>{t("card.occupation")}: {c.occupation || "-"}</span>
+                                <span>{t("card.middleName")}: {c.middleName || "-"}</span>
+                                <span>{t("card.gender")}: {translateEnum("gender", c.gender) || "-"}</span>
+                                <span>{t("card.greenCard")}: {c.greenCard || "-"}</span>
+                                <span>{t("card.workPermit")}: {c.workPermit || "-"}</span>
+                                <span>{t("card.employerName")}: {c.employerName || "-"}</span>
+                                <span>{t("card.companyPhone")}: {c.companyPhone || "-"}</span>
+                                <span>{t("card.annualIncome")}: {c.annualIncome}</span>
+                                <span>{t("card.tags")}: {c.tags || "-"}</span>
+                                <span>{t("card.contactLanguage")}: {translateEnum("contactLanguage", c.contactLanguage) || "-"}</span>
                                 <span>{t("card.agent")}: {c.agentName || "-"}</span>
                                 {userIsAdmin && <span>{t("card.assistantAgent")}: {c.assistantAgentName || "-"}</span>}
                                 {userIsAdmin && <span>{t("card.recordAgent")}: {c.recordAgentName || "-"}</span>}

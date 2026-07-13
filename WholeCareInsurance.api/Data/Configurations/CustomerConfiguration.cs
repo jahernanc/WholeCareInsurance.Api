@@ -20,7 +20,7 @@ namespace WholeCareInsurance.api.Data.Configurations
             entity.Property(c => c.Email).IsRequired().HasMaxLength(200);
             entity.HasIndex(c => c.Email).IsUnique();
 
-            entity.Property(c => c.Address).IsRequired().HasMaxLength(300);
+            entity.Property(c => c.Address1).IsRequired().HasMaxLength(300);
             entity.Property(c => c.Phone).IsRequired().HasMaxLength(20);
             entity.Property(c => c.MigrationStatus).IsRequired().HasMaxLength(50);
             entity.Property(c => c.RelacionConPrincipal).IsRequired().HasMaxLength(50);
@@ -31,6 +31,17 @@ namespace WholeCareInsurance.api.Data.Configurations
             entity.Property(c => c.County).HasMaxLength(100);
             entity.Property(c => c.MaritalStatus).HasMaxLength(20);
             entity.Property(c => c.Occupation).HasMaxLength(100);
+
+            entity.Property(c => c.MiddleName).HasMaxLength(100);
+            entity.Property(c => c.Gender).HasMaxLength(20);
+            entity.Property(c => c.GreenCard).HasMaxLength(50);
+            entity.Property(c => c.WorkPermit).HasMaxLength(50);
+            entity.Property(c => c.Address2).HasMaxLength(300);
+            entity.Property(c => c.EmployerName).HasMaxLength(150);
+            entity.Property(c => c.CompanyPhone).HasMaxLength(20);
+            entity.Property(c => c.AnnualIncome).IsRequired().HasColumnType("decimal(18,2)");
+            entity.Property(c => c.Tags).HasMaxLength(500);
+            entity.Property(c => c.ContactLanguage).HasMaxLength(20);
 
             entity.HasMany(c => c.Policies)
                   .WithOne(p => p.Customer)

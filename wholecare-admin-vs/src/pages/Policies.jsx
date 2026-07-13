@@ -975,7 +975,7 @@ function Policies() {
                                     <p style={{ margin: "2px 0" }}>{t("detail.ssn")}: {titular.socialSecurityNumber}</p>
                                     <p style={{ margin: "2px 0" }}>{t("detail.email")}: {titular.email}</p>
                                     <p style={{ margin: "2px 0" }}>{t("detail.phone")}: {titular.phone}</p>
-                                    <p style={{ margin: "2px 0" }}>{t("detail.address")}: {titular.address}</p>
+                                    <p style={{ margin: "2px 0" }}>{t("detail.address1")}: {titular.address1}</p>
                                     <p style={{ margin: "2px 0" }}>{t("detail.migrationStatus")}: {translateEnum("migrationStatus", titular.migrationStatus)}</p>
                                 </>
                             );

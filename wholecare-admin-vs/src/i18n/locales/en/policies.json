@@ -78,7 +78,7 @@
         "ssn": "SSN",
         "email": "Email",
         "phone": "Phone",
-        "address": "Address",
+        "address1": "Address",
         "migrationStatus": "Legal Status",
         "unknown": "Unknown",
         "dependentsSection": "Dependents",

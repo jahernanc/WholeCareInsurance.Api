@@ -47,5 +47,13 @@
     "userRol": {
         "Admin": "Admin",
         "Agente": "Agente"
+    },
+    "gender": {
+        "Masculino": "Masculino",
+        "Femenino": "Femenino"
+    },
+    "contactLanguage": {
+        "Inglés": "Inglés",
+        "Español": "Español"
     }
 }

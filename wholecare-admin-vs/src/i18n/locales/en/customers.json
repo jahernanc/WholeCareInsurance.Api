@@ -11,7 +11,8 @@
             "firstName": "First Name",
             "lastName": "Last Name",
             "email": "Email",
-            "address": "Address",
+            "address1": "Address # 1",
+            "address2": "Address # 2",
             "phone": "Phone",
             "migrationStatus": "Legal Status",
             "relacionConPrincipal": "Relationship to Principal",
@@ -23,7 +24,16 @@
             "occupation": "Occupation",
             "agent": "Agent",
             "assistantAgent": "Assistant Agent",
-            "recordAgent": "Record Agent"
+            "recordAgent": "Record Agent",
+            "middleName": "Middle Name",
+            "gender": "Gender",
+            "greenCard": "Green Card",
+            "workPermit": "Work Permit Number",
+            "employerName": "Employer Name",
+            "companyPhone": "Company Phone",
+            "annualIncome": "Annual Income",
+            "tags": "Tags",
+            "contactLanguage": "Contact Language"
         },
         "selectPlaceholder": "-- Select --",
         "selectStateFirst": "Choose a state first",
@@ -51,6 +61,15 @@
         "agent": "Agent",
         "assistantAgent": "Assistant Agent",
         "recordAgent": "Record Agent",
-        "policiesCount": "Policies"
+        "policiesCount": "Policies",
+        "middleName": "Middle Name",
+        "gender": "Gender",
+        "greenCard": "Green Card",
+        "workPermit": "Work Permit Number",
+        "employerName": "Employer",
+        "companyPhone": "Company Phone",
+        "annualIncome": "Annual Income",
+        "tags": "Tags",
+        "contactLanguage": "Contact Language"
     }
 }

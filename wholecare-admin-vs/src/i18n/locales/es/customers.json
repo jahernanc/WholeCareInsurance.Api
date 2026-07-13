@@ -11,7 +11,8 @@
             "firstName": "Nombre",
             "lastName": "Apellido",
             "email": "Correo electrónico",
-            "address": "Dirección",
+            "address1": "Dirección 1",
+            "address2": "Dirección 2",
             "phone": "Teléfono",
             "migrationStatus": "Estatus migratorio",
             "relacionConPrincipal": "Relación con el principal",
@@ -23,7 +24,16 @@
             "occupation": "Ocupación",
             "agent": "Agente",
             "assistantAgent": "Agente Asistente",
-            "recordAgent": "Agente Record"
+            "recordAgent": "Agente Record",
+            "middleName": "Segundo nombre",
+            "gender": "Género",
+            "greenCard": "Green card",
+            "workPermit": "Permiso de trabajo (número)",
+            "employerName": "Nombre del empleador",
+            "companyPhone": "Teléfono de la empresa",
+            "annualIncome": "Ingreso anual",
+            "tags": "Etiquetas",
+            "contactLanguage": "Idioma de contacto"
         },
         "selectPlaceholder": "-- Seleccionar --",
         "selectStateFirst": "Elegí un estado primero",
@@ -51,6 +61,15 @@
         "agent": "Agente",
         "assistantAgent": "Agente Asistente",
         "recordAgent": "Agente Record",
-        "policiesCount": "Pólizas"
+        "policiesCount": "Pólizas",
+        "middleName": "Segundo nombre",
+        "gender": "Género",
+        "greenCard": "Green card",
+        "workPermit": "Permiso de trabajo (número)",
+        "employerName": "Empleador",
+        "companyPhone": "Teléfono de la empresa",
+        "annualIncome": "Ingreso anual",
+        "tags": "Etiquetas",
+        "contactLanguage": "Idioma de contacto"
     }
 }
