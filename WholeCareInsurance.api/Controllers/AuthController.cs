@@ -61,5 +61,43 @@ namespace WholeCareInsurance.api.Controllers
 
             return NoContent();
         }
+
+        [Authorize]
+        [HttpPost("change-password")]
+        public async Task<IActionResult> ChangePassword(ChangePasswordDto dto)
+        {
+            var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier);
+            if (userIdClaim == null)
+                return Unauthorized();
+
+            var userId = int.Parse(userIdClaim.Value);
+            var result = await _authService.ChangePassword(userId, dto.CurrentPassword, dto.NewPassword);
+
+            return result switch
+            {
+                ChangePasswordResult.Success => NoContent(),
+                ChangePasswordResult.InvalidCurrentPassword => BadRequest("La contraseña actual no es correcta."),
+                _ => Unauthorized()
+            };
+        }
+
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword(ForgotPasswordDto dto)
+        {
+            await _authService.ForgotPassword(dto.Email);
+
+            // Misma respuesta exista o no el email, para no revelar qué cuentas están registradas.
+            return Ok(new { message = "Si ese email está registrado, vas a recibir un link para restablecer tu contraseña." });
+        }
+
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword(ResetPasswordDto dto)
+        {
+            var success = await _authService.ResetPassword(dto.Token, dto.NewPassword);
+            if (!success)
+                return BadRequest("El link de restablecimiento es inválido o venció.");
+
+            return NoContent();
+        }
     }
 }

@@ -25,6 +25,9 @@ namespace WholeCareInsurance.api.Services
         public async Task<User?> GetByRefreshTokenHash(string hash)
             => await _context.Users.FirstOrDefaultAsync(u => u.RefreshTokenHash == hash);
 
+        public async Task<User?> GetByPasswordResetTokenHash(string hash)
+            => await _context.Users.FirstOrDefaultAsync(u => u.PasswordResetTokenHash == hash);
+
         public async Task<User> Create(User user)
         {
             _context.Users.Add(user);

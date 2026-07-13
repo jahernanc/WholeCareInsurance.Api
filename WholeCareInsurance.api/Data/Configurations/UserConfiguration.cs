@@ -49,6 +49,18 @@ namespace WholeCareInsurance.api.Data.Configurations
                   .HasFilter("[RefreshTokenHash] IS NOT NULL");
 
             entity.Property(u => u.RefreshTokenExpiresAt);
+
+            entity.Property(u => u.MustChangePassword)
+                  .IsRequired();
+
+            // Password reset token hash (SHA-256 hex = 64 chars), mismo patrón que RefreshTokenHash
+            entity.Property(u => u.PasswordResetTokenHash)
+                  .HasMaxLength(64);
+
+            entity.HasIndex(u => u.PasswordResetTokenHash)
+                  .HasFilter("[PasswordResetTokenHash] IS NOT NULL");
+
+            entity.Property(u => u.PasswordResetTokenExpiresAt);
         }
     }
 }

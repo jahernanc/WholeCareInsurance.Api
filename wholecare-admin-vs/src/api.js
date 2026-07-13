@@ -51,6 +51,7 @@ export async function logout() {
 
         localStorage.removeItem("accessToken");
         localStorage.removeItem("refreshToken");
+        localStorage.removeItem("mustChangePassword");
         window.location.href = "/login";
     })();
 

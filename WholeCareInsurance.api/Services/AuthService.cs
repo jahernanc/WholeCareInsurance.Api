@@ -13,11 +13,13 @@ namespace WholeCareInsurance.api.Services
     {
         private readonly IConfiguration _config;
         private readonly IUsersService _usersService;
+        private readonly IEmailService _emailService;
 
-        public AuthService(IConfiguration config, IUsersService usersService)
+        public AuthService(IConfiguration config, IUsersService usersService, IEmailService emailService)
         {
             _config = config;
             _usersService = usersService;
+            _emailService = emailService;
         }
 
         public async Task<UserResponseDto?> Register(AuthRegisterDto dto)
@@ -31,7 +33,9 @@ namespace WholeCareInsurance.api.Services
                 Email = dto.Email,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
                 Rol = dto.Rol,
-                IsEncargado = dto.IsEncargado
+                IsEncargado = dto.IsEncargado,
+                // El Admin le asigna la contraseña inicial: se obliga a cambiarla en el primer login.
+                MustChangePassword = true
             };
 
             var created = await _usersService.Create(user);
@@ -55,8 +59,8 @@ namespace WholeCareInsurance.api.Services
             if (!BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
                 return null;
 
-            var refreshToken = GenerateRefreshToken();
-            user.RefreshTokenHash = HashRefreshToken(refreshToken);
+            var refreshToken = GenerateRandomToken();
+            user.RefreshTokenHash = HashToken(refreshToken);
             user.RefreshTokenExpiresAt = DateTime.UtcNow.AddDays(7);
             await _usersService.Update(user);
 
@@ -64,20 +68,21 @@ namespace WholeCareInsurance.api.Services
             {
                 AccessToken = GenerateJwt(user),
                 RefreshToken = refreshToken,
-                PreferredLanguage = user.PreferredLanguage
+                PreferredLanguage = user.PreferredLanguage,
+                MustChangePassword = user.MustChangePassword
             };
         }
 
         public async Task<AuthResponseDto?> Refresh(string refreshToken)
         {
-            var hash = HashRefreshToken(refreshToken);
+            var hash = HashToken(refreshToken);
             var user = await _usersService.GetByRefreshTokenHash(hash);
 
             if (user == null || user.RefreshTokenExpiresAt <= DateTime.UtcNow)
                 return null;
 
-            var newRefreshToken = GenerateRefreshToken();
-            user.RefreshTokenHash = HashRefreshToken(newRefreshToken);
+            var newRefreshToken = GenerateRandomToken();
+            user.RefreshTokenHash = HashToken(newRefreshToken);
             user.RefreshTokenExpiresAt = DateTime.UtcNow.AddDays(7);
             await _usersService.Update(user);
 
@@ -85,7 +90,8 @@ namespace WholeCareInsurance.api.Services
             {
                 AccessToken = GenerateJwt(user),
                 RefreshToken = newRefreshToken,
-                PreferredLanguage = user.PreferredLanguage
+                PreferredLanguage = user.PreferredLanguage,
+                MustChangePassword = user.MustChangePassword
             };
         }
 
@@ -100,7 +106,80 @@ namespace WholeCareInsurance.api.Services
             await _usersService.Update(user);
         }
 
-        private static string HashRefreshToken(string token)
+        public async Task<ChangePasswordResult> ChangePassword(int userId, string currentPassword, string newPassword)
+        {
+            var user = await _usersService.GetById(userId);
+            if (user == null)
+                return ChangePasswordResult.UserNotFound;
+
+            if (!BCrypt.Net.BCrypt.Verify(currentPassword, user.PasswordHash))
+                return ChangePasswordResult.InvalidCurrentPassword;
+
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+            user.MustChangePassword = false;
+
+            // Fuerza a re-loguearse en cualquier otra sesión activa (esta app solo
+            // guarda un refresh token por usuario, así que esto invalida "el resto").
+            user.RefreshTokenHash = null;
+            user.RefreshTokenExpiresAt = null;
+
+            await _usersService.Update(user);
+            return ChangePasswordResult.Success;
+        }
+
+        public async Task ForgotPassword(string email)
+        {
+            var user = await _usersService.GetByEmail(email);
+            // No revelar si el email existe o no: mismo comportamiento (silencioso) en ambos casos.
+            if (user == null)
+                return;
+
+            // Mitigación liviana anti-spam: si ya hay un token vigente, no se genera uno
+            // nuevo ni se reenvía el email — evita que pedir el link repetidas veces
+            // dispare un email cada vez.
+            if (user.PasswordResetTokenExpiresAt.HasValue && user.PasswordResetTokenExpiresAt > DateTime.UtcNow)
+                return;
+
+            var resetToken = GenerateRandomToken();
+            user.PasswordResetTokenHash = HashToken(resetToken);
+            user.PasswordResetTokenExpiresAt = DateTime.UtcNow.AddHours(1);
+            await _usersService.Update(user);
+
+            var baseUrl = _config["Frontend:BaseUrl"]?.TrimEnd('/') ?? "http://localhost:5173";
+            var resetLink = $"{baseUrl}/reset-password?token={resetToken}";
+
+            var body = $"""
+                <p>Hola {System.Net.WebUtility.HtmlEncode(user.Nombre)},</p>
+                <p>Recibimos una solicitud para restablecer tu contraseña de WholeCare Insurance.</p>
+                <p><a href="{resetLink}">Hacé clic acá para elegir una nueva contraseña</a></p>
+                <p>Este link vence en 1 hora. Si no pediste este cambio, podés ignorar este email.</p>
+                """;
+
+            await _emailService.SendAsync(user.Email, "Restablecer tu contraseña — WholeCare Insurance", body);
+        }
+
+        public async Task<bool> ResetPassword(string token, string newPassword)
+        {
+            var hash = HashToken(token);
+            var user = await _usersService.GetByPasswordResetTokenHash(hash);
+
+            if (user == null || user.PasswordResetTokenExpiresAt == null || user.PasswordResetTokenExpiresAt <= DateTime.UtcNow)
+                return false;
+
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+            user.MustChangePassword = false;
+            user.PasswordResetTokenHash = null;
+            user.PasswordResetTokenExpiresAt = null;
+
+            // Mismo criterio que ChangePassword: invalida cualquier sesión activa.
+            user.RefreshTokenHash = null;
+            user.RefreshTokenExpiresAt = null;
+
+            await _usersService.Update(user);
+            return true;
+        }
+
+        private static string HashToken(string token)
         {
             var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(token));
             return Convert.ToHexString(bytes);
@@ -117,6 +196,10 @@ namespace WholeCareInsurance.api.Services
             var claims = new[]
             {
                 new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+                // Redundante con Sub a propósito: el mapeo por default de JwtSecurityTokenHandler
+                // ya traduce "sub" -> ClaimTypes.NameIdentifier, pero se deja explícito para no
+                // depender de ese comportamiento implícito del framework.
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Name, user.Email),
                 new Claim(ClaimTypes.GivenName, user.Nombre),
                 new Claim(ClaimTypes.Email, user.Email),
@@ -136,7 +219,9 @@ namespace WholeCareInsurance.api.Services
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
-        private static string GenerateRefreshToken()
-            => Guid.NewGuid().ToString("N");
+        // Antes usaba Guid.NewGuid() (no es un generador criptográficamente aleatorio).
+        // Se usa el mismo generador tanto para refresh tokens como para tokens de reset.
+        private static string GenerateRandomToken()
+            => Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
     }
 }

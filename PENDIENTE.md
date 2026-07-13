@@ -150,7 +150,7 @@ VPS ya comprado y corriendo: Ubuntu 24.04, KVM2 (2 CPU, 8GB RAM, 100GB disco), c
 - Un solo contenedor de SQL Server compartido entre test y producción, con 2 bases de datos separadas (`WholeCareInsuranceDb_Test` y `WholeCareInsuranceDb_Prod`) — por limitación de RAM (8GB totales).
 - Frontend: `VITE_API_URL` se resuelve vía build-arg por ambiente (no runtime) — cada ambiente reconstruye su propia imagen.
 - Migraciones EF Core: auto-migrate al iniciar el contenedor de la API (`dbContext.Database.Migrate()` en el startup).
-- Variables de entorno mapeadas: `ConnectionStrings__DefaultConnection`, `Jwt__Key`, `Jwt__Issuer`, `Jwt__Audience`, `Jwt__AccessTokenMinutes`, `Cors__AllowedOrigin`, `ASPNETCORE_ENVIRONMENT`.
+- Variables de entorno mapeadas: `ConnectionStrings__DefaultConnection`, `Jwt__Key`, `Jwt__Issuer`, `Jwt__Audience`, `Jwt__AccessTokenMinutes`, `Cors__AllowedOrigin`, `ASPNETCORE_ENVIRONMENT`, `Brevo__ApiKey`, `Brevo__SenderEmail`, `Frontend__BaseUrl` (agregadas al implementar gestión de contraseñas — ver §10 "Gestión de contraseñas"; sin `Brevo__ApiKey` seteado, el backend cae a un servicio que solo loguea el email en vez de enviarlo, así que hay que setearlo en Test/Prod para que el flujo de "olvidé mi contraseña" funcione de verdad).
 
 **Cambios de código pendientes identificados** (no solo config):
 - Quitar/condicionar `app.UseHttpsRedirection()` fuera de Development (conflicto con el proxy de EasyPanel) + agregar `UseForwardedHeaders` para `X-Forwarded-Proto`.
@@ -198,7 +198,32 @@ Ventana: 4 meses antes/después del cumpleaños 65. Columnas: nombre (link), fec
 
 ---
 
-## 10. Orden sugerido de trabajo
+## 10. Gestión de contraseñas — ✅ Hecho
+
+Tres flujos nuevos, ninguno existía antes de esta sesión (no había forced-change, self-service change, ni recuperación por email en el sistema).
+
+### 10.1 Cambio forzado en el primer login
+`User.MustChangePassword` (bool) nuevo — se pone en `true` cuando un Admin crea un agente vía `POST /auth/register` (`Agentes.jsx`), y también para el admin seedeado (`AdminUserSeeder`, más una migración de datos que lo fuerza en bases ya existentes, ya que `Admin123!` es una credencial default documentada en este mismo archivo). El login (`AuthResponseDto`) devuelve el flag; el frontend lo persiste en `localStorage` y redirige a `/change-password` (ruta nueva, sin `AppLayout`) antes de dejar entrar a cualquier otra pantalla. `AppLayout` también revisa el flag en su reconciliación de fondo contra `GET /users/me` (mismo mecanismo que ya usaba para el idioma), para cubrir el caso de un Admin que fuerza el cambio sobre una sesión ya activa.
+- **Gap conocido, no cerrado a propósito**: el gating es solo de frontend (redirect de rutas). Alguien con el access token podría seguir llamando otros endpoints de la API directamente mientras `MustChangePassword=true`. Cerrar esto del todo requeriría un filtro/middleware de backend — no se implementó porque no estaba en el plan original aprobado; queda como mejora pendiente si se necesita.
+
+### 10.2 Cambio de contraseña desde el perfil
+Un solo endpoint (`POST /auth/change-password`, contraseña actual + nueva) sirve tanto al cambio forzado como al cambio voluntario — nueva página `/profile` (dentro de `AppLayout`), enlazada desde el ítem "Profile" del menú del Header, que antes era un `<div>` sin `onClick` (dead link). Al cambiar la contraseña se limpia el refresh token guardado, forzando el re-login en cualquier otra sesión activa.
+
+### 10.3 Recuperación por email ("Olvidé mi contraseña")
+`POST /auth/forgot-password` (público) → `POST /auth/reset-password` (público). Mismo patrón que los refresh tokens (hash SHA-256 + expiración en el propio `User`, sin tabla nueva): `PasswordResetTokenHash`/`PasswordResetTokenExpiresAt`, expiran en 1 hora, de un solo uso.
+- **Anti-enumeración**: `forgot-password` devuelve siempre el mismo mensaje genérico, exista o no el email — verificado que ambos casos responden idéntico.
+- **Mitigación anti-spam liviana** (sin rate-limiting real, diferido a pedido): si ya hay un token vigente (no vencido), no se genera uno nuevo ni se reenvía el email — verificado que una segunda solicitud dentro de la hora no dispara un segundo email.
+- **Envío de emails**: `IEmailService` nuevo, con `BrevoEmailService` (API REST, sin SMTP — evita el bloqueo de puertos SMTP saliente típico de VPS) como implementación real, y `ConsoleEmailService` como fallback automático cuando `Brevo:ApiKey` no está configurado (solo loguea el contenido, usado en dev). Pasar a envío real en Test/Prod es una variable de entorno, no un cambio de código — ver env vars nuevas en §8.1.
+
+### 10.4 Side-fixes incluidos en el mismo batch (pedidos explícitamente)
+- El claim `ClaimTypes.NameIdentifier` ahora se emite explícito en el JWT (antes solo se emitía `sub`; funcionaba igual gracias al mapeo por default de `JwtSecurityTokenHandler`, verificado empíricamente con curl antes de tocar nada — no era un bug activo, pero quedaba dependiendo de un comportamiento implícito del framework).
+- Los tokens (refresh y reset) ahora se generan con `RandomNumberGenerator` (antes `Guid.NewGuid()` para el refresh token, no es un generador criptográficamente aleatorio).
+
+Verificado íntegramente con curl (wrong/correct current password, refresh token invalidado tras cambiar contraseña, forgot-password con email existente/inexistente devolviendo la misma respuesta, mitigación anti-spam, reset-password con token inválido/válido/reusado, Register fuerza `MustChangePassword`) y con Playwright (cambio forzado end-to-end con redirect, cambio desde perfil, alta de agente nuevo por el Admin → forced change en su primer login, flujo completo de "olvidé mi contraseña" con el link real extraído del log de `ConsoleEmailService`, sin errores de consola salvo los 400 esperados de los casos de error probados a propósito).
+
+---
+
+## 11. Orden sugerido de trabajo
 
 1. ~~Tipo en Policy~~ ✅ Hecho
 2. ~~Dependientes (vínculo con Customers existentes)~~ ✅ Hecho
@@ -216,7 +241,8 @@ Ventana: 4 meses antes/después del cumpleaños 65. Columnas: nombre (link), fec
 14. ~~Campos nuevos de Customer + renombrado "Legal Status"~~ ✅ Hecho (§3.2, §3.3)
 15. ~~Period + Number of applicants en Policy~~ ✅ Hecho (§1.8, §1.9)
 16. ~~Crear Customer nuevo desde Members/Dependientes de la póliza~~ ✅ Hecho (§2)
-17. Firma digital de consentimiento — bloqueado hasta que el responsable elija proveedor (§4.1)
-18. Infraestructura de hosting (VPS) — plan definido, pendiente de ejecución (§8.1)
-19. Migración de datos del sistema anterior — bloqueado hasta recibir el archivo + respuestas (§7)
-20. Dashboard — bloqueado hasta tener la data migrada (§9)
+17. ~~Gestión de contraseñas (cambio forzado, cambio desde perfil, recuperación por email)~~ ✅ Hecho (§10)
+18. Firma digital de consentimiento — bloqueado hasta que el responsable elija proveedor (§4.1)
+19. Infraestructura de hosting (VPS) — plan definido, pendiente de ejecución (§8.1)
+20. Migración de datos del sistema anterior — bloqueado hasta recibir el archivo + respuestas (§7)
+21. Dashboard — bloqueado hasta tener la data migrada (§9)

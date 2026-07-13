@@ -23,7 +23,10 @@ namespace WholeCareInsurance.api.Services
                 Nombre = "Administrador",
                 Email = adminEmail,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin123!"),
-                Rol = "Admin"
+                Rol = "Admin",
+                // "Admin123!" es una credencial default documentada en CLAUDE.md — se obliga
+                // a cambiarla en el primer login, igual que cualquier usuario nuevo creado por un Admin.
+                MustChangePassword = true
             };
 
             await _usersService.Create(adminUser);

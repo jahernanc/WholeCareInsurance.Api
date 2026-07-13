@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 
 function Login() {
     const { t, i18n } = useTranslation("login");
@@ -34,6 +35,7 @@ function Login() {
             // ✅ guardar tokens
             localStorage.setItem("accessToken", data.token.accessToken);
             localStorage.setItem("refreshToken", data.token.refreshToken);
+            localStorage.setItem("mustChangePassword", String(!!data.token.mustChangePassword));
 
             // el idioma es la fuente de verdad del backend; se cachea acá
             // para que el próximo arranque de la app pinte instantáneo
@@ -41,7 +43,7 @@ function Login() {
             localStorage.setItem("preferredLanguage", language);
             i18n.changeLanguage(language);
 
-            window.location.replace("/");
+            window.location.replace(data.token.mustChangePassword ? "/change-password" : "/");
 
         } catch (err) {
             console.error(err);
@@ -75,6 +77,10 @@ function Login() {
                 </button>
 
                 {error && <p style={{ color: "red" }}>{error}</p>}
+
+                <p style={{ textAlign: "center", marginTop: 10 }}>
+                    <Link to="/forgot-password">{t("forgotPasswordLink")}</Link>
+                </p>
             </form>
         </div>
     );

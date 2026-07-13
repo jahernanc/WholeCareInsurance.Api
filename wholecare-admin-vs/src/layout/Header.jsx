@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import { logout, apiFetch } from "../api";
 
 const currentYear = new Date().getFullYear();
@@ -8,6 +9,7 @@ const PERIOD_OPTIONS = Array.from({ length: 6 }, (_, i) => currentYear - i);
 
 function Header({ period, onPeriodChange }) {
     const { t, i18n } = useTranslation("common");
+    const navigate = useNavigate();
     const [open, setOpen] = useState(false);
 
     // ✅ Función dentro del componente
@@ -105,7 +107,15 @@ function Header({ period, onPeriodChange }) {
                                 padding: 10,
                             }}
                         >
-                            <div style={{ marginBottom: 10 }}>{t("header.profile")}</div>
+                            <div
+                                onClick={() => {
+                                    setOpen(false);
+                                    navigate("/profile");
+                                }}
+                                style={{ marginBottom: 10, cursor: "pointer" }}
+                            >
+                                {t("header.profile")}
+                            </div>
                             <div style={{ marginBottom: 10 }}>{t("header.help")}</div>
                             <div
                                 onClick={handleLogout}

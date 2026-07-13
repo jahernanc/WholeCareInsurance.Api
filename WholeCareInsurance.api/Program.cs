@@ -18,6 +18,13 @@ builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<IPolicyService, PolicyService>();
 builder.Services.AddSingleton<IPolicyDocumentStorage, PolicyDocumentStorage>();
 
+// Sin Brevo:ApiKey configurado (dev local sin cuenta real) cae a un servicio que
+// solo loguea el email — pasar a envío real en Test/Prod es solo variable de entorno.
+if (!string.IsNullOrWhiteSpace(builder.Configuration["Brevo:ApiKey"]))
+    builder.Services.AddHttpClient<IEmailService, BrevoEmailService>();
+else
+    builder.Services.AddScoped<IEmailService, ConsoleEmailService>();
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {

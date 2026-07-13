@@ -3,5 +3,6 @@
     "emailPlaceholder": "Correo electrónico",
     "passwordPlaceholder": "Contraseña",
     "submit": "Iniciar sesión",
-    "error": "Credenciales inválidas"
+    "error": "Credenciales inválidas",
+    "forgotPasswordLink": "¿Olvidaste tu contraseña?"
 }

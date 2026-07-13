@@ -7,5 +7,6 @@ namespace WholeCareInsurance.api.DTOs.Users
         public string Rol { get; set; }
         public bool IsEncargado { get; set; }
         public string PreferredLanguage { get; set; }
+        public bool MustChangePassword { get; set; }
     }
 }

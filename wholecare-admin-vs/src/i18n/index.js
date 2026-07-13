@@ -7,6 +7,7 @@ import customersEn from "./locales/en/customers.json";
 import policiesEn from "./locales/en/policies.json";
 import agentesEn from "./locales/en/agentes.json";
 import enumsEn from "./locales/en/enums.json";
+import authEn from "./locales/en/auth.json";
 
 import commonEs from "./locales/es/common.json";
 import loginEs from "./locales/es/login.json";
@@ -14,6 +15,7 @@ import customersEs from "./locales/es/customers.json";
 import policiesEs from "./locales/es/policies.json";
 import agentesEs from "./locales/es/agentes.json";
 import enumsEs from "./locales/es/enums.json";
+import authEs from "./locales/es/auth.json";
 
 // El idioma persiste en el backend (User.PreferredLanguage), pero para
 // pintar la UI correcta antes de esperar cualquier respuesta de red, se
@@ -25,7 +27,7 @@ i18n.use(initReactI18next).init({
     lng: cachedLanguage === "es" ? "es" : "en",
     fallbackLng: "en",
     defaultNS: "common",
-    ns: ["common", "login", "customers", "policies", "agentes", "enums"],
+    ns: ["common", "login", "customers", "policies", "agentes", "enums", "auth"],
     resources: {
         en: {
             common: commonEn,
@@ -34,6 +36,7 @@ i18n.use(initReactI18next).init({
             policies: policiesEn,
             agentes: agentesEn,
             enums: enumsEn,
+            auth: authEn,
         },
         es: {
             common: commonEs,
@@ -42,6 +45,7 @@ i18n.use(initReactI18next).init({
             policies: policiesEs,
             agentes: agentesEs,
             enums: enumsEs,
+            auth: authEs,
         },
     },
     interpolation: { escapeValue: false },

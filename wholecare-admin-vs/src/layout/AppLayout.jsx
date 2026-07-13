@@ -2,13 +2,14 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
-import { Outlet } from "react-router-dom";
+import { Outlet, useNavigate } from "react-router-dom";
 import { apiFetch } from "../api";
 
 const currentYear = new Date().getFullYear();
 
 function AppLayout() {
     const { i18n } = useTranslation();
+    const navigate = useNavigate();
 
     // Período de trabajo global (año), controlado desde el selector del Header.
     // Persistido en localStorage (mismo patrón que preferredLanguage) para que
@@ -40,6 +41,14 @@ function AppLayout() {
                     i18n.changeLanguage(lang);
                 }
                 localStorage.setItem("preferredLanguage", lang);
+
+                // Cierra la brecha de un Admin forzando el cambio de contraseña de
+                // alguien que ya tiene una sesión activa (el flag llega recién en el
+                // próximo login o acá, en la reconciliación de fondo).
+                if (me.mustChangePassword) {
+                    localStorage.setItem("mustChangePassword", "true");
+                    navigate("/change-password", { replace: true });
+                }
             } catch {
                 // best-effort: si falla, se queda con el idioma cacheado
             }

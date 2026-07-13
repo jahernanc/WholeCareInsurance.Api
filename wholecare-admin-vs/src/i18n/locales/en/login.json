@@ -3,5 +3,6 @@
     "emailPlaceholder": "Email",
     "passwordPlaceholder": "Password",
     "submit": "Login",
-    "error": "Invalid credentials"
+    "error": "Invalid credentials",
+    "forgotPasswordLink": "Forgot your password?"
 }

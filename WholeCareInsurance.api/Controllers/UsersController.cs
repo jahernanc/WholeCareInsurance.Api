@@ -95,7 +95,8 @@ namespace WholeCareInsurance.api.Controllers
             Email = u.Email,
             Rol = u.Rol,
             IsEncargado = u.IsEncargado,
-            PreferredLanguage = u.PreferredLanguage
+            PreferredLanguage = u.PreferredLanguage,
+            MustChangePassword = u.MustChangePassword
         };
     }
 }
