@@ -10,16 +10,21 @@
         "Otro": "Other"
     },
     "policyStatus": {
-        "Active": "Active",
-        "Expired": "Expired",
-        "Cancelled": "Cancelled",
-        "activa": "Active"
+        "Draft": "Draft",
+        "Pendiente": "Pending",
+        "Cancelado": "Canceled",
+        "Por procesar": "To be processed",
+        "En proceso": "In Process",
+        "En corrección": "By correction",
+        "Procesado": "Processed",
+        "Cambio de agente": "Agent change"
     },
     "migrationStatus": {
         "Permiso de trabajo": "Work Permit",
         "Residente permanente": "Permanent Resident",
         "Ciudadano": "Citizen",
-        "Otro": "Other"
+        "Otro": "Other",
+        "Asilo": "Asylum"
     },
     "relacionConPrincipal": {
         "Cónyuge": "Spouse",

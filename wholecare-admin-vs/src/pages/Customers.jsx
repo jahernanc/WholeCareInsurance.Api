@@ -11,6 +11,7 @@ const MIGRATION_STATUSES = [
     "Residente permanente",
     "Ciudadano",
     "Otro",
+    "Asilo",
 ];
 const RELACIONES_PRINCIPAL = [
     "Cónyuge",

@@ -69,7 +69,7 @@ No implementar todavía — se documenta como pendiente prioritario según lo pe
 ### 3.2 Campos pendientes de agregar — 🔲 Pendiente, ninguno implementado
 Auditado `Models/Customer.cs` completo — el modelo hoy solo tiene: `SocialSecurityNumber`, `FirstName`, `LastName`, `DateOfBirth`, `Email`, `Address` (campo único, no separado en #1/#2), `Phone`, `MigrationStatus`, `RelacionConPrincipal`, más lo listado en §3.1. **Ninguno de los siguientes campos existe en el modelo, DTOs, migraciones ni formulario**:
 - Middle name (texto, opcional)
-- Gender (dropdown: Masculino, Femenino, Otro)
+- Gender (dropdown: Masculino, Femenino — solo 2 valores, según el sistema de referencia del cliente; corregido el 2026-07-13, la propuesta anterior incluía por error una tercera opción "Otro")
 - Green card (texto, número de tarjeta, opcional)
 - Work permit (texto, número de permiso, opcional)
 - Address # 1 (texto, obligatorio) / Address # 2 (texto, opcional) — hoy es un solo campo `Address`, habría que decidir si se migra el dato existente a Address#1 o se agregan campos nuevos en paralelo

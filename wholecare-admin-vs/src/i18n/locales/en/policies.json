@@ -79,7 +79,7 @@
         "email": "Email",
         "phone": "Phone",
         "address": "Address",
-        "migrationStatus": "Migration Status",
+        "migrationStatus": "Legal Status",
         "unknown": "Unknown",
         "dependentsSection": "Dependents",
         "noDependents": "No dependents"

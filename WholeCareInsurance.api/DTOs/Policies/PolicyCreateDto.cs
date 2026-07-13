@@ -19,7 +19,11 @@ namespace WholeCareInsurance.api.DTOs.Policies
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
         public decimal Premium { get; set; }
-        public string Status { get; set; } = "Active";
+
+        [Required]
+        [AllowedValues("Draft", "Pendiente", "Cancelado", "Por procesar", "En proceso", "En corrección", "Procesado", "Cambio de agente",
+            ErrorMessage = "Status de póliza inválido.")]
+        public string Status { get; set; } = "Draft";
         public int CustomerId { get; set; }
     }
 }

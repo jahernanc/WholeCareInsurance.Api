@@ -13,7 +13,7 @@
             "email": "Email",
             "address": "Address",
             "phone": "Phone",
-            "migrationStatus": "Migration Status",
+            "migrationStatus": "Legal Status",
             "relacionConPrincipal": "Relationship to Principal",
             "zipCode": "Zip Code",
             "state": "State",

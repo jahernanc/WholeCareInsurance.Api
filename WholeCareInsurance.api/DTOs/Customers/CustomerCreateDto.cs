@@ -11,7 +11,7 @@ namespace WholeCareInsurance.api.DTOs.Customers
         [Required][EmailAddress][MaxLength(200)] public string Email { get; set; } = default!;
         [Required][MaxLength(300)] public string Address { get; set; } = default!;
         [Required][MaxLength(20)] public string Phone { get; set; } = default!;
-        [Required][AllowedValues("Permiso de trabajo", "Residente permanente", "Ciudadano", "Otro",
+        [Required][AllowedValues("Permiso de trabajo", "Residente permanente", "Ciudadano", "Otro", "Asilo",
             ErrorMessage = "Estatus migratorio inválido.")]
         public string MigrationStatus { get; set; } = default!;
 

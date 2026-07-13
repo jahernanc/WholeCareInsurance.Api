@@ -5,7 +5,7 @@ import { translateEnum } from "../i18n/translateEnum";
 
 const POLICY_TYPES = ["Obama Care", "Salud", "Auto", "Otro"];
 const INSURANCE_COMPANIES = ["WholeCareInsurance", "Otro"];
-const POLICY_STATUSES = ["Active", "Expired", "Cancelled", "activa"];
+const POLICY_STATUSES = ["Draft", "Pendiente", "Cancelado", "Por procesar", "En proceso", "En corrección", "Procesado", "Cambio de agente"];
 const ALLOWED_DOCUMENT_EXTENSIONS = [".pdf", ".docx", ".jpg", ".jpeg"];
 const MAX_DOCUMENT_SIZE_BYTES = 5 * 1024 * 1024;
 
@@ -37,7 +37,7 @@ function Policies() {
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
     const [premium, setPremium] = useState("");
-    const [status, setStatus] = useState("Active");
+    const [status, setStatus] = useState("Draft");
     const [customerId, setCustomerId] = useState("");
 
     const [formError, setFormError] = useState("");
@@ -424,7 +424,7 @@ function Policies() {
             setStartDate("");
             setEndDate("");
             setPremium("");
-            setStatus("Active");
+            setStatus("Draft");
             setCustomerId("");
 
             setDependents([]);
