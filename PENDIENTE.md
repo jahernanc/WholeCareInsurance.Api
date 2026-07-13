@@ -223,7 +223,28 @@ Verificado íntegramente con curl (wrong/correct current password, refresh token
 
 ---
 
-## 11. Orden sugerido de trabajo
+## 11. Agentes — campos nuevos en el formulario de creación/edición — 🔲 Pendiente
+
+Auditado `Models/User.cs` y `pages/Agentes.jsx` completos (2026-07-13) — hoy el modelo de Agente solo tiene `Nombre`, `Email`, `PasswordHash`, `Rol`, `IsEncargado`, `PreferredLanguage` (más los campos de gestión de contraseñas de §10). El formulario de Agentes solo tiene Nombre/Email/Password/Rol/Encargado. **Ninguno de los siguientes campos existe hoy, en el modelo, DTOs ni formulario**:
+
+- Middle name (texto, opcional)
+- Gender (dropdown: Masculino, Femenino — mismo criterio que se usó para Customer en §3.2, 2 valores sin `[AllowedValues]` por ser opcional)
+- Address # 1, Address # 2, City, Zip code (texto, mismo patrón que Customer §3.2)
+- State/Province, County (dropdowns)
+- ⚠️ **A confirmar antes de implementar**: el pedido incluye también un campo **Country**, y dice "State/**Province**" en vez de "State" — el patrón ya usado en Customer (§3.1) asume EE.UU. únicamente (`US_STATES`/`usCounties.json`, códigos de 2 letras). Si Agente también debe soportar direcciones fuera de EE.UU., el dataset y el `<select>` de Customer **no se pueden reusar tal cual** — habría que definir con el responsable si esto aplica solo a agentes internacionales (poco probable en este negocio) o si es simplemente la misma convención de EE.UU. con otro nombre de campo. Si es EE.UU.-only, sí se puede reusar directamente `src/data/usStates.js` y `src/data/usCounties.json` (mismo dataset del US Census Bureau ya bundleado), sin agregar `Country` como campo real (o agregarlo como campo fijo/no editable "USA").
+- Licensed? (dropdown Sí/No)
+- License number (texto, presumiblemente solo relevante/habilitado si Licensed = Sí — a confirmar si debe ser condicional)
+- NPN number (texto) + checkbox "NPN Override"
+- "Do you have a contract with a company?" (dropdown) + Contract number + Company name — a confirmar si Contract number/Company name son condicionales a la respuesta de ese dropdown
+- "Do you want a contract with?" — selección múltiple (checkboxes): Medicare, Obamacare, Supplemental Plans, Life Insurance
+- Additional Information (texto libre/notas)
+- Checkbox "Acepto y firmo términos y condiciones" — a confirmar si debe ser obligatorio para guardar el formulario, y si hace falta guardar cuándo se aceptó (fecha/hora) para tener registro, o alcanza con el booleano
+
+**No implementar todavía** — queda documentado para retomar después de cerrar la gestión de contraseñas (§10). Antes de implementar conviene resolver los puntos marcados con ⚠️ con el responsable (especialmente Country/State-Province, y si License number/Contract number/Company name son condicionales).
+
+---
+
+## 12. Orden sugerido de trabajo
 
 1. ~~Tipo en Policy~~ ✅ Hecho
 2. ~~Dependientes (vínculo con Customers existentes)~~ ✅ Hecho
@@ -242,7 +263,8 @@ Verificado íntegramente con curl (wrong/correct current password, refresh token
 15. ~~Period + Number of applicants en Policy~~ ✅ Hecho (§1.8, §1.9)
 16. ~~Crear Customer nuevo desde Members/Dependientes de la póliza~~ ✅ Hecho (§2)
 17. ~~Gestión de contraseñas (cambio forzado, cambio desde perfil, recuperación por email)~~ ✅ Hecho (§10)
-18. Firma digital de consentimiento — bloqueado hasta que el responsable elija proveedor (§4.1)
-19. Infraestructura de hosting (VPS) — plan definido, pendiente de ejecución (§8.1)
-20. Migración de datos del sistema anterior — bloqueado hasta recibir el archivo + respuestas (§7)
-21. Dashboard — bloqueado hasta tener la data migrada (§9)
+18. Campos nuevos de Agente (§11) — conviene resolver antes las dudas de Country/State-Province y los campos condicionales con el responsable
+19. Firma digital de consentimiento — bloqueado hasta que el responsable elija proveedor (§4.1)
+20. Infraestructura de hosting (VPS) — plan definido, pendiente de ejecución (§8.1)
+21. Migración de datos del sistema anterior — bloqueado hasta recibir el archivo + respuestas (§7)
+22. Dashboard — bloqueado hasta tener la data migrada (§9)
