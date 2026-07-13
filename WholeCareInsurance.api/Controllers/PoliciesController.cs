@@ -33,9 +33,10 @@ namespace WholeCareInsurance.api.Controllers
             [FromQuery] string? policyNumber = null,
             [FromQuery] string? status = null,
             [FromQuery] string? type = null,
-            [FromQuery] string? insuranceCompany = null)
+            [FromQuery] string? insuranceCompany = null,
+            [FromQuery] int? period = null)
         {
-            var found = await _policies.Search(customerId, firstName, lastName, policyNumber, status, type, insuranceCompany);
+            var found = await _policies.Search(customerId, firstName, lastName, policyNumber, status, type, insuranceCompany, period);
 
             var list = found.Select(p => new PolicyResponseDto
             {
@@ -47,6 +48,8 @@ namespace WholeCareInsurance.api.Controllers
                 EndDate = p.EndDate,
                 Premium = p.Premium,
                 Status = p.Status,
+                Period = p.Period,
+                NumberOfApplicants = p.NumberOfApplicants,
                 CustomerId = p.CustomerId
             });
 
@@ -69,6 +72,8 @@ namespace WholeCareInsurance.api.Controllers
                 EndDate = policy.EndDate,
                 Premium = policy.Premium,
                 Status = policy.Status,
+                Period = policy.Period,
+                NumberOfApplicants = policy.NumberOfApplicants,
                 CustomerId = policy.CustomerId
             });
         }
@@ -89,6 +94,8 @@ namespace WholeCareInsurance.api.Controllers
                 EndDate = dto.EndDate,
                 Premium = dto.Premium,
                 Status = dto.Status,
+                Period = dto.Period,
+                NumberOfApplicants = dto.NumberOfApplicants,
                 CustomerId = dto.CustomerId
             };
 
@@ -104,6 +111,8 @@ namespace WholeCareInsurance.api.Controllers
                 EndDate = created.EndDate,
                 Premium = created.Premium,
                 Status = created.Status,
+                Period = created.Period,
+                NumberOfApplicants = created.NumberOfApplicants,
                 CustomerId = created.CustomerId
             });
         }
@@ -129,6 +138,8 @@ namespace WholeCareInsurance.api.Controllers
             existing.EndDate = dto.EndDate;
             existing.Premium = dto.Premium;
             existing.Status = dto.Status;
+            existing.Period = dto.Period;
+            existing.NumberOfApplicants = dto.NumberOfApplicants;
 
             var updated = await _policies.Update(existing);
 
@@ -142,6 +153,8 @@ namespace WholeCareInsurance.api.Controllers
                 EndDate = updated.EndDate,
                 Premium = updated.Premium,
                 Status = updated.Status,
+                Period = updated.Period,
+                NumberOfApplicants = updated.NumberOfApplicants,
                 CustomerId = updated.CustomerId
             });
         }

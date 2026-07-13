@@ -29,6 +29,9 @@ namespace WholeCareInsurance.api.Data.Configurations
                   .IsRequired()
                   .HasMaxLength(50);
 
+            entity.Property(p => p.Period)
+                  .IsRequired();
+
             entity.Property(p => p.Premium)
                   .HasColumnType("decimal(18,2)");
 

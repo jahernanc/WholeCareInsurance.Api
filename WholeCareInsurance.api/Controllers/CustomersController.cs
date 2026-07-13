@@ -56,6 +56,8 @@ namespace WholeCareInsurance.api.Controllers
                     EndDate = p.EndDate,
                     Premium = p.Premium,
                     Status = p.Status,
+                    Period = p.Period,
+                    NumberOfApplicants = p.NumberOfApplicants,
                     CustomerId = p.CustomerId
                 });
 

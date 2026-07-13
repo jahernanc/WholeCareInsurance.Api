@@ -18,7 +18,7 @@ namespace WholeCareInsurance.api.Services
         public async Task<IEnumerable<Policy>> GetAll()
             => await _context.Policies.Include(p => p.Customer).ToListAsync();
 
-        public async Task<List<Policy>> Search(int? customerId, string? firstName, string? lastName, string? policyNumber, string? status, string? type, string? insuranceCompany)
+        public async Task<List<Policy>> Search(int? customerId, string? firstName, string? lastName, string? policyNumber, string? status, string? type, string? insuranceCompany, int? period)
         {
             var query = _context.Policies.Include(p => p.Customer).AsQueryable();
 
@@ -42,6 +42,9 @@ namespace WholeCareInsurance.api.Services
 
             if (!string.IsNullOrWhiteSpace(insuranceCompany))
                 query = query.Where(p => p.InsuranceCompany == insuranceCompany);
+
+            if (period.HasValue)
+                query = query.Where(p => p.Period == period.Value);
 
             return await query.ToListAsync();
         }

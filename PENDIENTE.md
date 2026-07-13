@@ -31,11 +31,13 @@ Modal con datos de la póliza, datos del titular, lista de dependientes y docume
 ### 1.7 Documentos de póliza (subir / descargar / eliminar) — ✅ Hecho
 Modelo `PolicyDocument`, migración `AddPolicyDocuments` aplicada. Archivos en disco fuera de `wwwroot`, validación de extensión/tamaño/magic bytes. Endpoints `POST/GET /api/policies/{id}/documents`, `GET/DELETE /api/policies/{id}/documents/{documentId}`. Frontend: tarjeta "Documents" en el modal de detalle.
 
-### 1.8 Period (año de vigencia/cobertura) — 🔲 Pendiente, no implementado
-No existe ningún campo `Period` en `Models/Policy.cs` ni en los DTOs (`PolicyCreateDto`/`PolicyUpdateDto`/`PolicyResponseDto`). Falta: campo en el modelo (dropdown o numérico de año), migración, validación `[Required]`, y el `<select>`/input correspondiente en `Policies.jsx`.
+### 1.8 Period (año de vigencia/cobertura) — ✅ Hecho
+`Period` (int, obligatorio) en `Models/Policy.cs`, migración `20260713192538_AddPolicyPeriodAndApplicants` aplicada (default `2026` para pólizas ya existentes — la tabla estaba vacía al momento del cambio). **No es un campo editable dentro del formulario de Policy** — decisión explícita: el único control es un `<select>` en el header global de la app (`Header.jsx`, junto al selector de idioma), con las opciones año actual hasta 5 años atrás (6 valores), default año actual, persistido en `localStorage` (`selectedPeriod`) vía estado levantado a `AppLayout.jsx` y compartido a las páginas ruteadas por `Outlet context`.
+- Comportamiento: cambiar el Período en el header **filtra la tabla de Policies** (`PolicyService.Search` ahora acepta `period`, mismo patrón que `insuranceCompany`) y define el valor que se graba en una póliza nueva al crearla. Al editar una póliza existente, el Período grabado se conserva tal cual (no se pisa con el valor activo del header).
+- Verificado con curl (filtro `?period=2026`/`?period=2023` devuelve solo lo esperado, `period=1999` rechazado por `[Range(2000,2100)]`) y con Playwright (6 opciones correctas en el header, default año actual, alta de póliza estampa el Período del header, cambiar el header oculta/muestra la póliza en la tabla, editar preserva el Período sin importar el header).
 
-### 1.9 Number of applicants — 🔲 Pendiente, no implementado
-No existe en el modelo ni en los DTOs de Policy/Dependent. Debe ser numérico, carga manual del agente, ubicado en la sección de Members/Dependientes de la póliza (§1.2).
+### 1.9 Number of applicants — ✅ Hecho
+`NumberOfApplicants` (int, opcional) en `Models/Policy.cs` y DTOs, mismo migración que §1.8. Carga manual del agente, ubicado dentro de la sección "Dependientes" del formulario de Policy (visible solo al editar, mismo criterio que el resto de esa sección, §1.2) y mostrado en el modal de detalle. Verificado con curl (round-trip, rechazo de negativos) y con Playwright (visible solo en edición, persiste tras guardar).
 
 ### 1.10 Enum de Status de Policy — ✅ Hecho
 `PolicyCreateDto.Status` ahora restringido vía `[AllowedValues]` a 8 valores canónicos en español (mismo patrón que `Type`/`MigrationStatus`): `Draft`, `Pendiente`, `Cancelado`, `Por procesar`, `En proceso`, `En corrección`, `Procesado`, `Cambio de agente`. Default cambiado de `"Active"` a `"Draft"`. Traducciones EN agregadas en `en/enums.json` (`Pending`, `Canceled`, `To be processed`, `In Process`, `By correction`, `Processed`, `Agent change`).
@@ -130,7 +132,7 @@ Se solicitó al responsable del proyecto el archivo de export **completo** (toda
 
 **Columnas detectadas** en la pantalla de export del sistema anterior (referencia para el futuro mapeo): Reference, Agency, Agent, Full name, First/Middle/Last name, DOB, Gender, Email, Phone, Legal Status, SSN, Green card, Work permit, Estado civil, Address 1/2, City, State/Province, Zip code, County, Employer name, Company Phone, Position/Occupation, Annual income, Policy number, Marketplace ID, Contract identification, Number of applicants, Effective date, Company, Insurance plan, Type of plan, Tax Credit/Subsidy, Monthly premium amount, Status, Tags, Period, Confirmed consent, Registration date, Update date, Renewal status, Members.
 
-> Nota: buena parte de estas columnas ya mapean directo a los campos nuevos de Customer (§3.2, cerrado). Quedan pendientes `Period` y `Number of applicants` en Policy (§1.8, §1.9) — conviene cerrar esos dos antes de diseñar el script de migración, para no mapear dos veces.
+> Nota: buena parte de estas columnas ya mapean directo a los campos nuevos de Customer (§3.2) y Policy (`Period`/`Number of applicants`, §1.8/§1.9) — todos cerrados. Ya no hay campos pendientes de agregar antes de diseñar el script de migración; solo falta el archivo real + las 4 respuestas de arriba.
 
 **BLOQUEADO:** no diseñar el script de migración hasta recibir el archivo real + las 4 respuestas. Se probará primero contra la base del ambiente de test (§8.1), nunca directo contra producción.
 
@@ -212,7 +214,7 @@ Ventana: 4 meses antes/después del cumpleaños 65. Columnas: nombre (link), fec
 12. ~~Selector de idioma ES/EN~~ ✅ Hecho
 13. ~~Definir y cerrar el enum de Status de Policy~~ ✅ Hecho (§1.10)
 14. ~~Campos nuevos de Customer + renombrado "Legal Status"~~ ✅ Hecho (§3.2, §3.3)
-15. Period + Number of applicants en Policy (§1.8, §1.9)
+15. ~~Period + Number of applicants en Policy~~ ✅ Hecho (§1.8, §1.9)
 16. Crear Customer nuevo desde Members/Dependientes de la póliza (§2) — ya no bloqueado por §3.2, que quedó cerrado
 17. Firma digital de consentimiento — bloqueado hasta que el responsable elija proveedor (§4.1)
 18. Infraestructura de hosting (VPS) — plan definido, pendiente de ejecución (§8.1)

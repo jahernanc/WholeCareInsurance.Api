@@ -1,12 +1,27 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 import { Outlet } from "react-router-dom";
 import { apiFetch } from "../api";
 
+const currentYear = new Date().getFullYear();
+
 function AppLayout() {
     const { i18n } = useTranslation();
+
+    // Período de trabajo global (año), controlado desde el selector del Header.
+    // Persistido en localStorage (mismo patrón que preferredLanguage) para que
+    // sobreviva a un reload; no hay librería de estado global en este proyecto.
+    const [period, setPeriod] = useState(() => {
+        const stored = parseInt(localStorage.getItem("selectedPeriod"), 10);
+        return !isNaN(stored) ? stored : currentYear;
+    });
+
+    const handlePeriodChange = (newPeriod) => {
+        setPeriod(newPeriod);
+        localStorage.setItem("selectedPeriod", String(newPeriod));
+    };
 
     useEffect(() => {
         // Reconciliación en segundo plano: localStorage es solo un cache de
@@ -37,10 +52,10 @@ function AppLayout() {
             <Sidebar />
 
             <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-                <Header />
+                <Header period={period} onPeriodChange={handlePeriodChange} />
 
                 <main style={{ padding: 20 }}>
-                    <Outlet /> ✅
+                    <Outlet context={{ period }} /> ✅
                 </main>
             </div>
         </div>

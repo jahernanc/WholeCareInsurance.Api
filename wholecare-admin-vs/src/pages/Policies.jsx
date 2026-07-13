@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useOutletContext } from "react-router-dom";
 import { apiFetch } from "../api";
 import { translateEnum } from "../i18n/translateEnum";
 
@@ -26,6 +27,7 @@ const formatDocumentDate = (iso) => {
 
 function Policies() {
     const { t } = useTranslation(["policies", "common"]);
+    const { period } = useOutletContext();
     const [policies, setPolicies] = useState([]);
     const [customers, setCustomers] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -39,6 +41,10 @@ function Policies() {
     const [premium, setPremium] = useState("");
     const [status, setStatus] = useState("Draft");
     const [customerId, setCustomerId] = useState("");
+    // Período no es editable en el formulario: se toma del selector del header al
+    // crear, y se conserva el valor ya guardado de la póliza al editar.
+    const [formPeriod, setFormPeriod] = useState(period);
+    const [numberOfApplicants, setNumberOfApplicants] = useState("");
 
     const [formError, setFormError] = useState("");
     const [submitting, setSubmitting] = useState(false);
@@ -88,6 +94,7 @@ function Policies() {
             status: filterStatus,
             type: filterType,
             insuranceCompany: filterInsuranceCompany,
+            period,
             ...filterOverrides,
         };
 
@@ -311,6 +318,8 @@ function Policies() {
         setPremium(policy.premium);
         setStatus(policy.status);
         setCustomerId(policy.customerId);
+        setFormPeriod(policy.period);
+        setNumberOfApplicants(policy.numberOfApplicants ?? "");
 
         setDependentQuery("");
         setShowDependentPicker(false);
@@ -340,31 +349,10 @@ function Policies() {
 
     useEffect(() => {
         if (!localStorage.getItem("accessToken")) return;
-
-        const fetchData = async () => {
-            try {
-                setLoading(true);
-
-                const [policiesRes, customersRes] = await Promise.all([
-                    apiFetch("/api/policies"),
-                    apiFetch("/api/customers"),
-                ]);
-
-                const policiesData = await policiesRes.json();
-                const customersData = await customersRes.json();
-
-                setPolicies(policiesData);
-                setCustomers(customersData);
-
-            } catch (error) {
-                console.error(error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchData();
-    }, []);
+        // Re-carga cuando cambia el Período activo del header (filtra la lista).
+        loadData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [period]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -404,6 +392,8 @@ function Policies() {
                     premium: Number(premium),
                     status,
                     customerId: Number(customerId),
+                    period: formPeriod,
+                    numberOfApplicants: numberOfApplicants === "" ? null : Number(numberOfApplicants),
                 }),
             });
 
@@ -426,6 +416,7 @@ function Policies() {
             setPremium("");
             setStatus("Draft");
             setCustomerId("");
+            setNumberOfApplicants("");
 
             setDependents([]);
             setDependentQuery("");
@@ -459,7 +450,12 @@ function Policies() {
 
             {/* ✅ BOTÓN */}
             <button
-                onClick={() => setShowForm(!showForm)}
+                onClick={() => {
+                    // Al abrir el formulario para crear (no editar), el Período
+                    // se toma del selector activo del header en ese momento.
+                    if (!showForm && !editingId) setFormPeriod(period);
+                    setShowForm(!showForm);
+                }}
                 type="button"
                 style={{
                     marginBottom: 20,
@@ -591,6 +587,17 @@ function Policies() {
                             {editingId && (
                                 <div style={{ marginBottom: 12, borderTop: "1px solid #ddd", paddingTop: 12 }}>
                                     <label style={{ fontWeight: "bold" }}>{t("dependents.title")}</label>
+
+                                    <div style={{ margin: "10px 0" }}>
+                                        <label>{t("dependents.numberOfApplicants")}</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            value={numberOfApplicants}
+                                            onChange={(e) => setNumberOfApplicants(e.target.value)}
+                                            style={{ width: "100%", padding: 8, marginTop: 4 }}
+                                        />
+                                    </div>
 
                                     {dependents.length === 0 ? (
                                         <p style={{ color: "#666", margin: "8px 0" }}>{t("dependents.empty")}</p>
@@ -836,6 +843,7 @@ function Policies() {
                                     <th style={{ padding: 10 }}>{t("table.type")}</th>
                                     <th style={{ padding: 10 }}>{t("table.insuranceCompany")}</th>
                                     <th style={{ padding: 10 }}>{t("table.status")}</th>
+                                    <th style={{ padding: 10 }}>{t("table.period")}</th>
                                     <th style={{ padding: 10 }}>{t("table.premium")}</th>
                                     <th style={{ padding: 10 }}>{t("table.customer")}</th>
                                     <th style={{ padding: 10 }}>{t("table.actions")}</th>
@@ -849,6 +857,7 @@ function Policies() {
                                         <td style={{ padding: 10 }}>{translateEnum("policyType", p.type)}</td>
                                         <td style={{ padding: 10 }}>{translateEnum("insuranceCompany", p.insuranceCompany)}</td>
                                         <td style={{ padding: 10 }}>{translateEnum("policyStatus", p.status)}</td>
+                                        <td style={{ padding: 10 }}>{p.period}</td>
                                         <td style={{ padding: 10 }}>{p.premium}</td>
                                         <td style={{ padding: 10 }}>
                                             {getCustomerName(p.customerId)}
@@ -961,6 +970,7 @@ function Policies() {
                         <p style={{ margin: "2px 0" }}>{t("detail.type")}: {translateEnum("policyType", viewingPolicy.type)}</p>
                         <p style={{ margin: "2px 0" }}>{t("detail.insuranceCompany")}: {translateEnum("insuranceCompany", viewingPolicy.insuranceCompany)}</p>
                         <p style={{ margin: "2px 0" }}>{t("detail.status")}: {translateEnum("policyStatus", viewingPolicy.status)}</p>
+                        <p style={{ margin: "2px 0" }}>{t("detail.period")}: {viewingPolicy.period}</p>
                         <p style={{ margin: "2px 0" }}>{t("detail.startDate")}: {viewingPolicy.startDate?.slice(0, 10)}</p>
                         <p style={{ margin: "2px 0" }}>{t("detail.endDate")}: {viewingPolicy.endDate?.slice(0, 10)}</p>
                         <p style={{ margin: "2px 0" }}>{t("detail.premium")}: {viewingPolicy.premium}</p>
@@ -982,6 +992,7 @@ function Policies() {
                         })()}
 
                         <h4 style={{ marginTop: 16, marginBottom: 6 }}>{t("detail.dependentsSection")}</h4>
+                        <p style={{ margin: "2px 0" }}>{t("detail.numberOfApplicants")}: {viewingPolicy.numberOfApplicants ?? "-"}</p>
                         {detailDependents.length === 0 ? (
                             <p style={{ color: "#666" }}>{t("detail.noDependents")}</p>
                         ) : (

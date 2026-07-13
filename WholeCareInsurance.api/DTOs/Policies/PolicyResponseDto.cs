@@ -10,6 +10,8 @@ namespace WholeCareInsurance.api.DTOs.Policies
         public DateTime EndDate { get; set; }
         public decimal Premium { get; set; }
         public string Status { get; set; } = default!;
+        public int Period { get; set; }
+        public int? NumberOfApplicants { get; set; }
         public int CustomerId { get; set; }
     }
 }

@@ -2,7 +2,11 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { logout, apiFetch } from "../api";
 
-function Header() {
+const currentYear = new Date().getFullYear();
+// Año actual hasta 5 años atrás (6 opciones en total).
+const PERIOD_OPTIONS = Array.from({ length: 6 }, (_, i) => currentYear - i);
+
+function Header({ period, onPeriodChange }) {
     const { t, i18n } = useTranslation("common");
     const [open, setOpen] = useState(false);
 
@@ -63,6 +67,17 @@ function Header() {
             <div style={{ fontWeight: "bold" }}>{t("header.appName")}</div>
 
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <select
+                    value={period}
+                    onChange={(e) => onPeriodChange(Number(e.target.value))}
+                    title={t("header.period")}
+                    style={{ padding: "4px 6px", borderRadius: 4, border: "1px solid #ccc" }}
+                >
+                    {PERIOD_OPTIONS.map((year) => (
+                        <option key={year} value={year}>{year}</option>
+                    ))}
+                </select>
+
                 <select
                     value={i18n.language}
                     onChange={(e) => handleLanguageChange(e.target.value)}

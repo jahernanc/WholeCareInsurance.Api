@@ -26,6 +26,7 @@
     },
     "dependents": {
         "title": "Dependientes",
+        "numberOfApplicants": "Número de aplicantes",
         "empty": "Todavía no hay dependientes",
         "isAplicante": "Es aplicante",
         "removeTitle": "Quitar dependiente",
@@ -52,6 +53,7 @@
         "type": "Tipo",
         "insuranceCompany": "Compañía aseguradora",
         "status": "Estatus",
+        "period": "Período",
         "premium": "Prima",
         "customer": "Cliente",
         "actions": "Acciones"
@@ -71,6 +73,7 @@
         "type": "Tipo",
         "insuranceCompany": "Compañía aseguradora",
         "status": "Estatus",
+        "period": "Período",
         "startDate": "Fecha de inicio",
         "endDate": "Fecha de fin",
         "premium": "Prima",
@@ -82,6 +85,7 @@
         "migrationStatus": "Estatus migratorio",
         "unknown": "Desconocido",
         "dependentsSection": "Dependientes",
+        "numberOfApplicants": "Número de aplicantes",
         "noDependents": "Sin dependientes"
     },
     "documents": {

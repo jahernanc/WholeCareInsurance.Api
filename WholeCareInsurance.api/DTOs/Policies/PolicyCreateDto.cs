@@ -25,5 +25,14 @@ namespace WholeCareInsurance.api.DTOs.Policies
             ErrorMessage = "Status de póliza inválido.")]
         public string Status { get; set; } = "Draft";
         public int CustomerId { get; set; }
+
+        // Se define desde el selector de Período del header (no es un campo editable
+        // del formulario) — igual se valida acá porque igual llega en el body del POST/PUT.
+        [Range(2000, 2100, ErrorMessage = "Período inválido.")]
+        public int Period { get; set; }
+
+        // Carga manual del agente en la sección de Dependientes, opcional.
+        [Range(0, int.MaxValue, ErrorMessage = "El número de aplicantes no puede ser negativo.")]
+        public int? NumberOfApplicants { get; set; }
     }
 }

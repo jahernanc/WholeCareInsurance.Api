@@ -19,6 +19,10 @@
 
         public string Status { get; set; } = default!;
 
+        public int Period { get; set; }
+
+        public int? NumberOfApplicants { get; set; }
+
         // ✅ FK
         public int CustomerId { get; set; }
 
