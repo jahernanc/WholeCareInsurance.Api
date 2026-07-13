@@ -37,14 +37,11 @@ No existe ningún campo `Period` en `Models/Policy.cs` ni en los DTOs (`PolicyCr
 ### 1.9 Number of applicants — 🔲 Pendiente, no implementado
 No existe en el modelo ni en los DTOs de Policy/Dependent. Debe ser numérico, carga manual del agente, ubicado en la sección de Members/Dependientes de la póliza (§1.2).
 
-### 1.10 Enum de Status de Policy — ⚠️ Discrepancia importante, requiere decisión
-`PolicyCreateDto.Status` **no tiene `[AllowedValues]`** (es un `string` libre, default `"Active"`). Los valores realmente usados hoy en el frontend (`Policies.jsx:8`) son:
-```
-Active, Expired, Cancelled, activa
-```
-Esto **no coincide en nada** con los 7 valores solicitados (`Draft, Cancelado, Por procesar, En proceso, Procesado, Actualizado, Cambio de agente`) — ni los nombres ni la cantidad. Además `"activa"` en minúscula sugiere datos sucios/duplicados ya cargados con el enum viejo.
-- Impacto: este cambio también bloquea el widget de tarjetas por estado del Dashboard (§9.2), que asume que el enum de Status ya tiene esos 7 valores.
-- Falta decidir: ¿se migran las pólizas existentes con status `Active`/`Expired`/`Cancelled`/`activa` a los 7 nuevos valores (mapeo manual, ¿cuál mapea a cuál?), o conviven ambos temporalmente? Este mapeo debe definirse con el responsable antes de tocar el modelo.
+### 1.10 Enum de Status de Policy — ✅ Hecho
+`PolicyCreateDto.Status` ahora restringido vía `[AllowedValues]` a 8 valores canónicos en español (mismo patrón que `Type`/`MigrationStatus`): `Draft`, `Pendiente`, `Cancelado`, `Por procesar`, `En proceso`, `En corrección`, `Procesado`, `Cambio de agente`. Default cambiado de `"Active"` a `"Draft"`. Traducciones EN agregadas en `en/enums.json` (`Pending`, `Canceled`, `To be processed`, `In Process`, `By correction`, `Processed`, `Agent change`).
+- Migración `20260713180205_AddPolicyStatusEnum` aplicada: remapea datos existentes (`Cancelled`→`Cancelado`, `Active`/`activa`→`Procesado`, `Expired`→`Cancelado`) con `ELSE Status` como red de seguridad para valores no contemplados. Verificado contra la base de dev (0 pólizas al momento del cambio, por lo que no hubo remapeo real que auditar, pero la lógica quedó lista para Test/Prod).
+- Verificado con curl: `"Active"` (valor viejo) rechazado con 400; `"En corrección"` (valor nuevo) aceptado con 201.
+- Nota: el valor `"Actualizado"` que aparecía en la referencia visual original del Dashboard (§9.2) **no forma parte de este enum** — se reemplazó por `Pendiente` y `En corrección` en la lista final acordada. Ver §9.2, ya actualizada.
 
 ---
 
@@ -54,7 +51,7 @@ Hoy la sección Dependientes de Policies (§1.2) **solo permite buscar y vincula
 - Opción de crear un Customer **nuevo** directamente desde la sección Members/Dependientes de la póliza (para personas que todavía no existen en el sistema), con paridad de campos con el formulario de Customer completo (incluyendo los campos nuevos de §3).
 - Al crearlo así, debe quedar guardado como un Customer normal en la base y vinculado automáticamente vía `PolicyDependents`.
 
-No implementar todavía — se documenta como pendiente prioritario según lo pedido. Como depende de que el formulario de Customer esté completo, conviene resolver primero §3.2.
+No implementar todavía — se documenta como pendiente prioritario según lo pedido. Ya no está bloqueado por falta de campos: el formulario de Customer (§3.2) quedó completo, así que este punto queda listo para tomarse en la próxima sesión de implementación.
 
 ---
 
@@ -66,21 +63,23 @@ No implementar todavía — se documenta como pendiente prioritario según lo pe
 - `AgentId`/`AssistantAgentId`/`RecordAgentId` en `Customer` (FKs a `User`, nullable, `OnDelete Restrict`). No-Admin se auto-asigna como `AgentId` al crear (forzado server-side); Admin puede setear los tres, validados contra `Rol == "Agente"` (`RecordAgentId` además contra `IsEncargado == true`).
 - Página `/agentes` (solo Admin) para alta/edición de agentes.
 
-### 3.2 Campos pendientes de agregar — 🔲 Pendiente, ninguno implementado
-Auditado `Models/Customer.cs` completo — el modelo hoy solo tiene: `SocialSecurityNumber`, `FirstName`, `LastName`, `DateOfBirth`, `Email`, `Address` (campo único, no separado en #1/#2), `Phone`, `MigrationStatus`, `RelacionConPrincipal`, más lo listado en §3.1. **Ninguno de los siguientes campos existe en el modelo, DTOs, migraciones ni formulario**:
-- Middle name (texto, opcional)
-- Gender (dropdown: Masculino, Femenino — solo 2 valores, según el sistema de referencia del cliente; corregido el 2026-07-13, la propuesta anterior incluía por error una tercera opción "Otro")
-- Green card (texto, número de tarjeta, opcional)
-- Work permit (texto, número de permiso, opcional)
-- Address # 1 (texto, obligatorio) / Address # 2 (texto, opcional) — hoy es un solo campo `Address`, habría que decidir si se migra el dato existente a Address#1 o se agregan campos nuevos en paralelo
-- Employer name (texto, opcional)
-- Company Phone (texto, opcional)
-- Annual income (numérico/moneda, obligatorio)
-- Tags (texto libre — PENDIENTE de definir uso exacto con el responsable, no bloqueante para implementar como campo simple)
-- Language (dropdown English/Spanish) — idioma de preferencia de **contacto** del cliente. **No confundir con `User.PreferredLanguage`** (§6.2), que es el idioma de la interfaz del usuario logueado — son conceptos distintos, ninguno de los dos cubre al otro.
+### 3.2 Campos nuevos de Customer — ✅ Hecho
+Los 11 campos agregados a `Models/Customer.cs`, `CustomerCreateDto`/`CustomerResponseDto`, migración `20260713182551_AddCustomerNewFields`, y formulario/tarjeta de `Customers.jsx`:
+- `MiddleName` (texto, opcional)
+- `Gender` (dropdown: `Masculino`, `Femenino` — 2 valores, sin `[AllowedValues]` por ser opcional, traducidos vía `translateEnum`)
+- `GreenCard` (texto, opcional)
+- `WorkPermit` (texto, opcional)
+- `Address1` (texto, obligatorio — **renombrado desde el campo `Address` original**, migración `RenameColumn` verificada sin pérdida de datos) / `Address2` (texto, opcional, nuevo)
+- `EmployerName` (texto, opcional)
+- `CompanyPhone` (texto, opcional)
+- `AnnualIncome` (decimal, obligatorio, `[Range(0, ...)]` rechaza negativos; default `0` para los customers ya existentes al momento de la migración)
+- `Tags` (texto libre — sigue sin definirse el uso exacto con el responsable, implementado como campo simple tal como estaba planteado)
+- `ContactLanguage` (dropdown `Inglés`/`Español` — nombrado distinto de `Language` a propósito para no confundirse con `User.PreferredLanguage` §6.2, que es el idioma de la interfaz)
 
-### 3.3 Renombrado "Legal Status" (label, sin cambio de modelo) — 🔲 Pendiente, no implementado
-El campo `MigrationStatus` sigue mostrándose en el formulario como **"Migration Status"** (`src/i18n/locales/en/customers.json:16`, `src/i18n/locales/es/customers.json:16` dice "Estatus migratorio", que ya está bien en español). Falta solo cambiar la clave de traducción en inglés a "Legal Status" — el campo, los valores (`Permiso de trabajo`, `Residente permanente`, `Ciudadano`, `Otro`) y el modelo no cambian. Es un cambio de una línea cuando se priorice.
+Verificado con curl+sqlcmd (round-trip completo, rechazo de `AnnualIncome` negativo, los 2 customers ya existentes conservaron su dirección bajo `Address1`) y con Playwright (alta, edición con pre-carga correcta, baja, sin errores de consola).
+
+### 3.3 Renombrado "Legal Status" (label, sin cambio de modelo) — ✅ Hecho
+`en/customers.json` y `en/policies.json` ahora muestran "Legal Status" en vez de "Migration Status" (español ya decía "Estatus migratorio", sin cambios ahí). El campo, los valores (`Permiso de trabajo`, `Residente permanente`, `Ciudadano`, `Otro`) y el modelo no cambiaron. De paso se agregó `"Asilo"` como quinto valor permitido en `[AllowedValues]` de `MigrationStatus` (sin migración de EF Core — no hay validación a nivel de base, solo DTO), reflejado en el `<select>` del frontend y en ambos diccionarios de `enums.json`.
 
 ### 3.4 Cambio en modelo de Agente — `IsEncargado` (NPM) — ✅ Hecho
 `IsEncargado` (bool) en `Models/User.cs:10`, checkbox en el formulario de Agentes (`Agentes.jsx:155`), usado para filtrar el dropdown de Agente Record en Customers (§3.1). No queda nada pendiente en este punto.
@@ -131,7 +130,7 @@ Se solicitó al responsable del proyecto el archivo de export **completo** (toda
 
 **Columnas detectadas** en la pantalla de export del sistema anterior (referencia para el futuro mapeo): Reference, Agency, Agent, Full name, First/Middle/Last name, DOB, Gender, Email, Phone, Legal Status, SSN, Green card, Work permit, Estado civil, Address 1/2, City, State/Province, Zip code, County, Employer name, Company Phone, Position/Occupation, Annual income, Policy number, Marketplace ID, Contract identification, Number of applicants, Effective date, Company, Insurance plan, Type of plan, Tax Credit/Subsidy, Monthly premium amount, Status, Tags, Period, Confirmed consent, Registration date, Update date, Renewal status, Members.
 
-> Nota: buena parte de estas columnas mapean directo a los campos nuevos de Customer/Policy pendientes en §3.2, §1.8 y §1.9 — conviene cerrar esos campos antes de diseñar el script de migración, para no mapear dos veces.
+> Nota: buena parte de estas columnas ya mapean directo a los campos nuevos de Customer (§3.2, cerrado). Quedan pendientes `Period` y `Number of applicants` en Policy (§1.8, §1.9) — conviene cerrar esos dos antes de diseñar el script de migración, para no mapear dos veces.
 
 **BLOQUEADO:** no diseñar el script de migración hasta recibir el archivo real + las 4 respuestas. Se probará primero contra la base del ambiente de test (§8.1), nunca directo contra producción.
 
@@ -173,8 +172,8 @@ No implementar hasta que la migración de datos del sistema anterior (§7) esté
 
 ### 9.2 Referencia visual del Dashboard
 Fila de tarjetas KPI: Agencias, Agentes, Pólizas (+ miembros), Recordatorios.
-Fila de tarjetas por estado de póliza (cantidad + miembros por cada una): Draft, Cancelado, Por procesar, En proceso, Procesado, Actualizado, Cambio de agente.
-⚠️ **Depende de §1.10** — el enum de Status hoy no tiene estos 7 valores, hay que resolver eso primero.
+Fila de tarjetas por estado de póliza (cantidad + miembros por cada una): `Draft`, `Pendiente`, `Cancelado`, `Por procesar`, `En proceso`, `En corrección`, `Procesado`, `Cambio de agente` — actualizado según el enum final de §1.10 (ya no incluye "Actualizado", que no llegó a implementarse; en su lugar el enum real suma `Pendiente` y `En corrección`).
+✅ Enum de Status ya resuelto (§1.10) — este punto ya no está bloqueado por eso, solo sigue bloqueado por la migración de datos (§7, ver encabezado de §9).
 Gráficos: torta "Pólizas por Tipo" (campo `Type`, ya existe), torta "Pólizas por Status".
 
 ### 9.3 Estadísticas adicionales solicitadas
@@ -211,11 +210,11 @@ Ventana: 4 meses antes/después del cumpleaños 65. Columnas: nombre (link), fec
 10. ~~Documentos de póliza~~ ✅ Hecho
 11. ~~Agentes (Agente/Asistente/Record) + datos demográficos en Customer~~ ✅ Hecho
 12. ~~Selector de idioma ES/EN~~ ✅ Hecho
-13. **Definir y cerrar el enum de Status de Policy (§1.10)** — bloquea el Dashboard, conviene resolverlo antes de seguir sumando campos nuevos
-14. Campos nuevos de Customer (§3.2) + renombrado "Legal Status" (§3.3)
+13. ~~Definir y cerrar el enum de Status de Policy~~ ✅ Hecho (§1.10)
+14. ~~Campos nuevos de Customer + renombrado "Legal Status"~~ ✅ Hecho (§3.2, §3.3)
 15. Period + Number of applicants en Policy (§1.8, §1.9)
-16. Crear Customer nuevo desde Members/Dependientes de la póliza (§2)
+16. Crear Customer nuevo desde Members/Dependientes de la póliza (§2) — ya no bloqueado por §3.2, que quedó cerrado
 17. Firma digital de consentimiento — bloqueado hasta que el responsable elija proveedor (§4.1)
 18. Infraestructura de hosting (VPS) — plan definido, pendiente de ejecución (§8.1)
 19. Migración de datos del sistema anterior — bloqueado hasta recibir el archivo + respuestas (§7)
-20. Dashboard — bloqueado hasta tener la data migrada, y hasta resolver §1.10 (§9)
+20. Dashboard — bloqueado hasta tener la data migrada (§9)
