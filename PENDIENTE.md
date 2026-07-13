@@ -47,13 +47,13 @@ Modelo `PolicyDocument`, migración `AddPolicyDocuments` aplicada. Archivos en d
 
 ---
 
-## 2. Extensión del flujo de Dependientes — crear Customer nuevo desde Members — 🔲 Pendiente prioritario
+## 2. Extensión del flujo de Dependientes — crear Customer nuevo desde Members — ✅ Hecho
 
-Hoy la sección Dependientes de Policies (§1.2) **solo permite buscar y vincular Customers que ya existen** (`dependentCandidates` en `Policies.jsx` filtra sobre la lista de `customers` ya cargada — no hay ningún flujo de alta). Falta:
-- Opción de crear un Customer **nuevo** directamente desde la sección Members/Dependientes de la póliza (para personas que todavía no existen en el sistema), con paridad de campos con el formulario de Customer completo (incluyendo los campos nuevos de §3).
-- Al crearlo así, debe quedar guardado como un Customer normal en la base y vinculado automáticamente vía `PolicyDependents`.
+La sección Dependientes de Policies (§1.2) ahora tiene dos botones: "+ Add dependent" (buscar entre Customers existentes, como antes) y "+ Create new dependent" (nuevo). Al crear, se muestra el formulario completo de Customer inline; al enviarlo, el registro se crea vía `POST /api/customers` (Customer normal, sin ninguna tabla ni endpoint especial) y se vincula automáticamente a la póliza vía `POST /api/policies/{id}/dependents` (mismo endpoint que ya usaba el flujo de "buscar existente").
 
-No implementar todavía — se documenta como pendiente prioritario según lo pedido. Ya no está bloqueado por falta de campos: el formulario de Customer (§3.2) quedó completo, así que este punto queda listo para tomarse en la próxima sesión de implementación.
+- **Paridad de campos garantizada por estructura, no por copiar/pegar**: se extrajo `src/components/CustomerFormFields.jsx` con todos los campos del formulario de Customer (incluidos los de §3.2), reutilizado tanto por `Customers.jsx` como por esta sección nueva de `Policies.jsx` — un cambio futuro a los campos de Customer se refleja automáticamente en ambos lugares. Las constantes de los `<select>` (`MIGRATION_STATUSES`, `GENDERS`, etc.) y `emptyCustomerForm` se movieron a `src/data/customerFormOptions.js` (archivo de datos puro, no componente, por la regla de Fast Refresh de ESLint que prohíbe mezclar exports de componentes y constantes en el mismo archivo).
+- **Bug evitado**: el panel de "crear dependiente nuevo" tiene varios campos `required` (SSN, nombre, email, etc.). Si hubiera quedado anidado dentro del mismo `<form>` de Policy (como estaba el resto de la sección Dependientes), la validación nativa del navegador habría bloqueado el botón "Guardar" del formulario de Policy cada vez que el panel estuviera abierto con campos vacíos — sin importar que el usuario no tuviera intención de crear un dependiente en ese momento. Se movió toda la sección Dependientes (no solo el panel nuevo) a **fuera** del `<form>` de Policy, como hermano después de `</form>`; el guardado de la póliza y el guardado de "Number of applicants" siguen funcionando igual porque `handleSubmit` arma el body a mano desde el estado de React, no depende de que los inputs estén dentro del `<form>`.
+- Verificado con Playwright: los 11 campos nuevos de §3.2 (Middle Name, Gender, Address #1/#2, Green Card, Work Permit, Employer Name, Company Phone, Annual Income, Tags, Contact Language) presentes en el panel; guardar la póliza con el panel abierto y vacío **no** se bloquea (confirma el fix de arriba); alta de un dependiente nuevo queda como Customer normal en la base y vinculado en `PolicyDependents` (confirmado por SQL directo); sin errores de consola.
 
 ---
 
@@ -215,7 +215,7 @@ Ventana: 4 meses antes/después del cumpleaños 65. Columnas: nombre (link), fec
 13. ~~Definir y cerrar el enum de Status de Policy~~ ✅ Hecho (§1.10)
 14. ~~Campos nuevos de Customer + renombrado "Legal Status"~~ ✅ Hecho (§3.2, §3.3)
 15. ~~Period + Number of applicants en Policy~~ ✅ Hecho (§1.8, §1.9)
-16. Crear Customer nuevo desde Members/Dependientes de la póliza (§2) — ya no bloqueado por §3.2, que quedó cerrado
+16. ~~Crear Customer nuevo desde Members/Dependientes de la póliza~~ ✅ Hecho (§2)
 17. Firma digital de consentimiento — bloqueado hasta que el responsable elija proveedor (§4.1)
 18. Infraestructura de hosting (VPS) — plan definido, pendiente de ejecución (§8.1)
 19. Migración de datos del sistema anterior — bloqueado hasta recibir el archivo + respuestas (§7)

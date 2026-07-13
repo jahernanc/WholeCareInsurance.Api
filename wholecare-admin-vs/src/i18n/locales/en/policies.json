@@ -31,13 +31,17 @@
         "isAplicante": "Is applicant",
         "removeTitle": "Remove dependent",
         "addButton": "+ Add dependent",
+        "createButton": "+ Create new dependent",
+        "createTitle": "New customer",
+        "createSubmitButton": "Create & add as dependent",
         "cancelButton": "Cancel",
         "searchPlaceholder": "Search customer by name...",
         "addAction": "Add",
         "noMatches": "No matches",
         "addError": "Error adding dependent",
         "updateError": "Error updating dependent",
-        "removeError": "Error removing dependent"
+        "removeError": "Error removing dependent",
+        "createError": "Error creating the new customer"
     },
     "filters": {
         "policyNumber": "Policy Number",

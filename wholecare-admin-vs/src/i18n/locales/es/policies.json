@@ -31,13 +31,17 @@
         "isAplicante": "Es aplicante",
         "removeTitle": "Quitar dependiente",
         "addButton": "+ Agregar dependiente",
+        "createButton": "+ Crear dependiente nuevo",
+        "createTitle": "Cliente nuevo",
+        "createSubmitButton": "Crear y agregar como dependiente",
         "cancelButton": "Cancelar",
         "searchPlaceholder": "Buscar cliente por nombre...",
         "addAction": "Agregar",
         "noMatches": "Sin resultados",
         "addError": "Error al agregar el dependiente",
         "updateError": "Error al actualizar el dependiente",
-        "removeError": "Error al quitar el dependiente"
+        "removeError": "Error al quitar el dependiente",
+        "createError": "Error al crear el cliente nuevo"
     },
     "filters": {
         "policyNumber": "Número de póliza",

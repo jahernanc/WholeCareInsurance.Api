@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useOutletContext } from "react-router-dom";
-import { apiFetch } from "../api";
+import { apiFetch, isAdmin } from "../api";
 import { translateEnum } from "../i18n/translateEnum";
+import CustomerFormFields from "../components/CustomerFormFields";
+import { emptyCustomerForm } from "../data/customerFormOptions";
 
 const POLICY_TYPES = ["Obama Care", "Salud", "Auto", "Otro"];
 const INSURANCE_COMPANIES = ["WholeCareInsurance", "Otro"];
@@ -53,6 +55,15 @@ function Policies() {
     const [dependents, setDependents] = useState([]);
     const [dependentQuery, setDependentQuery] = useState("");
     const [showDependentPicker, setShowDependentPicker] = useState(false);
+
+    // Alta de un Customer nuevo directamente desde Dependientes (§2) — paridad de
+    // campos con el formulario de Customers vía el mismo CustomerFormFields.
+    const userIsAdmin = isAdmin();
+    const [dependentAgents, setDependentAgents] = useState([]);
+    const [showCreateDependentForm, setShowCreateDependentForm] = useState(false);
+    const [newDependentForm, setNewDependentForm] = useState(emptyCustomerForm);
+    const [newDependentError, setNewDependentError] = useState("");
+    const [creatingDependent, setCreatingDependent] = useState(false);
 
     const [filterPolicyNumber, setFilterPolicyNumber] = useState("");
     const [filterFirstName, setFilterFirstName] = useState("");
@@ -280,6 +291,58 @@ function Policies() {
         }
     };
 
+    const handleNewDependentField = (e) => {
+        const { name, value } = e.target;
+        if (name === "state") {
+            // el condado depende del estado: si cambia el estado, se resetea
+            setNewDependentForm((f) => ({ ...f, state: value, county: "" }));
+            return;
+        }
+        setNewDependentForm((f) => ({ ...f, [name]: value }));
+    };
+
+    const handleCreateDependent = async (e) => {
+        e.preventDefault();
+        setNewDependentError("");
+
+        const body = {
+            ...newDependentForm,
+            agentId: newDependentForm.agentId ? Number(newDependentForm.agentId) : null,
+            assistantAgentId: newDependentForm.assistantAgentId ? Number(newDependentForm.assistantAgentId) : null,
+            recordAgentId: newDependentForm.recordAgentId ? Number(newDependentForm.recordAgentId) : null,
+            annualIncome: newDependentForm.annualIncome === "" ? 0 : Number(newDependentForm.annualIncome),
+        };
+
+        try {
+            setCreatingDependent(true);
+
+            const res = await apiFetch("/api/customers", {
+                method: "POST",
+                body: JSON.stringify(body),
+            });
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => null);
+                setNewDependentError(err?.title ?? err ?? t("dependents.createError"));
+                return;
+            }
+
+            const created = await res.json();
+
+            // El nuevo Customer queda guardado como cualquier otro y se vincula
+            // automáticamente a esta póliza vía PolicyDependents.
+            await handleAddDependent(created.id);
+            await loadData(); // refresca la lista de customers para que el nuevo aparezca en el resto de la página
+
+            setNewDependentForm(emptyCustomerForm);
+            setShowCreateDependentForm(false);
+        } catch {
+            setNewDependentError(t("dependents.createError"));
+        } finally {
+            setCreatingDependent(false);
+        }
+    };
+
     const handleToggleAplicante = async (depCustomerId, isAplicante) => {
         try {
             const response = await apiFetch(`/api/policies/${editingId}/dependents/${depCustomerId}`, {
@@ -323,6 +386,9 @@ function Policies() {
 
         setDependentQuery("");
         setShowDependentPicker(false);
+        setShowCreateDependentForm(false);
+        setNewDependentForm(emptyCustomerForm);
+        setNewDependentError("");
         loadDependents(policy.id);
 
         setShowForm(true);
@@ -353,6 +419,23 @@ function Policies() {
         loadData();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [period]);
+
+    useEffect(() => {
+        if (!userIsAdmin) return;
+
+        const loadDependentAgents = async () => {
+            try {
+                const res = await apiFetch("/users?role=Agente");
+                if (!res.ok) throw new Error();
+                setDependentAgents(await res.json());
+            } catch (error) {
+                console.error("Error loading agents:", error);
+            }
+        };
+
+        loadDependentAgents();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -421,6 +504,9 @@ function Policies() {
             setDependents([]);
             setDependentQuery("");
             setShowDependentPicker(false);
+            setShowCreateDependentForm(false);
+            setNewDependentForm(emptyCustomerForm);
+            setNewDependentError("");
 
             await loadData();
         } catch (error) {
@@ -584,120 +670,6 @@ function Policies() {
                                 </select>
                             </div>
 
-                            {editingId && (
-                                <div style={{ marginBottom: 12, borderTop: "1px solid #ddd", paddingTop: 12 }}>
-                                    <label style={{ fontWeight: "bold" }}>{t("dependents.title")}</label>
-
-                                    <div style={{ margin: "10px 0" }}>
-                                        <label>{t("dependents.numberOfApplicants")}</label>
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            value={numberOfApplicants}
-                                            onChange={(e) => setNumberOfApplicants(e.target.value)}
-                                            style={{ width: "100%", padding: 8, marginTop: 4 }}
-                                        />
-                                    </div>
-
-                                    {dependents.length === 0 ? (
-                                        <p style={{ color: "#666", margin: "8px 0" }}>{t("dependents.empty")}</p>
-                                    ) : (
-                                        <ul style={{ listStyle: "none", padding: 0, margin: "8px 0" }}>
-                                            {dependents.map((d) => (
-                                                <li
-                                                    key={d.customerId}
-                                                    style={{
-                                                        display: "flex",
-                                                        justifyContent: "space-between",
-                                                        alignItems: "center",
-                                                        padding: "6px 0",
-                                                    }}
-                                                >
-                                                    <span>{d.firstName} {d.lastName}</span>
-                                                    <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}>
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={d.isAplicante}
-                                                            onChange={(e) => handleToggleAplicante(d.customerId, e.target.checked)}
-                                                        />
-                                                        {t("dependents.isAplicante")}
-                                                    </label>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleRemoveDependent(d.customerId)}
-                                                        title={t("dependents.removeTitle")}
-                                                        style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 16 }}
-                                                    >
-                                                        🗑
-                                                    </button>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    )}
-
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowDependentPicker(!showDependentPicker)}
-                                        style={{
-                                            background: "#2563eb",
-                                            color: "white",
-                                            padding: "6px 10px",
-                                            border: "none",
-                                            borderRadius: 6,
-                                            cursor: "pointer",
-                                            marginBottom: 8,
-                                        }}
-                                    >
-                                        {showDependentPicker ? t("dependents.cancelButton") : t("dependents.addButton")}
-                                    </button>
-
-                                    {showDependentPicker && (
-                                        <div>
-                                            <input
-                                                type="text"
-                                                placeholder={t("dependents.searchPlaceholder")}
-                                                value={dependentQuery}
-                                                onChange={(e) => setDependentQuery(e.target.value)}
-                                                style={{ width: "100%", padding: 8, marginBottom: 8 }}
-                                            />
-                                            <ul style={{ listStyle: "none", padding: 0, maxHeight: 160, overflowY: "auto" }}>
-                                                {dependentCandidates.map((c) => (
-                                                    <li
-                                                        key={c.id}
-                                                        style={{
-                                                            display: "flex",
-                                                            justifyContent: "space-between",
-                                                            alignItems: "center",
-                                                            padding: "6px 0",
-                                                            borderBottom: "1px solid #eee",
-                                                        }}
-                                                    >
-                                                        <span>{c.firstName} {c.lastName}</span>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleAddDependent(c.id)}
-                                                            style={{
-                                                                background: "#16a34a",
-                                                                color: "white",
-                                                                border: "none",
-                                                                borderRadius: 4,
-                                                                padding: "4px 8px",
-                                                                cursor: "pointer",
-                                                            }}
-                                                        >
-                                                            {t("dependents.addAction")}
-                                                        </button>
-                                                    </li>
-                                                ))}
-                                                {dependentCandidates.length === 0 && (
-                                                    <li style={{ color: "#666", padding: "6px 0" }}>{t("dependents.noMatches")}</li>
-                                                )}
-                                            </ul>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
                             {formError && (
                                 <p style={{ color: "red", marginBottom: 12 }}>
                                     {formError}
@@ -709,6 +681,168 @@ function Policies() {
                             </button>
 
                         </form>
+
+                        {/* Fuera del <form> a propósito: los campos "required" de
+                            CustomerFormFields (usados al crear un dependiente nuevo)
+                            bloquearían la validación nativa del formulario de Policy
+                            si quedaran anidados dentro del mismo <form>. */}
+                        {editingId && (
+                            <div style={{ marginTop: 12, borderTop: "1px solid #ddd", paddingTop: 12 }}>
+                                <label style={{ fontWeight: "bold" }}>{t("dependents.title")}</label>
+
+                                <div style={{ margin: "10px 0" }}>
+                                    <label>{t("dependents.numberOfApplicants")}</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={numberOfApplicants}
+                                        onChange={(e) => setNumberOfApplicants(e.target.value)}
+                                        style={{ width: "100%", padding: 8, marginTop: 4 }}
+                                    />
+                                </div>
+
+                                {dependents.length === 0 ? (
+                                    <p style={{ color: "#666", margin: "8px 0" }}>{t("dependents.empty")}</p>
+                                ) : (
+                                    <ul style={{ listStyle: "none", padding: 0, margin: "8px 0" }}>
+                                        {dependents.map((d) => (
+                                            <li
+                                                key={d.customerId}
+                                                style={{
+                                                    display: "flex",
+                                                    justifyContent: "space-between",
+                                                    alignItems: "center",
+                                                    padding: "6px 0",
+                                                }}
+                                            >
+                                                <span>{d.firstName} {d.lastName}</span>
+                                                <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={d.isAplicante}
+                                                        onChange={(e) => handleToggleAplicante(d.customerId, e.target.checked)}
+                                                    />
+                                                    {t("dependents.isAplicante")}
+                                                </label>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleRemoveDependent(d.customerId)}
+                                                    title={t("dependents.removeTitle")}
+                                                    style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 16 }}
+                                                >
+                                                    🗑
+                                                </button>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+
+                                <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setShowCreateDependentForm(false);
+                                            setShowDependentPicker(!showDependentPicker);
+                                        }}
+                                        style={{
+                                            background: "#2563eb",
+                                            color: "white",
+                                            padding: "6px 10px",
+                                            border: "none",
+                                            borderRadius: 6,
+                                            cursor: "pointer",
+                                        }}
+                                    >
+                                        {showDependentPicker ? t("dependents.cancelButton") : t("dependents.addButton")}
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setShowDependentPicker(false);
+                                            setNewDependentError("");
+                                            setShowCreateDependentForm(!showCreateDependentForm);
+                                        }}
+                                        style={{
+                                            background: "#16a34a",
+                                            color: "white",
+                                            padding: "6px 10px",
+                                            border: "none",
+                                            borderRadius: 6,
+                                            cursor: "pointer",
+                                        }}
+                                    >
+                                        {showCreateDependentForm ? t("dependents.cancelButton") : t("dependents.createButton")}
+                                    </button>
+                                </div>
+
+                                {showCreateDependentForm && (
+                                    <div style={{ border: "1px solid #ddd", borderRadius: 8, padding: 16, marginBottom: 12, background: "white" }}>
+                                        <h4 style={{ marginTop: 0 }}>{t("dependents.createTitle")}</h4>
+                                        <CustomerFormFields
+                                            form={newDependentForm}
+                                            onFieldChange={handleNewDependentField}
+                                            agents={dependentAgents}
+                                            userIsAdmin={userIsAdmin}
+                                        />
+                                        {newDependentError && <p style={{ color: "red", marginTop: 12 }}>{newDependentError}</p>}
+                                        <button
+                                            type="button"
+                                            onClick={handleCreateDependent}
+                                            disabled={creatingDependent}
+                                            style={{ marginTop: 16, background: "#16a34a", color: "white", padding: "9px 20px", border: "none", borderRadius: 6, cursor: "pointer" }}
+                                        >
+                                            {creatingDependent ? t("common:actions.creating") : t("dependents.createSubmitButton")}
+                                        </button>
+                                    </div>
+                                )}
+
+                                {showDependentPicker && (
+                                    <div>
+                                        <input
+                                            type="text"
+                                            placeholder={t("dependents.searchPlaceholder")}
+                                            value={dependentQuery}
+                                            onChange={(e) => setDependentQuery(e.target.value)}
+                                            style={{ width: "100%", padding: 8, marginBottom: 8 }}
+                                        />
+                                        <ul style={{ listStyle: "none", padding: 0, maxHeight: 160, overflowY: "auto" }}>
+                                            {dependentCandidates.map((c) => (
+                                                <li
+                                                    key={c.id}
+                                                    style={{
+                                                        display: "flex",
+                                                        justifyContent: "space-between",
+                                                        alignItems: "center",
+                                                        padding: "6px 0",
+                                                        borderBottom: "1px solid #eee",
+                                                    }}
+                                                >
+                                                    <span>{c.firstName} {c.lastName}</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleAddDependent(c.id)}
+                                                        style={{
+                                                            background: "#16a34a",
+                                                            color: "white",
+                                                            border: "none",
+                                                            borderRadius: 4,
+                                                            padding: "4px 8px",
+                                                            cursor: "pointer",
+                                                        }}
+                                                    >
+                                                        {t("dependents.addAction")}
+                                                    </button>
+                                                </li>
+                                            ))}
+                                            {dependentCandidates.length === 0 && (
+                                                <li style={{ color: "#666", padding: "6px 0" }}>{t("dependents.noMatches")}</li>
+                                            )}
+                                        </ul>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 )
             }

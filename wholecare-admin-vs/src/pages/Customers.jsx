@@ -2,62 +2,10 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { apiFetch, isAdmin } from "../api";
 import { translateEnum } from "../i18n/translateEnum";
-import { US_STATES } from "../data/usStates";
-import US_COUNTIES from "../data/usCounties.json";
+import CustomerFormFields from "../components/CustomerFormFields";
+import { emptyCustomerForm } from "../data/customerFormOptions";
 
 const API = "/api/customers";
-const MIGRATION_STATUSES = [
-    "Permiso de trabajo",
-    "Residente permanente",
-    "Ciudadano",
-    "Otro",
-    "Asilo",
-];
-const RELACIONES_PRINCIPAL = [
-    "Cónyuge",
-    "Hijo/a",
-    "Madre",
-    "Padre",
-    "Sobrino/a",
-    "Nieto/a",
-    "Hijastro/a",
-    "Hermano/a",
-    "Otro",
-];
-const MARITAL_STATUSES = ["Soltero/a", "Casado/a", "Divorciado/a", "Viudo/a", "Unión libre"];
-const GENDERS = ["Masculino", "Femenino"];
-const CONTACT_LANGUAGES = ["Inglés", "Español"];
-
-const emptyForm = {
-    socialSecurityNumber: "",
-    firstName: "",
-    lastName: "",
-    dateOfBirth: "",
-    email: "",
-    address1: "",
-    phone: "",
-    migrationStatus: "",
-    relacionConPrincipal: "",
-    zipCode: "",
-    state: "",
-    city: "",
-    county: "",
-    maritalStatus: "",
-    occupation: "",
-    agentId: "",
-    assistantAgentId: "",
-    recordAgentId: "",
-    middleName: "",
-    gender: "",
-    greenCard: "",
-    workPermit: "",
-    address2: "",
-    employerName: "",
-    companyPhone: "",
-    annualIncome: "",
-    tags: "",
-    contactLanguage: "",
-};
 
 function Customers() {
     const { t } = useTranslation(["customers", "common"]);
@@ -65,13 +13,12 @@ function Customers() {
     const [agents, setAgents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
-    const [form, setForm] = useState(emptyForm);
+    const [form, setForm] = useState(emptyCustomerForm);
     const [editingId, setEditingId] = useState(null);
     const [formError, setFormError] = useState("");
     const [submitting, setSubmitting] = useState(false);
 
     const userIsAdmin = isAdmin();
-    const encargados = agents.filter((a) => a.isEncargado);
 
     const loadCustomers = async () => {
         try {
@@ -114,7 +61,7 @@ function Customers() {
 
     const openCreate = () => {
         setEditingId(null);
-        setForm(emptyForm);
+        setForm(emptyCustomerForm);
         setFormError("");
         setShowForm(true);
     };
@@ -184,7 +131,7 @@ function Customers() {
             }
 
             setShowForm(false);
-            setForm(emptyForm);
+            setForm(emptyCustomerForm);
             setEditingId(null);
             await loadCustomers();
         } catch {
@@ -205,10 +152,6 @@ function Customers() {
         }
     };
 
-    const inputStyle = { width: "100%", padding: "7px 10px", marginTop: 4, boxSizing: "border-box", borderRadius: 5, border: "1px solid #ccc" };
-    const labelStyle = { fontWeight: 500, fontSize: 13 };
-    const countiesForState = form.state ? (US_COUNTIES[form.state] ?? []) : [];
-
     return (
         <div>
             <h2 style={{ marginBottom: 20 }}>{t("title")}</h2>
@@ -226,203 +169,7 @@ function Customers() {
                     <h3 style={{ marginTop: 0 }}>{editingId ? t("form.titleEdit") : t("form.titleCreate")}</h3>
 
                     <form onSubmit={handleSubmit}>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-
-                            <div>
-                                <label style={labelStyle}>{t("form.fields.ssn")}</label>
-                                <input name="socialSecurityNumber" value={form.socialSecurityNumber} onChange={handleField} required style={inputStyle} />
-                            </div>
-
-                            <div>
-                                <label style={labelStyle}>{t("form.fields.dateOfBirth")}</label>
-                                <input type="date" name="dateOfBirth" value={form.dateOfBirth} onChange={handleField} required style={inputStyle} />
-                            </div>
-
-                            <div>
-                                <label style={labelStyle}>{t("form.fields.firstName")}</label>
-                                <input name="firstName" value={form.firstName} onChange={handleField} required style={inputStyle} />
-                            </div>
-
-                            <div>
-                                <label style={labelStyle}>{t("form.fields.lastName")}</label>
-                                <input name="lastName" value={form.lastName} onChange={handleField} required style={inputStyle} />
-                            </div>
-
-                            <div>
-                                <label style={labelStyle}>{t("form.fields.middleName")}</label>
-                                <input name="middleName" value={form.middleName} onChange={handleField} style={inputStyle} />
-                            </div>
-
-                            <div>
-                                <label style={labelStyle}>{t("form.fields.gender")}</label>
-                                <select name="gender" value={form.gender} onChange={handleField} style={inputStyle}>
-                                    <option value="">{t("form.selectPlaceholder")}</option>
-                                    {GENDERS.map((g) => (
-                                        <option key={g} value={g}>{translateEnum("gender", g)}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div style={{ gridColumn: "1 / -1" }}>
-                                <label style={labelStyle}>{t("form.fields.email")}</label>
-                                <input type="email" name="email" value={form.email} onChange={handleField} required style={inputStyle} />
-                            </div>
-
-                            <div style={{ gridColumn: "1 / -1" }}>
-                                <label style={labelStyle}>{t("form.fields.address1")}</label>
-                                <input name="address1" value={form.address1} onChange={handleField} required style={inputStyle} />
-                            </div>
-
-                            <div style={{ gridColumn: "1 / -1" }}>
-                                <label style={labelStyle}>{t("form.fields.address2")}</label>
-                                <input name="address2" value={form.address2} onChange={handleField} style={inputStyle} />
-                            </div>
-
-                            <div>
-                                <label style={labelStyle}>{t("form.fields.phone")}</label>
-                                <input name="phone" value={form.phone} onChange={handleField} required style={inputStyle} />
-                            </div>
-
-                            <div>
-                                <label style={labelStyle}>{t("form.fields.migrationStatus")}</label>
-                                <select name="migrationStatus" value={form.migrationStatus} onChange={handleField} required style={inputStyle}>
-                                    <option value="">{t("form.selectPlaceholder")}</option>
-                                    {MIGRATION_STATUSES.map((s) => (
-                                        <option key={s} value={s}>{translateEnum("migrationStatus", s)}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div>
-                                <label style={labelStyle}>{t("form.fields.relacionConPrincipal")}</label>
-                                <select name="relacionConPrincipal" value={form.relacionConPrincipal} onChange={handleField} required style={inputStyle}>
-                                    <option value="">{t("form.selectPlaceholder")}</option>
-                                    {RELACIONES_PRINCIPAL.map((r) => (
-                                        <option key={r} value={r}>{translateEnum("relacionConPrincipal", r)}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div>
-                                <label style={labelStyle}>{t("form.fields.zipCode")}</label>
-                                <input name="zipCode" value={form.zipCode} onChange={handleField} style={inputStyle} />
-                            </div>
-
-                            <div>
-                                <label style={labelStyle}>{t("form.fields.state")}</label>
-                                <select name="state" value={form.state} onChange={handleField} style={inputStyle}>
-                                    <option value="">{t("form.selectPlaceholder")}</option>
-                                    {US_STATES.map((s) => (
-                                        <option key={s.code} value={s.code}>{s.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div>
-                                <label style={labelStyle}>{t("form.fields.city")}</label>
-                                <input name="city" value={form.city} onChange={handleField} style={inputStyle} />
-                            </div>
-
-                            <div>
-                                <label style={labelStyle}>{t("form.fields.county")}</label>
-                                <select name="county" value={form.county} onChange={handleField} disabled={!form.state} style={inputStyle}>
-                                    <option value="">{form.state ? t("form.selectPlaceholder") : t("form.selectStateFirst")}</option>
-                                    {countiesForState.map((c) => (
-                                        <option key={c} value={c}>{c}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div>
-                                <label style={labelStyle}>{t("form.fields.maritalStatus")}</label>
-                                <select name="maritalStatus" value={form.maritalStatus} onChange={handleField} style={inputStyle}>
-                                    <option value="">{t("form.selectPlaceholder")}</option>
-                                    {MARITAL_STATUSES.map((m) => (
-                                        <option key={m} value={m}>{translateEnum("maritalStatus", m)}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div>
-                                <label style={labelStyle}>{t("form.fields.occupation")}</label>
-                                <input name="occupation" value={form.occupation} onChange={handleField} style={inputStyle} />
-                            </div>
-
-                            <div>
-                                <label style={labelStyle}>{t("form.fields.greenCard")}</label>
-                                <input name="greenCard" value={form.greenCard} onChange={handleField} style={inputStyle} />
-                            </div>
-
-                            <div>
-                                <label style={labelStyle}>{t("form.fields.workPermit")}</label>
-                                <input name="workPermit" value={form.workPermit} onChange={handleField} style={inputStyle} />
-                            </div>
-
-                            <div>
-                                <label style={labelStyle}>{t("form.fields.employerName")}</label>
-                                <input name="employerName" value={form.employerName} onChange={handleField} style={inputStyle} />
-                            </div>
-
-                            <div>
-                                <label style={labelStyle}>{t("form.fields.companyPhone")}</label>
-                                <input name="companyPhone" value={form.companyPhone} onChange={handleField} style={inputStyle} />
-                            </div>
-
-                            <div>
-                                <label style={labelStyle}>{t("form.fields.annualIncome")}</label>
-                                <input type="number" min="0" step="0.01" name="annualIncome" value={form.annualIncome} onChange={handleField} required style={inputStyle} />
-                            </div>
-
-                            <div>
-                                <label style={labelStyle}>{t("form.fields.contactLanguage")}</label>
-                                <select name="contactLanguage" value={form.contactLanguage} onChange={handleField} style={inputStyle}>
-                                    <option value="">{t("form.selectPlaceholder")}</option>
-                                    {CONTACT_LANGUAGES.map((l) => (
-                                        <option key={l} value={l}>{translateEnum("contactLanguage", l)}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div style={{ gridColumn: "1 / -1" }}>
-                                <label style={labelStyle}>{t("form.fields.tags")}</label>
-                                <input name="tags" value={form.tags} onChange={handleField} style={inputStyle} />
-                            </div>
-
-                            {userIsAdmin && (
-                                <>
-                                    <div>
-                                        <label style={labelStyle}>{t("form.fields.agent")}</label>
-                                        <select name="agentId" value={form.agentId} onChange={handleField} style={inputStyle}>
-                                            <option value="">{t("form.unassigned")}</option>
-                                            {agents.map((a) => (
-                                                <option key={a.id} value={a.id}>{a.nombre}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    <div>
-                                        <label style={labelStyle}>{t("form.fields.assistantAgent")}</label>
-                                        <select name="assistantAgentId" value={form.assistantAgentId} onChange={handleField} style={inputStyle}>
-                                            <option value="">{t("form.unassigned")}</option>
-                                            {agents.map((a) => (
-                                                <option key={a.id} value={a.id}>{a.nombre}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    <div>
-                                        <label style={labelStyle}>{t("form.fields.recordAgent")}</label>
-                                        <select name="recordAgentId" value={form.recordAgentId} onChange={handleField} style={inputStyle}>
-                                            <option value="">{t("form.unassigned")}</option>
-                                            {encargados.map((a) => (
-                                                <option key={a.id} value={a.id}>{a.nombre}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                </>
-                            )}
-
-                        </div>
+                        <CustomerFormFields form={form} onFieldChange={handleField} agents={agents} userIsAdmin={userIsAdmin} />
 
                         {formError && <p style={{ color: "red", marginTop: 12 }}>{formError}</p>}
 
