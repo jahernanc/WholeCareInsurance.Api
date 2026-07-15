@@ -12,10 +12,10 @@
 ### 1.2 Dependientes (vínculo con Customers existentes) — ✅ Hecho
 Los dependientes son **Customers** vinculados a un Customer principal dentro de una póliza (tabla intermedia `PolicyDependents`, `PolicyId`+`CustomerId`).
 - Endpoints: `GET/POST /api/policies/{id}/dependents`, `PUT/DELETE /api/policies/{id}/dependents/{customerId}`.
-- Frontend: sección "Dependientes" en el formulario de Policies, visible solo al **editar** una póliza ya guardada. El buscador filtra en el cliente sobre la lista de `customers` ya cargada — **solo permite vincular Customers que ya existen en el sistema, no crear uno nuevo desde ahí.** Ver §2 (nuevo pendiente).
+- Frontend: sección "Dependientes" en el formulario de Policies, visible solo al **editar** una póliza ya guardada. El buscador filtra en el cliente sobre la lista de `customers` ya cargada, y desde esa misma sección también se puede **crear un Customer nuevo** y vincularlo como dependiente en el mismo paso — ver §2, ya cerrado.
 
 ### 1.3 Buscador / filtro de pólizas — ✅ Hecho
-`GET /api/policies?firstName=&lastName=&policyNumber=&status=&type=&insuranceCompany=` con `Where` dinámico contra la DB (`PolicyService.Search`). Filtros combinables (AND), barra de filtros en el frontend con Search/Clear.
+`GET /api/policies?firstName=&lastName=&policyNumber=&status=&type=&insuranceCompanyId=&period=` con `Where` dinámico contra la DB (`PolicyService.Search`). Filtros combinables (AND), barra de filtros en el frontend con Search/Clear. (El filtro de aseguradora pasó de `insuranceCompany` (texto) a `insuranceCompanyId` cuando ese campo se rediseñó a tabla propia, §1.5 — actualizado acá también.)
 
 ### 1.4 Vista de detalle de póliza — ✅ Hecho (contenido base, faltan campos por definir)
 Modal con datos de la póliza, datos del titular, lista de dependientes y documentos (§1.7). Pendiente: el responsable aún no definió qué información adicional debería mostrarse — sumar cuando se defina.
@@ -104,7 +104,7 @@ Verificado con curl+sqlcmd (round-trip completo, rechazo de `AnnualIncome` negat
 `en/customers.json` y `en/policies.json` ahora muestran "Legal Status" en vez de "Migration Status" (español ya decía "Estatus migratorio", sin cambios ahí). El campo, los valores (`Permiso de trabajo`, `Residente permanente`, `Ciudadano`, `Otro`) y el modelo no cambiaron. De paso se agregó `"Asilo"` como quinto valor permitido en `[AllowedValues]` de `MigrationStatus` (sin migración de EF Core — no hay validación a nivel de base, solo DTO), reflejado en el `<select>` del frontend y en ambos diccionarios de `enums.json`.
 
 ### 3.4 Cambio en modelo de Agente — `IsEncargado` (NPM) — ✅ Hecho
-`IsEncargado` (bool) en `Models/User.cs:10`, checkbox en el formulario de Agentes (`Agentes.jsx:155`), usado para filtrar el dropdown de Agente Record en Customers (§3.1). No queda nada pendiente en este punto.
+`IsEncargado` (bool) en `Models/User.cs:10`, checkbox en el formulario de Agentes (`Agentes.jsx`, dentro de la sección de campos del formulario — sin línea fija, el archivo creció con los campos de §11), usado para filtrar el dropdown de Agente Record en Customers (§3.1). No queda nada pendiente en este punto.
 
 ---
 
