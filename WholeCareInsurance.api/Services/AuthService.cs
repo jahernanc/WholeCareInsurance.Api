@@ -35,7 +35,28 @@ namespace WholeCareInsurance.api.Services
                 Rol = dto.Rol,
                 IsEncargado = dto.IsEncargado,
                 // El Admin le asigna la contraseña inicial: se obliga a cambiarla en el primer login.
-                MustChangePassword = true
+                MustChangePassword = true,
+
+                MiddleName = dto.MiddleName,
+                Gender = dto.Gender,
+                Address1 = dto.Address1,
+                Address2 = dto.Address2,
+                City = dto.City,
+                ZipCode = dto.ZipCode,
+                State = dto.State,
+                County = dto.County,
+                Licensed = dto.Licensed,
+                LicenseNumber = dto.LicenseNumber,
+                NpnNumber = dto.NpnNumber,
+                NpnOverride = dto.NpnOverride,
+                HasCompanyContract = dto.HasCompanyContract,
+                ContractNumber = dto.ContractNumber,
+                CompanyName = dto.CompanyName,
+                ContractsWanted = dto.ContractsWanted,
+                AdditionalInformation = dto.AdditionalInformation,
+                // dto.TermsAccepted ya se validó como true en el controller antes de llegar acá.
+                TermsAccepted = dto.TermsAccepted,
+                TermsAcceptedAt = DateTime.UtcNow
             };
 
             var created = await _usersService.Create(user);
@@ -46,7 +67,27 @@ namespace WholeCareInsurance.api.Services
                 Nombre = created.Nombre,
                 Email = created.Email,
                 Rol = created.Rol,
-                IsEncargado = created.IsEncargado
+                IsEncargado = created.IsEncargado,
+                PreferredLanguage = created.PreferredLanguage,
+                MiddleName = created.MiddleName,
+                Gender = created.Gender,
+                Address1 = created.Address1,
+                Address2 = created.Address2,
+                City = created.City,
+                ZipCode = created.ZipCode,
+                State = created.State,
+                County = created.County,
+                Licensed = created.Licensed,
+                LicenseNumber = created.LicenseNumber,
+                NpnNumber = created.NpnNumber,
+                NpnOverride = created.NpnOverride,
+                HasCompanyContract = created.HasCompanyContract,
+                ContractNumber = created.ContractNumber,
+                CompanyName = created.CompanyName,
+                ContractsWanted = created.ContractsWanted,
+                AdditionalInformation = created.AdditionalInformation,
+                TermsAccepted = created.TermsAccepted,
+                TermsAcceptedAt = created.TermsAcceptedAt
             };
         }
 

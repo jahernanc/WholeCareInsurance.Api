@@ -1,0 +1,27 @@
+export const CONTRACT_INTERESTS = ["Medicare", "Obamacare", "Supplemental Plans", "Life Insurance"];
+
+export const emptyAgentForm = {
+    nombre: "",
+    email: "",
+    password: "",
+    rol: "Agente",
+    isEncargado: false,
+    middleName: "",
+    gender: "",
+    address1: "",
+    address2: "",
+    city: "",
+    zipCode: "",
+    state: "",
+    county: "",
+    licensed: false,
+    licenseNumber: "",
+    npnNumber: "",
+    npnOverride: false,
+    hasCompanyContract: false,
+    contractNumber: "",
+    companyName: "",
+    contractsWanted: [],
+    additionalInformation: "",
+    termsAccepted: false,
+};

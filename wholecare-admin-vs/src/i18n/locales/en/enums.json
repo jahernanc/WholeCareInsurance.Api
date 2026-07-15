@@ -55,5 +55,11 @@
     "contactLanguage": {
         "Inglés": "English",
         "Español": "Spanish"
+    },
+    "contractInterest": {
+        "Medicare": "Medicare",
+        "Obamacare": "Obamacare",
+        "Supplemental Plans": "Supplemental Plans",
+        "Life Insurance": "Life Insurance"
     }
 }

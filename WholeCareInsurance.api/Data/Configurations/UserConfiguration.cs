@@ -41,6 +41,31 @@ namespace WholeCareInsurance.api.Data.Configurations
                   .IsRequired()
                   .HasMaxLength(5);
 
+            // Datos de perfil del Agente (§11)
+            entity.Property(u => u.MiddleName).HasMaxLength(100);
+            entity.Property(u => u.Gender).HasMaxLength(20);
+            entity.Property(u => u.Address1).HasMaxLength(300);
+            entity.Property(u => u.Address2).HasMaxLength(300);
+            entity.Property(u => u.City).HasMaxLength(100);
+            entity.Property(u => u.ZipCode).HasMaxLength(10);
+            entity.Property(u => u.State).HasMaxLength(2);
+            entity.Property(u => u.County).HasMaxLength(100);
+
+            entity.Property(u => u.Licensed).IsRequired();
+            entity.Property(u => u.LicenseNumber).HasMaxLength(50);
+
+            entity.Property(u => u.NpnNumber).HasMaxLength(50);
+            entity.Property(u => u.NpnOverride).IsRequired();
+
+            entity.Property(u => u.HasCompanyContract).IsRequired();
+            entity.Property(u => u.ContractNumber).HasMaxLength(50);
+            entity.Property(u => u.CompanyName).HasMaxLength(150);
+
+            entity.Property(u => u.ContractsWanted).HasMaxLength(200);
+            entity.Property(u => u.AdditionalInformation).HasMaxLength(1000);
+
+            entity.Property(u => u.TermsAccepted).IsRequired();
+
             // Refresh token hash (SHA-256 hex = 64 chars)
             entity.Property(u => u.RefreshTokenHash)
                   .HasMaxLength(64);

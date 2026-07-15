@@ -21,6 +21,9 @@ namespace WholeCareInsurance.api.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register(AuthRegisterDto dto)
         {
+            if (!dto.TermsAccepted)
+                return BadRequest("Hay que aceptar los términos y condiciones.");
+
             var user = await _authService.Register(dto);
             if (user == null)
                 return BadRequest("El email ya está registrado.");

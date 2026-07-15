@@ -75,6 +75,31 @@ namespace WholeCareInsurance.api.Controllers
             existing.Rol = dto.Rol;
             existing.IsEncargado = dto.IsEncargado;
 
+            existing.MiddleName = dto.MiddleName;
+            existing.Gender = dto.Gender;
+            existing.Address1 = dto.Address1;
+            existing.Address2 = dto.Address2;
+            existing.City = dto.City;
+            existing.ZipCode = dto.ZipCode;
+            existing.State = dto.State;
+            existing.County = dto.County;
+            existing.Licensed = dto.Licensed;
+            existing.LicenseNumber = dto.LicenseNumber;
+            existing.NpnNumber = dto.NpnNumber;
+            existing.NpnOverride = dto.NpnOverride;
+            existing.HasCompanyContract = dto.HasCompanyContract;
+            existing.ContractNumber = dto.ContractNumber;
+            existing.CompanyName = dto.CompanyName;
+            existing.ContractsWanted = dto.ContractsWanted;
+            existing.AdditionalInformation = dto.AdditionalInformation;
+
+            // Solo se pisa TermsAccepted si pasa a true (nunca se "desacepta" desde una edición).
+            if (dto.TermsAccepted && !existing.TermsAccepted)
+            {
+                existing.TermsAccepted = true;
+                existing.TermsAcceptedAt = DateTime.UtcNow;
+            }
+
             var updated = await _usersService.Update(existing);
             return Ok(ToResponse(updated));
         }
@@ -86,7 +111,26 @@ namespace WholeCareInsurance.api.Controllers
             Email = u.Email,
             Rol = u.Rol,
             IsEncargado = u.IsEncargado,
-            PreferredLanguage = u.PreferredLanguage
+            PreferredLanguage = u.PreferredLanguage,
+            MiddleName = u.MiddleName,
+            Gender = u.Gender,
+            Address1 = u.Address1,
+            Address2 = u.Address2,
+            City = u.City,
+            ZipCode = u.ZipCode,
+            State = u.State,
+            County = u.County,
+            Licensed = u.Licensed,
+            LicenseNumber = u.LicenseNumber,
+            NpnNumber = u.NpnNumber,
+            NpnOverride = u.NpnOverride,
+            HasCompanyContract = u.HasCompanyContract,
+            ContractNumber = u.ContractNumber,
+            CompanyName = u.CompanyName,
+            ContractsWanted = u.ContractsWanted,
+            AdditionalInformation = u.AdditionalInformation,
+            TermsAccepted = u.TermsAccepted,
+            TermsAcceptedAt = u.TermsAcceptedAt
         };
 
         private static UserMeDto ToMeResponse(User u) => new()
