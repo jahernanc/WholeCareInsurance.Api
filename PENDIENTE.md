@@ -144,15 +144,15 @@ Placeholder, bloqueado hasta tener la data migrada (§7).
 
 ## 7. Migración de datos del sistema anterior — ⏸ Bloqueado, en espera de respuesta
 
-Se solicitó al responsable del proyecto el archivo de export **completo** (todas las pólizas, todos los tipos en un solo archivo, no separado por tipo). Quedaron 4 preguntas enviadas — **3 siguen en espera de respuesta**, la 1ª ya se resolvió con el análisis del archivo real (ver §7.1):
+Se solicitó al responsable del proyecto el archivo de export **completo** (todas las pólizas, todos los tipos en un solo archivo, no separado por tipo). De las 4 preguntas originales, **3 quedaron resueltas por el análisis del archivo real** y solo queda una duda puntual dentro de la 4ª (ver §7.2):
 1. ~~Si la columna "Members" trae solo cantidad o el detalle completo de cada dependiente.~~ ✅ Resuelta — ver §7.1.
-2. Si existe un ID interno para Agentes/Agencias además del nombre.
-3. Si el export incluye solo pólizas activas o también históricas/canceladas.
-4. Diccionario de datos para: Reference, Marketplace ID, Contract identification, Renewal status, Confirmed consent.
+2. ~~Si existe un ID interno para Agentes/Agencias además del nombre.~~ ✅ Resuelta — ver §7.2.
+3. ~~Si el export incluye solo pólizas activas o también históricas/canceladas.~~ ✅ Resuelta — ver §7.2.
+4. Diccionario de datos para: Reference, Marketplace ID, Contract identification, Renewal status, Confirmed consent. 🔶 Parcialmente resuelta — ver §7.2, solo `Contract identification` sigue en duda (pregunta puntual enviada, en espera de respuesta).
 
 **Columnas detectadas** en la pantalla de export del sistema anterior (referencia para el futuro mapeo): Reference, Agency, Agent, Full name, First/Middle/Last name, DOB, Gender, Email, Phone, Legal Status, SSN, Green card, Work permit, Estado civil, Address 1/2, City, State/Province, Zip code, County, Employer name, Company Phone, Position/Occupation, Annual income, Policy number, Marketplace ID, Contract identification, Number of applicants, Effective date, Company, Insurance plan, Type of plan, Tax Credit/Subsidy, Monthly premium amount, Status, Tags, Period, Confirmed consent, Registration date, Update date, Renewal status, Members.
 
-> Nota: buena parte de estas columnas ya mapean directo a los campos nuevos de Customer (§3.2) y Policy (`Period`/`Number of applicants`, §1.8/§1.9, y ahora también `InsuranceCompany`/`Type of plan`/`Insurance plan`/`Effective date`/`Tax Credit-Subsidy`/`Monthly premium amount`, §1.5/§1.11) — todos cerrados. Ya no hay campos pendientes de agregar antes de diseñar el script de migración; solo faltan las 3 respuestas de arriba (y confirmar si el archivo ya analizado, §7.1, es el export completo pedido o solo un recorte).
+> Nota: buena parte de estas columnas ya mapean directo a los campos nuevos de Customer (§3.2) y Policy (`Period`/`Number of applicants`, §1.8/§1.9, y ahora también `InsuranceCompany`/`Type of plan`/`Insurance plan`/`Effective date`/`Tax Credit-Subsidy`/`Monthly premium amount`, §1.5/§1.11) — todos cerrados. Ya no hay campos pendientes de agregar antes de diseñar el script de migración; solo falta la respuesta sobre `Contract identification` (§7.2) y confirmar si el archivo ya analizado es el export completo pedido o solo el recorte de Obamacare.
 
 ### 7.1 Hallazgos del análisis del archivo real (Health Insurance/Obamacare, 1258 filas)
 
@@ -162,9 +162,27 @@ Se solicitó al responsable del proyecto el archivo de export **completo** (toda
 - **SSN tampoco puede ser la única clave**: vacío en ~7% de las filas. No sirve como único criterio ni para detectar duplicados de historial ni para relacionar dependientes ya existentes en `Customer`.
 - **Mapeo de "Dependency type"**: "Parent" (sin distinción de género) y "Dependent" (genérico) del archivo de origen mapean ambos a `"Otro"` en `RelacionConPrincipal` — ya cubierto por el enum actual (§1.6), no hace falta agregar valores nuevos.
 
-Estos hallazgos no destraban el bloqueo (siguen faltando 3 de las 4 respuestas), pero ya dejan clara la estrategia de matching a diseñar cuando se arme el script real: heurística + cola de revisión manual, no un mapeo directo por clave única.
+Estos hallazgos no destraban el bloqueo del todo (ver estado actualizado más abajo), pero ya dejan clara la estrategia de matching a diseñar cuando se arme el script real: heurística + cola de revisión manual, no un mapeo directo por clave única.
 
-**BLOQUEADO:** no diseñar el script de migración hasta recibir las respuestas pendientes (y confirmar si el archivo ya analizado es el export completo o solo un recorte). Se probará primero contra la base del ambiente de test (§8.1), nunca directo contra producción.
+### 7.2 Agentes/Agencias, historial completo y diccionario de datos — resuelve las preguntas 2, 3 y parte de la 4
+
+**Pregunta 2 — ID interno de Agentes/Agencias (RESUELTA)**: no existe. Tanto `Agent` como `Agency` son campos de texto libre en el archivo.
+- `Agency`: solo 2 valores en las 1258 filas — "Preventive Health Insurance" (894 filas) y "Whole Care Insurance Group llC" (364 filas).
+- `Agent`: 22 nombres únicos en total.
+
+Bajo riesgo de colisión por nombre dado el volumen chico (22 agentes) — igual conviene revisar manualmente antes de mapear, para detectar posibles duplicados o errores de tipeo, pero esto no bloquea la migración.
+
+**Pregunta 3 — ¿solo activas o también históricas/canceladas? (RESUELTA)**: el archivo incluye **todo el historial**, no solo pólizas activas. Distribución real de `Status` en las 1258 filas: `Processed` (1016), `Updated` (79), `Canceled` (75), `Draft` (61), `To be processed` (21), `In Process` (3), `Agent change` (2), `Pending` (1).
+
+**Pregunta 4 — diccionario de datos (PARCIALMENTE RESUELTA)**:
+- `Reference`: identificador único por **registro** (formato "P" + fecha + secuencial, ej. `P15072026018434`) — identifica la versión/registro puntual, no la póliza a través del tiempo. Por eso cada duplicado del historial de una misma póliza tiene un `Reference` distinto (consistente con el hallazgo de §7.1 sobre el caso de las 4 versiones duplicadas).
+- `Marketplace ID`: formato consistente con identificadores oficiales del Marketplace de ACA (Plan Year + Estado + código de plan, ej. `PY26 TN SBC 23552TN0020052-06`, a veces solo numérico). Es un dato externo — no se puede validar sin confirmación del responsable, pero el formato observado es coherente con lo esperado.
+- `Contract identification`: ⚠️ **sigue abierta** — formato inconsistente en los datos reales: a veces parece un código de plan (ej. `23552TN0020005`) y otras veces directamente el nombre del plan (ej. `Connect Silver-2 3000 Indiv Med Deductible - EPO`). No está claro si es un dato confiable para usar tal cual. Se envió una pregunta puntual al responsable sobre este campo específico, en espera de respuesta.
+- `Renewal status` y `Confirmed consent`: sin hallazgos nuevos todavía, quedan para cuando se revise el resto del diccionario.
+
+**Estado actualizado de las 4 preguntas originales**: 1, 2 y 3 resueltas por el análisis del archivo real; la 4 (diccionario de datos) resuelta en su mayor parte, con `Contract identification` como única duda puntual pendiente de respuesta.
+
+**BLOQUEADO se mantiene únicamente por**: la respuesta del responsable sobre `Contract identification`, y por recibir los archivos de los demás tipos de póliza si se decide migrarlos además de Obamacare (el archivo analizado hasta ahora es específicamente Health Insurance/Obamacare — no está confirmado si es el export "completo, todos los tipos en un solo archivo" que se había pedido originalmente, o solo el recorte de este tipo). No diseñar el script de migración hasta resolver esto. Se probará primero contra la base del ambiente de test (§8.1), nunca directo contra producción.
 
 **Punto abierto no bloqueante:** cada dependiente en el sistema anterior tiene un campo "Policy number" individual — no está claro su propósito, aclarar con el responsable más adelante (no urgente).
 
@@ -302,5 +320,5 @@ Verificado con curl (alta con los 18 campos, rechazo de registro sin `TermsAccep
 19. Firma digital de consentimiento — bloqueado hasta que el responsable elija proveedor (§4.1)
 20. ~~Infraestructura de hosting (VPS) — Dockerfiles/compose/README~~ ✅ Hecho (§8.1); falta el despliegue real al VPS
 21. ~~Campos de plan (ACA) y financieros en Policy~~ ✅ Hecho (§1.11)
-22. Migración de datos del sistema anterior — bloqueado hasta recibir las 3 respuestas pendientes (§7, §7.1 ya tiene hallazgos del archivo real analizado)
+22. Migración de datos del sistema anterior — 3 de las 4 preguntas originales resueltas por el análisis del archivo real (§7.1, §7.2); bloqueado solo por la respuesta sobre `Contract identification` y por los archivos de otros tipos de póliza si corresponde
 23. Dashboard — bloqueado hasta tener la data migrada (§9)
