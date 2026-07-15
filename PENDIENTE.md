@@ -139,6 +139,17 @@ Verificando `InsuranceCompanies` en el navegador se encontró que los errores de
 
 **Mejora futura, no urgente, encontrada pero fuera de este alcance**: los fallos automáticos de `[ApiController]` por DataAnnotations (ej. `[AllowedValues]` inválido) ya devuelven JSON con `.title`, pero ese título es siempre el genérico "One or more validation errors occurred." — el mensaje específico por campo vive en `.errors` (dictionary), que ni `apiFetch` ni ninguna página leen hoy. Es la misma clase de problema (mensaje específico oculto al usuario) pero en un código distinto (factory de validación automática de ASP.NET Core, no `BadRequest` manual) — se dejó documentado para un posible fix aparte, no entró en este batch.
 
+### 5.4 Middleware global de excepciones no controladas — ✅ Hecho
+Como contraparte de §5.3 (que estandarizó los errores 400 esperados): si algo lanza una excepción no controlada (bug, falla de conexión a la base, etc.), antes se dejaba pasar cruda. `Middlewares/GlobalExceptionMiddleware.cs` (nuevo — ocupa la carpeta `Middlewares/` que existía vacía) la captura y devuelve `ProblemDetails` consistente con el resto de la API (mismo `Content-Type: application/problem+json`).
+- Primera línea del pipeline en `Program.cs` (`app.UseMiddleware<GlobalExceptionMiddleware>()`, antes de `UseForwardedHeaders`/`UseCors`/`UseAuthentication`/`UseAuthorization`/`MapControllers`), para envolver todo el pipeline de requests.
+- `Title` siempre genérico ("Ocurrió un error inesperado."), nunca lleva `ex.Message` ni en dev ni en prod. `Detail` (mensaje real + stack trace vía `ex.ToString()`) solo se llena si `IHostEnvironment.IsDevelopment()` — en producción el cliente no ve ni un fragmento del error real.
+- Se loguea siempre server-side vía `ILogger<GlobalExceptionMiddleware>`, sin importar el ambiente — necesario para poder debuggear en Test/Prod donde la respuesta al cliente es genérica a propósito.
+- Se sacó `<Folder Include="Middlewares\" />` del `.csproj`, ya no hace falta con la carpeta poblada.
+- **Detalle no obvio, mismo tipo de bug que en §5.3**: `HttpResponse.WriteAsJsonAsync` pisa cualquier `Content-Type` seteado antes si no se le pasa explícito — sin pasarlo, mandaba `application/json` en vez de `application/problem+json`. Corregido pasándolo como parámetro (`contentType: "application/problem+json"`).
+- Verificado con un endpoint de prueba temporal (forzaba una excepción, ya removido del código): en Development, 500 con `detail` completo (mensaje + stack trace); corriendo con `ASPNETCORE_ENVIRONMENT=Production` (publish real + env vars, mismo método que §8.1), 500 con el mismo título genérico pero **sin** `detail`; log server-side confirmado en ambos casos; confirmado que un `BadRequest(new ProblemDetails{...})` normal sigue funcionando igual, sin interferencia del middleware.
+
+**Fuera de alcance, mencionado pero no tocado**: no se registró `builder.Services.AddProblemDetails()` (el servicio de .NET 8+ que además estandariza automáticamente los 404/405/415/etc. de routing) — lo implementado es específicamente para excepciones no controladas (500). Si se quiere el mismo formato para esos otros status codes, es un cambio aparte.
+
 ---
 
 ## 6. Dashboard y UX general
@@ -207,7 +218,7 @@ VPS ya comprado y corriendo: Ubuntu 24.04, KVM2 (2 CPU, 8GB RAM, 100GB disco), c
 - Un solo contenedor de SQL Server compartido entre test y producción, con 2 bases de datos separadas (`WholeCareInsuranceDb_Test` y `WholeCareInsuranceDb_Prod`) — por limitación de RAM (8GB totales).
 - Frontend: `VITE_API_URL` se resuelve vía build-arg por ambiente (no runtime) — cada ambiente reconstruye su propia imagen.
 - Migraciones EF Core: auto-migrate al iniciar el contenedor de la API (`dbContext.Database.MigrateAsync()` en `Program.cs`, solo fuera de `Development`).
-- Variables de entorno mapeadas: `ConnectionStrings__DefaultConnection`, `Jwt__Key`, `Jwt__Issuer`, `Jwt__Audience`, `Jwt__AccessTokenMinutes`, `Cors__AllowedOrigin`, `ASPNETCORE_ENVIRONMENT`, `Brevo__ApiKey`, `Brevo__SenderEmail`, `Frontend__BaseUrl` (sin `Brevo__ApiKey` seteado, el backend cae a un servicio que solo loguea el email en vez de enviarlo, así que hay que setearlo en Test/Prod para que el flujo de "olvidé mi contraseña" funcione de verdad).
+- Variables de entorno mapeadas: `ConnectionStrings__DefaultConnection`, `Jwt__Key`, `Jwt__Issuer`, `Jwt__Audience`, `Jwt__AccessTokenMinutes`, `Cors__AllowedOrigin`, `ASPNETCORE_ENVIRONMENT`, `Brevo__ApiKey`, `Brevo__SenderEmail`, `Frontend__BaseUrl`, `Admin__FirstName`, `Admin__LastName`, `Admin__Email`, `Admin__InitialPassword` (sin `Brevo__ApiKey` seteado, el backend cae a un servicio que solo loguea el email en vez de enviarlo, así que hay que setearlo en Test/Prod para que el flujo de "olvidé mi contraseña" funcione de verdad; sin las 4 de `Admin__*`, `AdminUserSeeder` sigue cayendo al admin default documentado en §10.5 — hay que setearlas antes de un despliegue real).
 
 **Cambios de código implementados:**
 - `app.UseHttpsRedirection()` eliminado fuera de Development (evita el redirect loop detrás del proxy de EasyPanel, que termina TLS ahí) + `app.UseForwardedHeaders(...)` agregado (`XForwardedFor` + `XForwardedProto`) para que la app conozca el esquema real de la request original.
@@ -286,6 +297,14 @@ Un solo endpoint (`POST /auth/change-password`, contraseña actual + nueva) sirv
 
 Verificado íntegramente con curl (wrong/correct current password, refresh token invalidado tras cambiar contraseña, forgot-password con email existente/inexistente devolviendo la misma respuesta, mitigación anti-spam, reset-password con token inválido/válido/reusado, Register fuerza `MustChangePassword`) y con Playwright (cambio forzado end-to-end con redirect, cambio desde perfil, alta de agente nuevo por el Admin → forced change en su primer login, flujo completo de "olvidé mi contraseña" con el link real extraído del log de `ConsoleEmailService`, sin errores de consola salvo los 400 esperados de los casos de error probados a propósito).
 
+### 10.5 AdminUserSeeder generalizado — admin real por ambiente vía variables de entorno — ✅ Hecho
+El admin seedeado (§10.1) estaba 100% hardcodeado (`admin@wholecare.com` / `Admin123!` / Nombre "Administrador"). Para Test/Prod hace falta poder seedear un admin real (nombre y email de la persona real, con su propia password inicial) sin tocar código por ambiente.
+- `AdminUserSeeder.Seed()` ahora lee `Admin__FirstName`, `Admin__LastName`, `Admin__Email`, `Admin__InitialPassword` (env vars, ver tabla de §8.1). Cada una cae de forma **independiente** al valor hardcodeado de siempre si no está seteada o está en blanco — así el flujo de dev local no cambia si nadie configura nada, pero Test/Prod pueden pisar solo lo que necesiten. `FirstName`/`LastName` se combinan en `Nombre` (`User.cs` no tiene esos campos separados, solo `Nombre`).
+- Sigue siendo idempotente por email (no duplica si ese email ya existe) y sigue forzando `MustChangePassword = true` sin importar el origen de la password (default o configurada) — confirmado que este comportamiento no cambió con la generalización.
+- Logging nuevo (`ILogger<AdminUserSeeder>`, mismo patrón que `ConsoleEmailService`): `LogWarning` si se usó el fallback completo (nadie configuró nada — útil para detectar en los logs de Test/Prod si alguien se olvidó de setear las variables reales), `LogInformation` si se usó configuración real.
+- `appsettings.json` tiene una sección `Admin` nueva con las 4 claves vacías (mismo criterio que `Brevo`). `docker-compose.yml` usa placeholders **genéricos** para estas 4 variables (`admin@tudominio.com`, "Nombre"/"Apellido", password de ejemplo) — los datos reales de cada ambiente van solo en las env vars reales del servicio, nunca en un archivo versionado.
+- Verificado contra una base LocalDB descartable (sin tocar la base de dev real): seed default sin config (con el `LogWarning` visible), seed de admin real con config nueva (con `LogInformation`, login funcionando con la password configurada), e idempotencia al reiniciar con la misma config (sin duplicar).
+
 ---
 
 ## 11. Agentes — campos nuevos en el formulario de creación/edición — ✅ Hecho
@@ -331,4 +350,6 @@ Verificado con curl (alta con los 18 campos, rechazo de registro sin `TermsAccep
 21. ~~Campos de plan (ACA) y financieros en Policy~~ ✅ Hecho (§1.11)
 22. Migración de datos del sistema anterior — 3 de las 4 preguntas originales resueltas por el análisis del archivo real (§7.1, §7.2); bloqueado solo por la respuesta sobre `Contract identification` y por los archivos de otros tipos de póliza si corresponde
 23. ~~Mensajes de error del backend no llegaban al usuario~~ ✅ Hecho (§5.3, encontrado verificando InsuranceCompanies en el navegador)
-24. Dashboard — bloqueado hasta tener la data migrada (§9)
+24. ~~Middleware global de excepciones no controladas~~ ✅ Hecho (§5.4)
+25. ~~AdminUserSeeder generalizado (admin real por ambiente vía env vars)~~ ✅ Hecho (§10.5)
+26. Dashboard — bloqueado hasta tener la data migrada (§9)
