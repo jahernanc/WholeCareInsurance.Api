@@ -4,6 +4,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 using WholeCareInsurance.api.Data;
+using WholeCareInsurance.api.Middlewares;
 using WholeCareInsurance.api.Services;
 using Microsoft.EntityFrameworkCore;
 
@@ -98,6 +99,11 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 
 var app = builder.Build();
+
+// Primera línea del pipeline a propósito: envuelve todo lo que sigue
+// (forwarded headers, CORS, auth, controllers) para capturar cualquier
+// excepción no controlada en cualquier punto del request.
+app.UseMiddleware<GlobalExceptionMiddleware>();
 
 // Detrás del proxy de EasyPanel (termina TLS ahí, el contenedor solo ve HTTP):
 // sin esto, UseHttpsRedirection vería siempre "http" y generaría un redirect

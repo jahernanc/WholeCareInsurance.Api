@@ -24,7 +24,6 @@
   <ItemGroup>
     <Folder Include="Configurations\" />
     <Folder Include="Mappings\" />
-    <Folder Include="Middlewares\" />
     <Folder Include="Repositories\Implementations\" />
     <Folder Include="Utils\" />
   </ItemGroup>
