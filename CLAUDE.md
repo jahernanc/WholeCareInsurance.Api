@@ -21,7 +21,7 @@ dotnet ef migrations add <Name>  # after changing a Model or Configuration
 ```
 Swagger UI at `http://localhost:5279/swagger` (dev only). There is no test project in this repo — verify backend changes by running the API and exercising endpoints via Swagger/curl, not via `dotnet test`.
 
-Default seeded admin (created by `Services/AdminUserSeeder.cs` on every startup if missing): `admin@wholecare.com` / `Admin123!`, role `Admin`.
+Default seeded admin (created by `Services/AdminUserSeeder.cs` on every startup if missing): `admin@wholecare.com` / `Admin123!`, role `Admin`. This is the fallback — `Admin__FirstName`/`Admin__LastName`/`Admin__Email`/`Admin__InitialPassword` env vars (each falls back independently) let each environment seed a real admin instead; see README.md's Deployment section.
 
 Local secrets go in `WholeCareInsurance.api/appsettings.Development.json` (gitignored), overriding `Jwt:Key`/`Jwt:Issuer`/`Jwt:Audience`/`Jwt:AccessTokenMinutes` and `ConnectionStrings:DefaultConnection`. `Jwt:Key` must be ≥32 chars.
 

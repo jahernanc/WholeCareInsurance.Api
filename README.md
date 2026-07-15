@@ -29,7 +29,7 @@ dotnet ef database update
 dotnet run
 ```
 
-La primera vez que arranca, `AdminUserSeeder` crea automáticamente el usuario administrador:
+La primera vez que arranca, `AdminUserSeeder` crea automáticamente el usuario administrador. Estos son los valores **por defecto** (fallback cuando no hay nada configurado — ver `Admin__*` en la sección de Despliegue más abajo para seedear un admin real por ambiente):
 
 | Campo | Valor |
 |---|---|
@@ -138,6 +138,9 @@ VPS: Ubuntu 24.04, KVM2 (2 CPU, 8GB RAM, 100GB disco), con [EasyPanel](https://e
 | `Cors__AllowedOrigin` | `https://tu-dominio.com` | Debe matchear el dominio real del frontend de ese ambiente |
 | `Frontend__BaseUrl` | `https://tu-dominio.com` | Usado para armar el link de "olvidé mi contraseña" |
 | `Brevo__ApiKey` / `Brevo__SenderEmail` | | Sin `Brevo__ApiKey`, el backend cae a un servicio que solo loguea el email en vez de enviarlo — hay que setearla en Test/Prod para que la recuperación de contraseña envíe emails reales |
+| `Admin__FirstName` / `Admin__LastName` / `Admin__Email` / `Admin__InitialPassword` | | Datos del admin real que `AdminUserSeeder` crea en el primer arranque (cada una cae de forma independiente al default hardcodeado si no está seteada — ver detalle abajo). **Nunca poner los valores reales en `docker-compose.yml` ni en ningún archivo versionado** — van solo en las variables de entorno reales de cada ambiente (en EasyPanel, en la config del servicio) |
+
+**Seed del admin inicial** (`AdminUserSeeder`): si ninguna de las 4 variables `Admin__*` está configurada, se crea el admin default documentado en "Puesta en marcha" (`admin@wholecare.com` / `Admin123!`) y queda un `LogWarning` en los logs del contenedor avisando que se usó el fallback. Configurando las 4 se crea ese admin real en su lugar (con `MustChangePassword = true` igual que el default, así que la persona real cambia esa password inicial en su primer login). El seed es idempotente por email — si ese email ya existe no hace nada, así que es seguro dejar las variables seteadas en el servicio de forma permanente.
 
 **Volumen persistente:** `App_Data/PolicyDocuments` (dentro del contenedor, relativo al `WORKDIR /app`) necesita un volumen — sin él, los documentos de pólizas se pierden en cada redeploy.
 

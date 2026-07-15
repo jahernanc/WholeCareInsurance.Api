@@ -38,6 +38,13 @@ services:
       Frontend__BaseUrl: "https://test.tu-dominio.com"
       Brevo__ApiKey: ""
       Brevo__SenderEmail: ""
+      # Solo importan en el primer arranque (mientras ese email todavía no exista).
+      # Placeholders genéricos a propósito — los datos reales del admin van SOLO en
+      # las variables de entorno reales de cada ambiente, nunca en este archivo versionado.
+      Admin__FirstName: "Nombre"
+      Admin__LastName: "Apellido"
+      Admin__Email: "admin@tudominio.com"
+      Admin__InitialPassword: "CambiarEstaPasswordInicial123!"
     volumes:
       - policy-documents-test:/app/App_Data/PolicyDocuments
     ports:
@@ -60,6 +67,13 @@ services:
       Frontend__BaseUrl: "https://tu-dominio.com"
       Brevo__ApiKey: "" # setear en Prod para que "olvidé mi contraseña" envíe emails reales
       Brevo__SenderEmail: ""
+      # Solo importan en el primer arranque (mientras ese email todavía no exista).
+      # Placeholders genéricos a propósito — los datos reales del admin van SOLO en
+      # las variables de entorno reales de cada ambiente, nunca en este archivo versionado.
+      Admin__FirstName: "Nombre"
+      Admin__LastName: "Apellido"
+      Admin__Email: "admin@tudominio.com"
+      Admin__InitialPassword: "CambiarEstaPasswordInicial123!"
     volumes:
       - policy-documents-prod:/app/App_Data/PolicyDocuments
     ports:
