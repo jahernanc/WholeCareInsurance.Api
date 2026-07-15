@@ -130,6 +130,15 @@ Click-to-chat: botón 💬 en cada fila de la tabla de Policies, abre `https://w
 ### 5.2 Mover DTOs de Customer/Policy a archivos separados — ✅ Hecho
 `DTOs/Customers/`, `DTOs/Policies/`, mismo patrón que `DTOs/Auth/` y `DTOs/Users/`.
 
+### 5.3 Mensajes de error del backend no llegaban al usuario — ✅ Hecho
+Verificando `InsuranceCompanies` en el navegador se encontró que los errores de negocio (ej. "Ya existe una aseguradora con ese nombre") siempre mostraban un mensaje genérico en vez del motivo real. Causa: `BadRequest(string)` devuelve `Content-Type: text/plain`, pero el frontend siempre asumía JSON (`res.json().catch(() => null)`) — fallaba en silencio y caía al fallback genérico. No era un bug puntual de `InsuranceCompanies`: el mismo patrón estaba repetido en 5 call sites de 4 páginas (`Customers.jsx`, `Agentes.jsx`, `InsuranceCompanies.jsx`, `Policies.jsx` x2) contra 19 `BadRequest(string)` en 4 controllers (`PoliciesController`, `AuthController`, `InsuranceCompaniesController`, `CustomersController`).
+- **Fix centralizado en `apiFetch` (`src/api.js`)**: ahora detecta el `Content-Type` de la respuesta de error y lee el mensaje correctamente sea texto plano o JSON, adjuntándolo como `res.errorMessage`. Las 5 páginas ya no tienen lógica propia de parseo — solo leen `res.errorMessage ?? <fallback traducido>`.
+- **Los 19 `BadRequest(string)` del backend pasaron a `BadRequest(new ProblemDetails { Title = "..." })`** — mismo campo `title` que ya usan automáticamente los fallos de validación de DataAnnotations, converge en una sola convención. Cambio mecánico, sin tocar ningún otro comportamiento.
+- **Detalle no obvio**: `ProblemDetails` serializa con `Content-Type: application/problem+json`, no `application/json` a secas — el chequeo en `apiFetch` busca la substring `"json"` en general, no `"application/json"` exacto, para cubrir ambos casos.
+- Verificado con curl (los 3 controllers devuelven JSON con `title` en vez de texto plano) y con Playwright (nombre duplicado en `/insurance-companies` y email duplicado en `/agentes` muestran el mensaje real del backend, no el genérico).
+
+**Mejora futura, no urgente, encontrada pero fuera de este alcance**: los fallos automáticos de `[ApiController]` por DataAnnotations (ej. `[AllowedValues]` inválido) ya devuelven JSON con `.title`, pero ese título es siempre el genérico "One or more validation errors occurred." — el mensaje específico por campo vive en `.errors` (dictionary), que ni `apiFetch` ni ninguna página leen hoy. Es la misma clase de problema (mensaje específico oculto al usuario) pero en un código distinto (factory de validación automática de ASP.NET Core, no `BadRequest` manual) — se dejó documentado para un posible fix aparte, no entró en este batch.
+
 ---
 
 ## 6. Dashboard y UX general
@@ -321,4 +330,5 @@ Verificado con curl (alta con los 18 campos, rechazo de registro sin `TermsAccep
 20. ~~Infraestructura de hosting (VPS) — Dockerfiles/compose/README~~ ✅ Hecho (§8.1); falta el despliegue real al VPS
 21. ~~Campos de plan (ACA) y financieros en Policy~~ ✅ Hecho (§1.11)
 22. Migración de datos del sistema anterior — 3 de las 4 preguntas originales resueltas por el análisis del archivo real (§7.1, §7.2); bloqueado solo por la respuesta sobre `Contract identification` y por los archivos de otros tipos de póliza si corresponde
-23. Dashboard — bloqueado hasta tener la data migrada (§9)
+23. ~~Mensajes de error del backend no llegaban al usuario~~ ✅ Hecho (§5.3, encontrado verificando InsuranceCompanies en el navegador)
+24. Dashboard — bloqueado hasta tener la data migrada (§9)

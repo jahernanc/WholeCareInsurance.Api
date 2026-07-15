@@ -235,8 +235,7 @@ function Policies() {
             });
 
             if (!res.ok) {
-                const err = await res.json().catch(() => null);
-                setDocumentError(typeof err === "string" ? err : t("documents.uploadError"));
+                setDocumentError(res.errorMessage ?? t("documents.uploadError"));
                 return;
             }
 
@@ -330,8 +329,7 @@ function Policies() {
             });
 
             if (!res.ok) {
-                const err = await res.json().catch(() => null);
-                setNewDependentError(err?.title ?? err ?? t("dependents.createError"));
+                setNewDependentError(res.errorMessage ?? t("dependents.createError"));
                 return;
             }
 

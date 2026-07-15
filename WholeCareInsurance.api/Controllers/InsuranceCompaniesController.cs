@@ -38,7 +38,7 @@ namespace WholeCareInsurance.api.Controllers
         public async Task<IActionResult> Create([FromBody] InsuranceCompanyCreateDto dto)
         {
             if (await _companies.GetByName(dto.Name) != null)
-                return BadRequest("Ya existe una aseguradora con ese nombre.");
+                return BadRequest(new ProblemDetails { Title = "Ya existe una aseguradora con ese nombre." });
 
             var created = await _companies.Create(new InsuranceCompany
             {
@@ -58,7 +58,7 @@ namespace WholeCareInsurance.api.Controllers
 
             var duplicate = await _companies.GetByName(dto.Name);
             if (duplicate != null && duplicate.Id != id)
-                return BadRequest("Ya existe una aseguradora con ese nombre.");
+                return BadRequest(new ProblemDetails { Title = "Ya existe una aseguradora con ese nombre." });
 
             existing.Name = dto.Name;
             existing.IsActive = dto.IsActive;

@@ -125,8 +125,7 @@ function Customers() {
             });
 
             if (!res.ok) {
-                const err = await res.json().catch(() => null);
-                setFormError(err?.title ?? err ?? t("form.saveError"));
+                setFormError(res.errorMessage ?? t("form.saveError"));
                 return;
             }
 

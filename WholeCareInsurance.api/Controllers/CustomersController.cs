@@ -83,7 +83,7 @@ namespace WholeCareInsurance.api.Controllers
             if (User.IsInRole("Admin"))
             {
                 var error = await ValidateAgentFields(dto.AgentId, dto.AssistantAgentId, dto.RecordAgentId);
-                if (error != null) return BadRequest(error);
+                if (error != null) return BadRequest(new ProblemDetails { Title = error });
 
                 agentId = dto.AgentId;
                 assistantAgentId = dto.AssistantAgentId;
@@ -116,7 +116,7 @@ namespace WholeCareInsurance.api.Controllers
             if (User.IsInRole("Admin"))
             {
                 var error = await ValidateAgentFields(dto.AgentId, dto.AssistantAgentId, dto.RecordAgentId);
-                if (error != null) return BadRequest(error);
+                if (error != null) return BadRequest(new ProblemDetails { Title = error });
 
                 existing.AgentId = dto.AgentId;
                 existing.AssistantAgentId = dto.AssistantAgentId;

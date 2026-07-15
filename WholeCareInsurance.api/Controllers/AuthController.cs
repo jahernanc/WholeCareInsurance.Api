@@ -22,11 +22,11 @@ namespace WholeCareInsurance.api.Controllers
         public async Task<IActionResult> Register(AuthRegisterDto dto)
         {
             if (!dto.TermsAccepted)
-                return BadRequest("Hay que aceptar los términos y condiciones.");
+                return BadRequest(new ProblemDetails { Title = "Hay que aceptar los términos y condiciones." });
 
             var user = await _authService.Register(dto);
             if (user == null)
-                return BadRequest("El email ya está registrado.");
+                return BadRequest(new ProblemDetails { Title = "El email ya está registrado." });
 
             return Ok(new { message = "Usuario registrado correctamente", user });
         }
@@ -79,7 +79,7 @@ namespace WholeCareInsurance.api.Controllers
             return result switch
             {
                 ChangePasswordResult.Success => NoContent(),
-                ChangePasswordResult.InvalidCurrentPassword => BadRequest("La contraseña actual no es correcta."),
+                ChangePasswordResult.InvalidCurrentPassword => BadRequest(new ProblemDetails { Title = "La contraseña actual no es correcta." }),
                 _ => Unauthorized()
             };
         }
@@ -98,7 +98,7 @@ namespace WholeCareInsurance.api.Controllers
         {
             var success = await _authService.ResetPassword(dto.Token, dto.NewPassword);
             if (!success)
-                return BadRequest("El link de restablecimiento es inválido o venció.");
+                return BadRequest(new ProblemDetails { Title = "El link de restablecimiento es inválido o venció." });
 
             return NoContent();
         }

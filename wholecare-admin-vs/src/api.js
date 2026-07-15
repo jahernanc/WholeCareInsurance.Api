@@ -74,6 +74,24 @@ export function isAdmin() {
     return getCurrentUserRole() === "Admin";
 }
 
+// BadRequest(string) en el backend devuelve Content-Type: text/plain, pero
+// BadRequest(new ProblemDetails{...}) (y los fallos automáticos de validación
+// de DataAnnotations) devuelven application/problem+json con .title — no
+// "application/json" a secas, por eso se chequea "json" en general.
+async function parseErrorMessage(res) {
+    try {
+        const contentType = res.headers.get("content-type") || "";
+        if (contentType.includes("json")) {
+            const body = await res.clone().json();
+            return typeof body === "string" ? body : body?.title;
+        }
+        const text = await res.clone().text();
+        return text || undefined;
+    } catch {
+        return undefined;
+    }
+}
+
 export async function apiFetch(path, options = {}) {
     const doFetch = (accessToken) =>
         fetch(`${BASE_URL}${path}`, {
@@ -95,6 +113,10 @@ export async function apiFetch(path, options = {}) {
             await logout();
             throw new Error("Session expired");
         }
+    }
+
+    if (!res.ok) {
+        res.errorMessage = await parseErrorMessage(res);
     }
 
     return res;

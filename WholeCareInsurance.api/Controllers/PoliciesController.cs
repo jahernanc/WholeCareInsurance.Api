@@ -55,11 +55,11 @@ namespace WholeCareInsurance.api.Controllers
         {
             var customer = await _customers.GetById(dto.CustomerId);
             if (customer == null)
-                return BadRequest($"CustomerId {dto.CustomerId} no existe.");
+                return BadRequest(new ProblemDetails { Title = $"CustomerId {dto.CustomerId} no existe." });
 
             var insuranceCompany = await _insuranceCompanies.GetById(dto.InsuranceCompanyId);
             if (insuranceCompany == null)
-                return BadRequest($"InsuranceCompanyId {dto.InsuranceCompanyId} no existe.");
+                return BadRequest(new ProblemDetails { Title = $"InsuranceCompanyId {dto.InsuranceCompanyId} no existe." });
 
             var policy = new Policy
             {
@@ -96,7 +96,7 @@ namespace WholeCareInsurance.api.Controllers
             {
                 var customer = await _customers.GetById(dto.CustomerId);
                 if (customer == null)
-                    return BadRequest($"CustomerId {dto.CustomerId} no existe.");
+                    return BadRequest(new ProblemDetails { Title = $"CustomerId {dto.CustomerId} no existe." });
                 existing.CustomerId = dto.CustomerId;
             }
 
@@ -104,7 +104,7 @@ namespace WholeCareInsurance.api.Controllers
             {
                 var insuranceCompany = await _insuranceCompanies.GetById(dto.InsuranceCompanyId);
                 if (insuranceCompany == null)
-                    return BadRequest($"InsuranceCompanyId {dto.InsuranceCompanyId} no existe.");
+                    return BadRequest(new ProblemDetails { Title = $"InsuranceCompanyId {dto.InsuranceCompanyId} no existe." });
                 existing.InsuranceCompanyId = dto.InsuranceCompanyId;
             }
 
@@ -165,13 +165,13 @@ namespace WholeCareInsurance.api.Controllers
 
             var customer = await _customers.GetById(dto.CustomerId);
             if (customer == null)
-                return BadRequest($"CustomerId {dto.CustomerId} no existe.");
+                return BadRequest(new ProblemDetails { Title = $"CustomerId {dto.CustomerId} no existe." });
 
             if (dto.CustomerId == policy.CustomerId)
-                return BadRequest("El titular no puede ser su propio dependiente.");
+                return BadRequest(new ProblemDetails { Title = "El titular no puede ser su propio dependiente." });
 
             if (await _policies.GetDependent(id, dto.CustomerId) != null)
-                return BadRequest("Ya es dependiente de esta póliza.");
+                return BadRequest(new ProblemDetails { Title = "Ya es dependiente de esta póliza." });
 
             var created = await _policies.AddDependent(new PolicyDependent
             {
@@ -240,19 +240,19 @@ namespace WholeCareInsurance.api.Controllers
             if (policy == null) return NotFound();
 
             if (file == null || file.Length == 0)
-                return BadRequest("Debe adjuntar un archivo.");
+                return BadRequest(new ProblemDetails { Title = "Debe adjuntar un archivo." });
 
             if (file.Length > FileValidationHelper.MaxFileSizeBytes)
-                return BadRequest("El archivo supera el tamaño máximo permitido (5 MB).");
+                return BadRequest(new ProblemDetails { Title = "El archivo supera el tamaño máximo permitido (5 MB)." });
 
             if (!FileValidationHelper.HasAllowedExtension(file.FileName))
-                return BadRequest("Tipo de archivo no permitido. Se aceptan: .pdf, .docx, .jpg, .jpeg.");
+                return BadRequest(new ProblemDetails { Title = "Tipo de archivo no permitido. Se aceptan: .pdf, .docx, .jpg, .jpeg." });
 
             var extension = Path.GetExtension(file.FileName);
 
             using var stream = file.OpenReadStream();
             if (!await FileValidationHelper.MatchesContentAsync(stream, extension))
-                return BadRequest("El contenido del archivo no coincide con su extensión.");
+                return BadRequest(new ProblemDetails { Title = "El contenido del archivo no coincide con su extensión." });
 
             var storedFileName = await _documentStorage.SaveAsync(id, stream, extension);
 
