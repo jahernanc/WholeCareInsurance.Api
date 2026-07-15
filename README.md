@@ -111,6 +111,36 @@ Los refresh tokens se almacenan como hash SHA-256 con índice filtrado para bús
 | `Admin` | Acceso total, puede registrar nuevos usuarios |
 | `Agente` | Acceso a clientes y pólizas |
 
+## Despliegue (VPS / EasyPanel)
+
+VPS: Ubuntu 24.04, KVM2 (2 CPU, 8GB RAM, 100GB disco), con [EasyPanel](https://easypanel.io) preinstalado.
+
+**Arquitectura:**
+- SQL Server corre como **contenedor** Docker (`mcr.microsoft.com/mssql/server`), no instalación nativa — Ubuntu 24.04 no es compatible con SQL Server nativo.
+- Un solo contenedor de SQL Server compartido entre Test y Producción (limitación de RAM del VPS), con 2 bases de datos separadas: `WholeCareInsuranceDb_Test` y `WholeCareInsuranceDb_Prod`.
+- El frontend resuelve `VITE_API_URL` vía **build-arg**, no en runtime (Vite inlinea las variables `VITE_*` en el bundle al buildear) — cada ambiente reconstruye su propia imagen apuntando a su propia API.
+- Las migraciones de EF Core corren automáticamente al iniciar el contenedor de la API (`dbContext.Database.MigrateAsync()` en `Program.cs`, solo fuera de `Development`) — no hace falta correr `dotnet ef database update` a mano en Test/Prod.
+- Detrás del proxy de EasyPanel (termina TLS ahí): la API no fuerza redirect a HTTPS dentro del contenedor (rompería con un redirect loop) y confía en el header `X-Forwarded-Proto` vía `UseForwardedHeaders`.
+
+**Archivos de referencia** (repo root y cada proyecto):
+- `WholeCareInsurance.api/Dockerfile` — build multi-stage (SDK → runtime `aspnet:9.0`), escucha en el puerto `8080`.
+- `wholecare-admin-vs/Dockerfile` — build multi-stage (Node → `nginx:alpine`), sirve el build estático con fallback SPA (`wholecare-admin-vs/nginx.conf`) para que las rutas de React Router no den 404 al refrescar.
+- `docker-compose.yml` — referencia de la topología completa (sqlserver + api-test + api-prod + frontend-test + frontend-prod). Los valores de contraseñas/dominios/claves son placeholders — **reemplazarlos** antes de usarlo. En EasyPanel normalmente se da de alta cada servicio por separado desde su UI (apuntando al Dockerfile de cada proyecto), pero el compose sirve como documentación de qué variables necesita cada uno y también se puede correr tal cual con `docker compose up` para probar la topología completa en local.
+
+**Variables de entorno que necesita la API** (ver `docker-compose.yml` para el mapeo completo):
+
+| Variable | Ejemplo | Notas |
+|---|---|---|
+| `ASPNETCORE_ENVIRONMENT` | `Test` / `Production` | Cualquier valor distinto de `Development` desactiva Swagger y activa el auto-migrate |
+| `ConnectionStrings__DefaultConnection` | `Server=sqlserver;Database=WholeCareInsuranceDb_Prod;...` | |
+| `Jwt__Key` | (mín. 32 caracteres) | Distinta por ambiente |
+| `Jwt__Issuer` / `Jwt__Audience` / `Jwt__AccessTokenMinutes` | | Opcional, tienen default en `appsettings.json` |
+| `Cors__AllowedOrigin` | `https://tu-dominio.com` | Debe matchear el dominio real del frontend de ese ambiente |
+| `Frontend__BaseUrl` | `https://tu-dominio.com` | Usado para armar el link de "olvidé mi contraseña" |
+| `Brevo__ApiKey` / `Brevo__SenderEmail` | | Sin `Brevo__ApiKey`, el backend cae a un servicio que solo loguea el email en vez de enviarlo — hay que setearla en Test/Prod para que la recuperación de contraseña envíe emails reales |
+
+**Volumen persistente:** `App_Data/PolicyDocuments` (dentro del contenedor, relativo al `WORKDIR /app`) necesita un volumen — sin él, los documentos de pólizas se pierden en cada redeploy.
+
 ## Estructura del repositorio
 
 ```

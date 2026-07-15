@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
@@ -76,11 +77,14 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+// En Test/Prod se inyecta por Cors__AllowedOrigin (build-arg por ambiente en el
+// frontend, cada uno con su propio origin) — default a localhost:5173 para dev local.
+var allowedOrigin = builder.Configuration["Cors:AllowedOrigin"] ?? "http://localhost:5173";
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:5173")
+        policy.WithOrigins(allowedOrigin)
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
@@ -93,6 +97,15 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 
 var app = builder.Build();
+
+// Detrás del proxy de EasyPanel (termina TLS ahí, el contenedor solo ve HTTP):
+// sin esto, UseHttpsRedirection vería siempre "http" y generaría un redirect
+// loop. Con XForwardedProto, la app conoce el esquema real de la request original.
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+});
+
 app.UseCors("AllowFrontend");
 
 using (var scope = app.Services.CreateScope())
@@ -101,8 +114,14 @@ using (var scope = app.Services.CreateScope())
     await seeder.Seed();
 }
 
+// Auto-migrate al iniciar el contenedor (decisión de despliegue, §8.1) — en dev
+// local se sigue usando `dotnet ef database update` a mano.
 if (!app.Environment.IsDevelopment())
-    app.UseHttpsRedirection();
+{
+    using var migrationScope = app.Services.CreateScope();
+    var db = migrationScope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await db.Database.MigrateAsync();
+}
 
 if (app.Environment.IsDevelopment())
 {

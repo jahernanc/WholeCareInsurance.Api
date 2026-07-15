@@ -1,0 +1,93 @@
+# Referencia para el despliegue en el VPS (EasyPanel) — ver README.md, sección
+# "Despliegue (VPS / EasyPanel)" para el detalle de cada decisión.
+#
+# Un solo contenedor de SQL Server compartido entre Test y Prod (limitación de
+# RAM del VPS: 8GB totales), con 2 bases de datos separadas. Cada ambiente
+# tiene su propia imagen de frontend (VITE_API_URL se resuelve en build time,
+# no en runtime) y su propio contenedor de API.
+#
+# Reemplazar los valores de ejemplo (contraseñas, dominios, Jwt:Key) antes de
+# usar esto en el VPS real — no son secretos válidos, son placeholders.
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "CambiarEstaContraseña123!"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    ports:
+      - "1433:1433" # opcional: solo si necesitás conectarte desde afuera (ej. Azure Data Studio)
+
+  api-test:
+    build:
+      context: ./WholeCareInsurance.api
+    restart: unless-stopped
+    depends_on:
+      - sqlserver
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Test"
+      ConnectionStrings__DefaultConnection: "Server=sqlserver;Database=WholeCareInsuranceDb_Test;User Id=sa;Password=CambiarEstaContraseña123!;TrustServerCertificate=True;"
+      Jwt__Key: "cambiar-por-una-clave-de-al-menos-32-caracteres-test"
+      Jwt__Issuer: "WholeCareApi"
+      Jwt__Audience: "WholeCareClient"
+      Jwt__AccessTokenMinutes: "60"
+      Cors__AllowedOrigin: "https://test.tu-dominio.com"
+      Frontend__BaseUrl: "https://test.tu-dominio.com"
+      Brevo__ApiKey: ""
+      Brevo__SenderEmail: ""
+    volumes:
+      - policy-documents-test:/app/App_Data/PolicyDocuments
+    ports:
+      - "8081:8080"
+
+  api-prod:
+    build:
+      context: ./WholeCareInsurance.api
+    restart: unless-stopped
+    depends_on:
+      - sqlserver
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Production"
+      ConnectionStrings__DefaultConnection: "Server=sqlserver;Database=WholeCareInsuranceDb_Prod;User Id=sa;Password=CambiarEstaContraseña123!;TrustServerCertificate=True;"
+      Jwt__Key: "cambiar-por-una-clave-de-al-menos-32-caracteres-prod"
+      Jwt__Issuer: "WholeCareApi"
+      Jwt__Audience: "WholeCareClient"
+      Jwt__AccessTokenMinutes: "60"
+      Cors__AllowedOrigin: "https://tu-dominio.com"
+      Frontend__BaseUrl: "https://tu-dominio.com"
+      Brevo__ApiKey: "" # setear en Prod para que "olvidé mi contraseña" envíe emails reales
+      Brevo__SenderEmail: ""
+    volumes:
+      - policy-documents-prod:/app/App_Data/PolicyDocuments
+    ports:
+      - "8080:8080"
+
+  frontend-test:
+    build:
+      context: ./wholecare-admin-vs
+      args:
+        VITE_API_URL: "https://api-test.tu-dominio.com"
+    restart: unless-stopped
+    depends_on:
+      - api-test
+    ports:
+      - "8091:80"
+
+  frontend-prod:
+    build:
+      context: ./wholecare-admin-vs
+      args:
+        VITE_API_URL: "https://api.tu-dominio.com"
+    restart: unless-stopped
+    depends_on:
+      - api-prod
+    ports:
+      - "8090:80"
+
+volumes:
+  sqlserver-data:
+  policy-documents-test:
+  policy-documents-prod:

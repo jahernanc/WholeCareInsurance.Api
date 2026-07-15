@@ -142,23 +142,31 @@ Se solicitó al responsable del proyecto el archivo de export **completo** (toda
 
 ## 8. Hosting y despliegue (VPS)
 
-### 8.1 Infraestructura — ⏸ Pendiente de implementación (Dockerfiles + compose + README)
+### 8.1 Infraestructura — ✅ Hecho (Dockerfiles + compose + README; despliegue real al VPS sigue pendiente)
 VPS ya comprado y corriendo: Ubuntu 24.04, KVM2 (2 CPU, 8GB RAM, 100GB disco), con **EasyPanel** preinstalado.
 
 **Decisiones tomadas:**
 - SQL Server como **contenedor** Docker (`mcr.microsoft.com/mssql/server`) — no instalación nativa, por incompatibilidad de Ubuntu 24.04 con SQL Server nativo.
 - Un solo contenedor de SQL Server compartido entre test y producción, con 2 bases de datos separadas (`WholeCareInsuranceDb_Test` y `WholeCareInsuranceDb_Prod`) — por limitación de RAM (8GB totales).
 - Frontend: `VITE_API_URL` se resuelve vía build-arg por ambiente (no runtime) — cada ambiente reconstruye su propia imagen.
-- Migraciones EF Core: auto-migrate al iniciar el contenedor de la API (`dbContext.Database.Migrate()` en el startup).
-- Variables de entorno mapeadas: `ConnectionStrings__DefaultConnection`, `Jwt__Key`, `Jwt__Issuer`, `Jwt__Audience`, `Jwt__AccessTokenMinutes`, `Cors__AllowedOrigin`, `ASPNETCORE_ENVIRONMENT`, `Brevo__ApiKey`, `Brevo__SenderEmail`, `Frontend__BaseUrl` (agregadas al implementar gestión de contraseñas — ver §10 "Gestión de contraseñas"; sin `Brevo__ApiKey` seteado, el backend cae a un servicio que solo loguea el email en vez de enviarlo, así que hay que setearlo en Test/Prod para que el flujo de "olvidé mi contraseña" funcione de verdad).
+- Migraciones EF Core: auto-migrate al iniciar el contenedor de la API (`dbContext.Database.MigrateAsync()` en `Program.cs`, solo fuera de `Development`).
+- Variables de entorno mapeadas: `ConnectionStrings__DefaultConnection`, `Jwt__Key`, `Jwt__Issuer`, `Jwt__Audience`, `Jwt__AccessTokenMinutes`, `Cors__AllowedOrigin`, `ASPNETCORE_ENVIRONMENT`, `Brevo__ApiKey`, `Brevo__SenderEmail`, `Frontend__BaseUrl` (sin `Brevo__ApiKey` seteado, el backend cae a un servicio que solo loguea el email en vez de enviarlo, así que hay que setearlo en Test/Prod para que el flujo de "olvidé mi contraseña" funcione de verdad).
 
-**Cambios de código pendientes identificados** (no solo config):
-- Quitar/condicionar `app.UseHttpsRedirection()` fuera de Development (conflicto con el proxy de EasyPanel) + agregar `UseForwardedHeaders` para `X-Forwarded-Proto`.
-- Mover CORS `AllowedOrigin` (hoy hardcodeado a `http://localhost:5173`) a variable de entorno.
-- Volumen persistente para `App_Data/PolicyDocuments` (§1.7) — sin volumen, los documentos se pierden en cada redeploy.
-- Vaciar `Jwt:Key`/connection string hardcodeados en `appsettings.json`; en prod se inyectan por variable de entorno.
+**Cambios de código implementados:**
+- `app.UseHttpsRedirection()` eliminado fuera de Development (evita el redirect loop detrás del proxy de EasyPanel, que termina TLS ahí) + `app.UseForwardedHeaders(...)` agregado (`XForwardedFor` + `XForwardedProto`) para que la app conozca el esquema real de la request original.
+- CORS `AllowedOrigin` movido a `Cors:AllowedOrigin` (config/env var), con default `http://localhost:5173` para dev local.
+- `Jwt:Key` y `ConnectionStrings:DefaultConnection` vaciados en `appsettings.json` (tracked); los valores reales de dev local se movieron a `appsettings.Development.json` (gitignored, sin cambio de comportamiento en local) — en Test/Prod se inyectan por variable de entorno.
+- Auto-migrate agregado en `Program.cs` (`db.Database.MigrateAsync()`, fuera de Development).
 
-**Próximo paso:** `WholeCareInsurance.api/Dockerfile`, `wholecare-admin-vs/Dockerfile`, los cambios de código de arriba, `docker-compose.yml` de referencia, `README.md` de despliegue en EasyPanel. Se decidió posponer la ejecución para una próxima sesión dedicada.
+**Artefactos nuevos:**
+- `WholeCareInsurance.api/Dockerfile` (+ `.dockerignore`) — build multi-stage SDK → `aspnet:9.0`, escucha en `8080`.
+- `wholecare-admin-vs/Dockerfile` (+ `.dockerignore`, `nginx.conf`) — build multi-stage Node → `nginx:alpine`, con fallback SPA para React Router.
+- `docker-compose.yml` en la raíz — referencia de la topología completa (sqlserver + api-test + api-prod + frontend-test + frontend-prod), con placeholders para contraseñas/dominios/claves.
+- `README.md` — nueva sección "Despliegue (VPS / EasyPanel)" con la arquitectura, la tabla de variables de entorno y el detalle del volumen persistente para `App_Data/PolicyDocuments`.
+
+**Verificado sin Docker instalado en esta máquina** (no se pudo levantar los contenedores acá — validar de verdad en el VPS): `npm run build` con `VITE_API_URL` seteado por variable de entorno confirma que el valor queda inlineado en el bundle final (mismo mecanismo que usa el build-arg de Docker); `dotnet publish -c Release` compila sin errores; el binario publicado, corrido con variables de entorno estilo producción (`ASPNETCORE_ENVIRONMENT=Production`, `Jwt__Key`, `ConnectionStrings__DefaultConnection`, `Cors__AllowedOrigin`, sin `Development`), arranca, corre el auto-migrate contra la base de dev sin aplicar nada (ya estaba al día), expone Swagger en 404 (deshabilitado fuera de Development) y responde `Access-Control-Allow-Origin` solo para el origin configurado por env var.
+
+**Pendiente real:** ejecutar esto en el VPS (dar de alta los servicios en EasyPanel, reemplazar los placeholders del compose por secretos reales, probar el build de las imágenes con Docker de verdad, configurar dominios/DNS). Se decidió posponer para una próxima sesión dedicada al VPS en sí.
 
 ### 8.2 Ver §7 para la migración de datos (antes en esta sección, movida para agrupar con el resto de la migración).
 
@@ -262,6 +270,6 @@ Verificado con curl (alta con los 18 campos, rechazo de registro sin `TermsAccep
 17. ~~Gestión de contraseñas (cambio forzado, cambio desde perfil, recuperación por email)~~ ✅ Hecho (§10)
 18. ~~Campos nuevos de Agente~~ ✅ Hecho (§11)
 19. Firma digital de consentimiento — bloqueado hasta que el responsable elija proveedor (§4.1)
-20. Infraestructura de hosting (VPS) — plan definido, pendiente de ejecución (§8.1)
+20. ~~Infraestructura de hosting (VPS) — Dockerfiles/compose/README~~ ✅ Hecho (§8.1); falta el despliegue real al VPS
 21. Migración de datos del sistema anterior — bloqueado hasta recibir el archivo + respuestas (§7)
 22. Dashboard — bloqueado hasta tener la data migrada (§9)
