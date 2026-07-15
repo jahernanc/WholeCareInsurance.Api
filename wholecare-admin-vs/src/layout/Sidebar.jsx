@@ -7,6 +7,7 @@ const menu = [
     { path: "/customers", labelKey: "nav.customers", icon: "👤" },
     { path: "/policies", labelKey: "nav.policies", icon: "📄" },
     { path: "/agentes", labelKey: "nav.agentes", icon: "🧑‍💼", adminOnly: true },
+    { path: "/insurance-companies", labelKey: "nav.insuranceCompanies", icon: "🏢", adminOnly: true },
 ];
 
 function Sidebar() {

@@ -21,9 +21,10 @@ namespace WholeCareInsurance.api.Data.Configurations
                   .IsRequired()
                   .HasMaxLength(100);
 
-            entity.Property(p => p.InsuranceCompany)
-                  .IsRequired()
-                  .HasMaxLength(100);
+            entity.HasOne(p => p.InsuranceCompany)
+                  .WithMany()
+                  .HasForeignKey(p => p.InsuranceCompanyId)
+                  .OnDelete(DeleteBehavior.Restrict);
 
             entity.Property(p => p.Status)
                   .IsRequired()
@@ -37,6 +38,12 @@ namespace WholeCareInsurance.api.Data.Configurations
 
             entity.Property(p => p.StartDate).IsRequired();
             entity.Property(p => p.EndDate).IsRequired();
+
+            entity.Property(p => p.PlanType).HasMaxLength(20);
+            entity.Property(p => p.InsurancePlan).HasMaxLength(200);
+            entity.Property(p => p.EffectiveDate);
+            entity.Property(p => p.TaxCreditSubsidy).HasColumnType("decimal(18,2)");
+            entity.Property(p => p.MonthlyPremiumAmount).HasColumnType("decimal(18,2)");
         }
 
     }

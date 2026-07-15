@@ -6,6 +6,7 @@ import loginEn from "./locales/en/login.json";
 import customersEn from "./locales/en/customers.json";
 import policiesEn from "./locales/en/policies.json";
 import agentesEn from "./locales/en/agentes.json";
+import insuranceCompaniesEn from "./locales/en/insuranceCompanies.json";
 import enumsEn from "./locales/en/enums.json";
 import authEn from "./locales/en/auth.json";
 
@@ -14,6 +15,7 @@ import loginEs from "./locales/es/login.json";
 import customersEs from "./locales/es/customers.json";
 import policiesEs from "./locales/es/policies.json";
 import agentesEs from "./locales/es/agentes.json";
+import insuranceCompaniesEs from "./locales/es/insuranceCompanies.json";
 import enumsEs from "./locales/es/enums.json";
 import authEs from "./locales/es/auth.json";
 
@@ -27,7 +29,7 @@ i18n.use(initReactI18next).init({
     lng: cachedLanguage === "es" ? "es" : "en",
     fallbackLng: "en",
     defaultNS: "common",
-    ns: ["common", "login", "customers", "policies", "agentes", "enums", "auth"],
+    ns: ["common", "login", "customers", "policies", "agentes", "insuranceCompanies", "enums", "auth"],
     resources: {
         en: {
             common: commonEn,
@@ -35,6 +37,7 @@ i18n.use(initReactI18next).init({
             customers: customersEn,
             policies: policiesEn,
             agentes: agentesEn,
+            insuranceCompanies: insuranceCompaniesEn,
             enums: enumsEn,
             auth: authEn,
         },
@@ -44,6 +47,7 @@ i18n.use(initReactI18next).init({
             customers: customersEs,
             policies: policiesEs,
             agentes: agentesEs,
+            insuranceCompanies: insuranceCompaniesEs,
             enums: enumsEs,
             auth: authEs,
         },

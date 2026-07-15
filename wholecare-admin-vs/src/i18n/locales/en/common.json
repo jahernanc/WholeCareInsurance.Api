@@ -3,7 +3,8 @@
         "dashboard": "Dashboard",
         "customers": "Customers",
         "policies": "Policies",
-        "agentes": "Agents"
+        "agentes": "Agents",
+        "insuranceCompanies": "Insurance Companies"
     },
     "header": {
         "appName": "WholeCare",

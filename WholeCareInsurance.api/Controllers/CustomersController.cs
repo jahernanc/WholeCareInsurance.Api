@@ -52,13 +52,22 @@ namespace WholeCareInsurance.api.Controllers
                     Id = p.Id,
                     PolicyNumber = p.PolicyNumber,
                     Type = p.Type,
+                    // InsuranceCompany faltaba en esta proyección (bug preexistente, no
+                    // relacionado a los campos nuevos) — se agrega de paso.
+                    InsuranceCompanyId = p.InsuranceCompanyId,
+                    InsuranceCompanyName = p.InsuranceCompany.Name,
                     StartDate = p.StartDate,
                     EndDate = p.EndDate,
                     Premium = p.Premium,
                     Status = p.Status,
                     Period = p.Period,
                     NumberOfApplicants = p.NumberOfApplicants,
-                    CustomerId = p.CustomerId
+                    CustomerId = p.CustomerId,
+                    PlanType = p.PlanType,
+                    InsurancePlan = p.InsurancePlan,
+                    EffectiveDate = p.EffectiveDate,
+                    TaxCreditSubsidy = p.TaxCreditSubsidy,
+                    MonthlyPremiumAmount = p.MonthlyPremiumAmount
                 });
 
             return Ok(policies);

@@ -1,0 +1,21 @@
+{
+    "title": "Insurance Companies",
+    "newButton": "+ New insurance company",
+    "closeFormButton": "Close form",
+    "form": {
+        "titleCreate": "New insurance company",
+        "titleEdit": "Edit insurance company",
+        "fields": {
+            "name": "Name",
+            "isActive": "Active"
+        },
+        "saveError": "Error saving insurance company",
+        "submitCreate": "Create insurance company"
+    },
+    "loading": "Loading insurance companies...",
+    "empty": "No insurance companies registered.",
+    "card": {
+        "active": "Active",
+        "inactive": "Inactive"
+    }
+}

@@ -8,6 +8,7 @@ import AppLayout from "./layout/AppLayout";
 import Customers from "./pages/Customers";
 import Policies from "./pages/Policies";
 import Agentes from "./pages/Agentes";
+import InsuranceCompanies from "./pages/InsuranceCompanies";
 import Profile from "./pages/Profile";
 import { isAdmin } from "./api";
 
@@ -47,6 +48,10 @@ function App() {
                     <Route
                         path="agentes"
                         element={isAdmin() ? <Agentes /> : <Navigate to="/" replace />}
+                    />
+                    <Route
+                        path="insurance-companies"
+                        element={isAdmin() ? <InsuranceCompanies /> : <Navigate to="/" replace />}
                     />
                     <Route path="profile" element={<Profile />} />
                 </Route>

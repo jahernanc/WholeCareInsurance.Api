@@ -7,8 +7,8 @@ import CustomerFormFields from "../components/CustomerFormFields";
 import { emptyCustomerForm } from "../data/customerFormOptions";
 
 const POLICY_TYPES = ["Obama Care", "Salud", "Auto", "Otro"];
-const INSURANCE_COMPANIES = ["WholeCareInsurance", "Otro"];
-const POLICY_STATUSES = ["Draft", "Pendiente", "Cancelado", "Por procesar", "En proceso", "En corrección", "Procesado", "Cambio de agente"];
+const POLICY_STATUSES = ["Draft", "Pendiente", "Cancelado", "Por procesar", "En proceso", "Actualizado", "Procesado", "Cambio de agente"];
+const PLAN_TYPES = ["Catastrophic", "Bronze", "Silver", "Gold", "Platinum"];
 const ALLOWED_DOCUMENT_EXTENSIONS = [".pdf", ".docx", ".jpg", ".jpeg"];
 const MAX_DOCUMENT_SIZE_BYTES = 5 * 1024 * 1024;
 
@@ -37,7 +37,8 @@ function Policies() {
 
     const [policyNumber, setPolicyNumber] = useState("");
     const [type, setType] = useState("");
-    const [insuranceCompany, setInsuranceCompany] = useState("");
+    const [insuranceCompanies, setInsuranceCompanies] = useState([]);
+    const [insuranceCompanyId, setInsuranceCompanyId] = useState("");
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
     const [premium, setPremium] = useState("");
@@ -47,6 +48,13 @@ function Policies() {
     // crear, y se conserva el valor ya guardado de la póliza al editar.
     const [formPeriod, setFormPeriod] = useState(period);
     const [numberOfApplicants, setNumberOfApplicants] = useState("");
+
+    // Campos confirmados por el análisis del archivo real de migración (Health/Obamacare).
+    const [planType, setPlanType] = useState("");
+    const [insurancePlan, setInsurancePlan] = useState("");
+    const [effectiveDate, setEffectiveDate] = useState("");
+    const [taxCreditSubsidy, setTaxCreditSubsidy] = useState("");
+    const [monthlyPremiumAmount, setMonthlyPremiumAmount] = useState("");
 
     const [formError, setFormError] = useState("");
     const [submitting, setSubmitting] = useState(false);
@@ -70,7 +78,7 @@ function Policies() {
     const [filterLastName, setFilterLastName] = useState("");
     const [filterStatus, setFilterStatus] = useState("");
     const [filterType, setFilterType] = useState("");
-    const [filterInsuranceCompany, setFilterInsuranceCompany] = useState("");
+    const [filterInsuranceCompanyId, setFilterInsuranceCompanyId] = useState("");
 
     const [viewingPolicy, setViewingPolicy] = useState(null);
     const [detailDependents, setDetailDependents] = useState([]);
@@ -104,7 +112,7 @@ function Policies() {
             lastName: filterLastName,
             status: filterStatus,
             type: filterType,
-            insuranceCompany: filterInsuranceCompany,
+            insuranceCompanyId: filterInsuranceCompanyId,
             period,
             ...filterOverrides,
         };
@@ -151,8 +159,8 @@ function Policies() {
         setFilterLastName("");
         setFilterStatus("");
         setFilterType("");
-        setFilterInsuranceCompany("");
-        loadData({ policyNumber: "", firstName: "", lastName: "", status: "", type: "", insuranceCompany: "" });
+        setFilterInsuranceCompanyId("");
+        loadData({ policyNumber: "", firstName: "", lastName: "", status: "", type: "", insuranceCompanyId: "" });
     };
     const loadDependents = async (policyId) => {
         try {
@@ -375,7 +383,7 @@ function Policies() {
 
         setPolicyNumber(policy.policyNumber);
         setType(policy.type);
-        setInsuranceCompany(policy.insuranceCompany);
+        setInsuranceCompanyId(policy.insuranceCompanyId);
         setStartDate(policy.startDate.slice(0, 10));
         setEndDate(policy.endDate.slice(0, 10));
         setPremium(policy.premium);
@@ -383,6 +391,12 @@ function Policies() {
         setCustomerId(policy.customerId);
         setFormPeriod(policy.period);
         setNumberOfApplicants(policy.numberOfApplicants ?? "");
+
+        setPlanType(policy.planType ?? "");
+        setInsurancePlan(policy.insurancePlan ?? "");
+        setEffectiveDate(policy.effectiveDate ? policy.effectiveDate.slice(0, 10) : "");
+        setTaxCreditSubsidy(policy.taxCreditSubsidy ?? "");
+        setMonthlyPremiumAmount(policy.monthlyPremiumAmount ?? "");
 
         setDependentQuery("");
         setShowDependentPicker(false);
@@ -421,6 +435,20 @@ function Policies() {
     }, [period]);
 
     useEffect(() => {
+        const loadInsuranceCompanies = async () => {
+            try {
+                const res = await apiFetch("/api/insurance-companies");
+                if (!res.ok) throw new Error();
+                setInsuranceCompanies(await res.json());
+            } catch (error) {
+                console.error("Error loading insurance companies:", error);
+            }
+        };
+
+        loadInsuranceCompanies();
+    }, []);
+
+    useEffect(() => {
         if (!userIsAdmin) return;
 
         const loadDependentAgents = async () => {
@@ -444,7 +472,7 @@ function Policies() {
         if (
             !policyNumber.trim() ||
             !type.trim() ||
-            !insuranceCompany.trim() ||
+            !insuranceCompanyId ||
             !startDate ||
             !endDate ||
             !premium ||
@@ -469,7 +497,7 @@ function Policies() {
                 body: JSON.stringify({
                     policyNumber,
                     type,
-                    insuranceCompany,
+                    insuranceCompanyId: Number(insuranceCompanyId),
                     startDate,
                     endDate,
                     premium: Number(premium),
@@ -477,6 +505,11 @@ function Policies() {
                     customerId: Number(customerId),
                     period: formPeriod,
                     numberOfApplicants: numberOfApplicants === "" ? null : Number(numberOfApplicants),
+                    planType: planType || null,
+                    insurancePlan: insurancePlan || null,
+                    effectiveDate: effectiveDate || null,
+                    taxCreditSubsidy: taxCreditSubsidy === "" ? null : Number(taxCreditSubsidy),
+                    monthlyPremiumAmount: monthlyPremiumAmount === "" ? null : Number(monthlyPremiumAmount),
                 }),
             });
 
@@ -493,13 +526,19 @@ function Policies() {
 
             setPolicyNumber("");
             setType("");
-            setInsuranceCompany("");
+            setInsuranceCompanyId("");
             setStartDate("");
             setEndDate("");
             setPremium("");
             setStatus("Draft");
             setCustomerId("");
             setNumberOfApplicants("");
+
+            setPlanType("");
+            setInsurancePlan("");
+            setEffectiveDate("");
+            setTaxCreditSubsidy("");
+            setMonthlyPremiumAmount("");
 
             setDependents([]);
             setDependentQuery("");
@@ -600,15 +639,41 @@ function Policies() {
                             <div style={{ marginBottom: 12 }}>
                                 <label>{t("form.fields.insuranceCompany")}</label>
                                 <select
-                                    value={insuranceCompany}
-                                    onChange={(e) => setInsuranceCompany(e.target.value)}
+                                    value={insuranceCompanyId}
+                                    onChange={(e) => setInsuranceCompanyId(e.target.value)}
                                     style={{ width: "100%", padding: 8, marginTop: 4 }}
                                 >
                                     <option value="">{t("form.selectInsuranceCompany")}</option>
-                                    {INSURANCE_COMPANIES.map((ic) => (
-                                        <option key={ic} value={ic}>{translateEnum("insuranceCompany", ic)}</option>
+                                    {insuranceCompanies.map((ic) => (
+                                        <option key={ic.id} value={ic.id}>
+                                            {ic.name}{!ic.isActive ? ` ${t("form.inactiveSuffix")}` : ""}
+                                        </option>
                                     ))}
                                 </select>
+                            </div>
+
+                            <div style={{ marginBottom: 12 }}>
+                                <label>{t("form.fields.planType")}</label>
+                                <select
+                                    value={planType}
+                                    onChange={(e) => setPlanType(e.target.value)}
+                                    style={{ width: "100%", padding: 8, marginTop: 4 }}
+                                >
+                                    <option value="">{t("form.selectPlanType")}</option>
+                                    {PLAN_TYPES.map((pt) => (
+                                        <option key={pt} value={pt}>{translateEnum("planType", pt)}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div style={{ marginBottom: 12 }}>
+                                <label>{t("form.fields.insurancePlan")}</label>
+                                <input
+                                    type="text"
+                                    value={insurancePlan}
+                                    onChange={(e) => setInsurancePlan(e.target.value)}
+                                    style={{ width: "100%", padding: 8, marginTop: 4 }}
+                                />
                             </div>
 
                             <div style={{ marginBottom: 12 }}>
@@ -632,11 +697,45 @@ function Policies() {
                             </div>
 
                             <div style={{ marginBottom: 12 }}>
+                                <label>{t("form.fields.effectiveDate")}</label>
+                                <input
+                                    type="date"
+                                    value={effectiveDate}
+                                    onChange={(e) => setEffectiveDate(e.target.value)}
+                                    style={{ width: "100%", padding: 8, marginTop: 4 }}
+                                />
+                            </div>
+
+                            <div style={{ marginBottom: 12 }}>
                                 <label>{t("form.fields.premium")}</label>
                                 <input
                                     type="number"
                                     value={premium}
                                     onChange={(e) => setPremium(e.target.value)}
+                                    style={{ width: "100%", padding: 8, marginTop: 4 }}
+                                />
+                            </div>
+
+                            <div style={{ marginBottom: 12 }}>
+                                <label>{t("form.fields.monthlyPremiumAmount")}</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={monthlyPremiumAmount}
+                                    onChange={(e) => setMonthlyPremiumAmount(e.target.value)}
+                                    style={{ width: "100%", padding: 8, marginTop: 4 }}
+                                />
+                            </div>
+
+                            <div style={{ marginBottom: 12 }}>
+                                <label>{t("form.fields.taxCreditSubsidy")}</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={taxCreditSubsidy}
+                                    onChange={(e) => setTaxCreditSubsidy(e.target.value)}
                                     style={{ width: "100%", padding: 8, marginTop: 4 }}
                                 />
                             </div>
@@ -921,13 +1020,13 @@ function Policies() {
                 <div>
                     <label style={{ display: "block", fontSize: 12 }}>{t("filters.insuranceCompany")}</label>
                     <select
-                        value={filterInsuranceCompany}
-                        onChange={(e) => setFilterInsuranceCompany(e.target.value)}
+                        value={filterInsuranceCompanyId}
+                        onChange={(e) => setFilterInsuranceCompanyId(e.target.value)}
                         style={{ padding: 6 }}
                     >
                         <option value="">{t("filters.all")}</option>
-                        {INSURANCE_COMPANIES.map((ic) => (
-                            <option key={ic} value={ic}>{translateEnum("insuranceCompany", ic)}</option>
+                        {insuranceCompanies.map((ic) => (
+                            <option key={ic.id} value={ic.id}>{ic.name}</option>
                         ))}
                     </select>
                 </div>
@@ -989,7 +1088,7 @@ function Policies() {
                                     <tr key={p.id}>
                                         <td style={{ padding: 10 }}>{p.policyNumber}</td>
                                         <td style={{ padding: 10 }}>{translateEnum("policyType", p.type)}</td>
-                                        <td style={{ padding: 10 }}>{translateEnum("insuranceCompany", p.insuranceCompany)}</td>
+                                        <td style={{ padding: 10 }}>{p.insuranceCompanyName}</td>
                                         <td style={{ padding: 10 }}>{translateEnum("policyStatus", p.status)}</td>
                                         <td style={{ padding: 10 }}>{p.period}</td>
                                         <td style={{ padding: 10 }}>{p.premium}</td>
@@ -1102,12 +1201,17 @@ function Policies() {
 
                         <h4 style={{ marginBottom: 6 }}>{t("detail.policySection")}</h4>
                         <p style={{ margin: "2px 0" }}>{t("detail.type")}: {translateEnum("policyType", viewingPolicy.type)}</p>
-                        <p style={{ margin: "2px 0" }}>{t("detail.insuranceCompany")}: {translateEnum("insuranceCompany", viewingPolicy.insuranceCompany)}</p>
+                        <p style={{ margin: "2px 0" }}>{t("detail.insuranceCompany")}: {viewingPolicy.insuranceCompanyName}</p>
                         <p style={{ margin: "2px 0" }}>{t("detail.status")}: {translateEnum("policyStatus", viewingPolicy.status)}</p>
                         <p style={{ margin: "2px 0" }}>{t("detail.period")}: {viewingPolicy.period}</p>
+                        <p style={{ margin: "2px 0" }}>{t("detail.planType")}: {viewingPolicy.planType ? translateEnum("planType", viewingPolicy.planType) : "-"}</p>
+                        <p style={{ margin: "2px 0" }}>{t("detail.insurancePlan")}: {viewingPolicy.insurancePlan ?? "-"}</p>
                         <p style={{ margin: "2px 0" }}>{t("detail.startDate")}: {viewingPolicy.startDate?.slice(0, 10)}</p>
                         <p style={{ margin: "2px 0" }}>{t("detail.endDate")}: {viewingPolicy.endDate?.slice(0, 10)}</p>
+                        <p style={{ margin: "2px 0" }}>{t("detail.effectiveDate")}: {viewingPolicy.effectiveDate ? viewingPolicy.effectiveDate.slice(0, 10) : "-"}</p>
                         <p style={{ margin: "2px 0" }}>{t("detail.premium")}: {viewingPolicy.premium}</p>
+                        <p style={{ margin: "2px 0" }}>{t("detail.monthlyPremiumAmount")}: {viewingPolicy.monthlyPremiumAmount ?? "-"}</p>
+                        <p style={{ margin: "2px 0" }}>{t("detail.taxCreditSubsidy")}: {viewingPolicy.taxCreditSubsidy ?? "-"}</p>
 
                         <h4 style={{ marginTop: 16, marginBottom: 6 }}>{t("detail.titularSection")}</h4>
                         {(() => {

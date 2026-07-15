@@ -16,11 +16,11 @@ namespace WholeCareInsurance.api.Services
         }
 
         public async Task<IEnumerable<Policy>> GetAll()
-            => await _context.Policies.Include(p => p.Customer).ToListAsync();
+            => await _context.Policies.Include(p => p.Customer).Include(p => p.InsuranceCompany).ToListAsync();
 
-        public async Task<List<Policy>> Search(int? customerId, string? firstName, string? lastName, string? policyNumber, string? status, string? type, string? insuranceCompany, int? period)
+        public async Task<List<Policy>> Search(int? customerId, string? firstName, string? lastName, string? policyNumber, string? status, string? type, int? insuranceCompanyId, int? period)
         {
-            var query = _context.Policies.Include(p => p.Customer).AsQueryable();
+            var query = _context.Policies.Include(p => p.Customer).Include(p => p.InsuranceCompany).AsQueryable();
 
             if (customerId.HasValue)
                 query = query.Where(p => p.CustomerId == customerId.Value);
@@ -40,8 +40,8 @@ namespace WholeCareInsurance.api.Services
             if (!string.IsNullOrWhiteSpace(type))
                 query = query.Where(p => p.Type == type);
 
-            if (!string.IsNullOrWhiteSpace(insuranceCompany))
-                query = query.Where(p => p.InsuranceCompany == insuranceCompany);
+            if (insuranceCompanyId.HasValue)
+                query = query.Where(p => p.InsuranceCompanyId == insuranceCompanyId.Value);
 
             if (period.HasValue)
                 query = query.Where(p => p.Period == period.Value);
@@ -52,6 +52,7 @@ namespace WholeCareInsurance.api.Services
         public async Task<Policy?> GetById(int id)
             => await _context.Policies
                 .Include(p => p.Customer)
+                .Include(p => p.InsuranceCompany)
                 .FirstOrDefaultAsync(p => p.Id == id);
 
         public async Task<Policy> Create(Policy policy)

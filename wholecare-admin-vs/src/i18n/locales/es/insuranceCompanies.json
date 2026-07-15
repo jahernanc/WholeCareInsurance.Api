@@ -1,0 +1,21 @@
+{
+    "title": "Aseguradoras",
+    "newButton": "+ Nueva aseguradora",
+    "closeFormButton": "Cerrar formulario",
+    "form": {
+        "titleCreate": "Nueva aseguradora",
+        "titleEdit": "Editar aseguradora",
+        "fields": {
+            "name": "Nombre",
+            "isActive": "Activa"
+        },
+        "saveError": "Error al guardar la aseguradora",
+        "submitCreate": "Crear aseguradora"
+    },
+    "loading": "Cargando aseguradoras...",
+    "empty": "No hay aseguradoras registradas.",
+    "card": {
+        "active": "Activa",
+        "inactive": "Inactiva"
+    }
+}

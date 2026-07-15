@@ -5,19 +5,22 @@
         "Auto": "Auto",
         "Otro": "Other"
     },
-    "insuranceCompany": {
-        "WholeCareInsurance": "WholeCareInsurance",
-        "Otro": "Other"
-    },
     "policyStatus": {
         "Draft": "Draft",
         "Pendiente": "Pending",
         "Cancelado": "Canceled",
         "Por procesar": "To be processed",
         "En proceso": "In Process",
-        "En corrección": "By correction",
+        "Actualizado": "Updated",
         "Procesado": "Processed",
         "Cambio de agente": "Agent change"
+    },
+    "planType": {
+        "Catastrophic": "Catastrophic",
+        "Bronze": "Bronze",
+        "Silver": "Silver",
+        "Gold": "Gold",
+        "Platinum": "Platinum"
     },
     "migrationStatus": {
         "Permiso de trabajo": "Work Permit",

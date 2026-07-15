@@ -15,13 +15,15 @@ namespace WholeCareInsurance.api.Controllers
     {
         private readonly IPolicyService _policies;
         private readonly ICustomerService _customers;
+        private readonly IInsuranceCompanyService _insuranceCompanies;
         private readonly IPolicyDocumentStorage _documentStorage;
         private static readonly FileExtensionContentTypeProvider ContentTypeProvider = new();
 
-        public PoliciesController(IPolicyService policies, ICustomerService customers, IPolicyDocumentStorage documentStorage)
+        public PoliciesController(IPolicyService policies, ICustomerService customers, IInsuranceCompanyService insuranceCompanies, IPolicyDocumentStorage documentStorage)
         {
             _policies = policies;
             _customers = customers;
+            _insuranceCompanies = insuranceCompanies;
             _documentStorage = documentStorage;
         }
 
@@ -33,27 +35,11 @@ namespace WholeCareInsurance.api.Controllers
             [FromQuery] string? policyNumber = null,
             [FromQuery] string? status = null,
             [FromQuery] string? type = null,
-            [FromQuery] string? insuranceCompany = null,
+            [FromQuery] int? insuranceCompanyId = null,
             [FromQuery] int? period = null)
         {
-            var found = await _policies.Search(customerId, firstName, lastName, policyNumber, status, type, insuranceCompany, period);
-
-            var list = found.Select(p => new PolicyResponseDto
-            {
-                Id = p.Id,
-                PolicyNumber = p.PolicyNumber,
-                Type = p.Type,
-                InsuranceCompany = p.InsuranceCompany,
-                StartDate = p.StartDate,
-                EndDate = p.EndDate,
-                Premium = p.Premium,
-                Status = p.Status,
-                Period = p.Period,
-                NumberOfApplicants = p.NumberOfApplicants,
-                CustomerId = p.CustomerId
-            });
-
-            return Ok(list);
+            var found = await _policies.Search(customerId, firstName, lastName, policyNumber, status, type, insuranceCompanyId, period);
+            return Ok(found.Select(ToResponse));
         }
 
         [HttpGet("{id:int}")]
@@ -61,21 +47,7 @@ namespace WholeCareInsurance.api.Controllers
         {
             var policy = await _policies.GetById(id);
             if (policy == null) return NotFound();
-
-            return Ok(new PolicyResponseDto
-            {
-                Id = policy.Id,
-                PolicyNumber = policy.PolicyNumber,
-                Type = policy.Type,
-                InsuranceCompany = policy.InsuranceCompany,
-                StartDate = policy.StartDate,
-                EndDate = policy.EndDate,
-                Premium = policy.Premium,
-                Status = policy.Status,
-                Period = policy.Period,
-                NumberOfApplicants = policy.NumberOfApplicants,
-                CustomerId = policy.CustomerId
-            });
+            return Ok(ToResponse(policy));
         }
 
         [HttpPost]
@@ -85,36 +57,33 @@ namespace WholeCareInsurance.api.Controllers
             if (customer == null)
                 return BadRequest($"CustomerId {dto.CustomerId} no existe.");
 
+            var insuranceCompany = await _insuranceCompanies.GetById(dto.InsuranceCompanyId);
+            if (insuranceCompany == null)
+                return BadRequest($"InsuranceCompanyId {dto.InsuranceCompanyId} no existe.");
+
             var policy = new Policy
             {
                 PolicyNumber = dto.PolicyNumber,
                 Type = dto.Type,
-                InsuranceCompany = dto.InsuranceCompany,
+                InsuranceCompanyId = dto.InsuranceCompanyId,
                 StartDate = dto.StartDate,
                 EndDate = dto.EndDate,
                 Premium = dto.Premium,
                 Status = dto.Status,
                 Period = dto.Period,
                 NumberOfApplicants = dto.NumberOfApplicants,
-                CustomerId = dto.CustomerId
+                CustomerId = dto.CustomerId,
+                PlanType = dto.PlanType,
+                InsurancePlan = dto.InsurancePlan,
+                EffectiveDate = dto.EffectiveDate,
+                TaxCreditSubsidy = dto.TaxCreditSubsidy,
+                MonthlyPremiumAmount = dto.MonthlyPremiumAmount
             };
 
             var created = await _policies.Create(policy);
+            created = await _policies.GetById(created.Id) ?? created;
 
-            return CreatedAtAction(nameof(GetById), new { id = created.Id }, new PolicyResponseDto
-            {
-                Id = created.Id,
-                PolicyNumber = created.PolicyNumber,
-                Type = created.Type,
-                InsuranceCompany = created.InsuranceCompany,
-                StartDate = created.StartDate,
-                EndDate = created.EndDate,
-                Premium = created.Premium,
-                Status = created.Status,
-                Period = created.Period,
-                NumberOfApplicants = created.NumberOfApplicants,
-                CustomerId = created.CustomerId
-            });
+            return CreatedAtAction(nameof(GetById), new { id = created.Id }, ToResponse(created));
         }
 
         [HttpPut("{id:int}")]
@@ -131,32 +100,32 @@ namespace WholeCareInsurance.api.Controllers
                 existing.CustomerId = dto.CustomerId;
             }
 
+            if (dto.InsuranceCompanyId != existing.InsuranceCompanyId)
+            {
+                var insuranceCompany = await _insuranceCompanies.GetById(dto.InsuranceCompanyId);
+                if (insuranceCompany == null)
+                    return BadRequest($"InsuranceCompanyId {dto.InsuranceCompanyId} no existe.");
+                existing.InsuranceCompanyId = dto.InsuranceCompanyId;
+            }
+
             existing.PolicyNumber = dto.PolicyNumber;
             existing.Type = dto.Type;
-            existing.InsuranceCompany = dto.InsuranceCompany;
             existing.StartDate = dto.StartDate;
             existing.EndDate = dto.EndDate;
             existing.Premium = dto.Premium;
             existing.Status = dto.Status;
             existing.Period = dto.Period;
             existing.NumberOfApplicants = dto.NumberOfApplicants;
+            existing.PlanType = dto.PlanType;
+            existing.InsurancePlan = dto.InsurancePlan;
+            existing.EffectiveDate = dto.EffectiveDate;
+            existing.TaxCreditSubsidy = dto.TaxCreditSubsidy;
+            existing.MonthlyPremiumAmount = dto.MonthlyPremiumAmount;
 
             var updated = await _policies.Update(existing);
+            updated = await _policies.GetById(updated.Id) ?? updated;
 
-            return Ok(new PolicyResponseDto
-            {
-                Id = updated.Id,
-                PolicyNumber = updated.PolicyNumber,
-                Type = updated.Type,
-                InsuranceCompany = updated.InsuranceCompany,
-                StartDate = updated.StartDate,
-                EndDate = updated.EndDate,
-                Premium = updated.Premium,
-                Status = updated.Status,
-                Period = updated.Period,
-                NumberOfApplicants = updated.NumberOfApplicants,
-                CustomerId = updated.CustomerId
-            });
+            return Ok(ToResponse(updated));
         }
 
         [HttpDelete("{id:int}")]
@@ -325,6 +294,27 @@ namespace WholeCareInsurance.api.Controllers
             await _policies.RemoveDocument(document);
             return NoContent();
         }
+
+        private static PolicyResponseDto ToResponse(Policy p) => new()
+        {
+            Id = p.Id,
+            PolicyNumber = p.PolicyNumber,
+            Type = p.Type,
+            InsuranceCompanyId = p.InsuranceCompanyId,
+            InsuranceCompanyName = p.InsuranceCompany.Name,
+            StartDate = p.StartDate,
+            EndDate = p.EndDate,
+            Premium = p.Premium,
+            Status = p.Status,
+            Period = p.Period,
+            NumberOfApplicants = p.NumberOfApplicants,
+            CustomerId = p.CustomerId,
+            PlanType = p.PlanType,
+            InsurancePlan = p.InsurancePlan,
+            EffectiveDate = p.EffectiveDate,
+            TaxCreditSubsidy = p.TaxCreditSubsidy,
+            MonthlyPremiumAmount = p.MonthlyPremiumAmount
+        };
 
         private static PolicyDocumentResponseDto ToDocumentResponse(PolicyDocument d) => new()
         {

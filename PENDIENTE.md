@@ -20,8 +20,14 @@ Los dependientes son **Customers** vinculados a un Customer principal dentro de 
 ### 1.4 Vista de detalle de póliza — ✅ Hecho (contenido base, faltan campos por definir)
 Modal con datos de la póliza, datos del titular, lista de dependientes y documentos (§1.7). Pendiente: el responsable aún no definió qué información adicional debería mostrarse — sumar cuando se defina.
 
-### 1.5 Campo Compañía aseguradora (dropdown) — ✅ Hecho, confirmado cerrado
-`InsuranceCompany` en `Policy` (`Models/Policy.cs`), `[Required]` + `[AllowedValues("WholeCareInsurance", "Otro")]` en `PolicyCreateDto`. Migración `20260710172345_AddPolicyInsuranceCompany` aplicada. `<select>` en formulario, columna en tabla, filtro superior y línea en modal de detalle. `PolicyService.Search` soporta filtro `insuranceCompany`. No quedó nada abierto en este punto.
+### 1.5 Campo Compañía aseguradora — ✅ Hecho, rediseñado a tabla propia (§ análisis archivo real)
+**Reemplaza la versión anterior de este punto**: el `[AllowedValues("WholeCareInsurance", "Otro")]` original no se sostenía contra los datos reales (30+ aseguradoras confirmadas en el archivo de migración, ni "WholeCareInsurance" ni "Otro" aparecen). Se rediseñó como tabla propia (`InsuranceCompany`: `Id`, `Name`, `IsActive`) en vez de ampliar el enum — la lista es larga y va a seguir creciendo, y así un Admin puede agregar una aseguradora nueva sin deploy.
+- `Policy.InsuranceCompany` (string) → `Policy.InsuranceCompanyId` (FK) + navegación. `PolicyResponseDto` expone `InsuranceCompanyId` + `InsuranceCompanyName` (mismo criterio que `AgentName` en `CustomerResponseDto`).
+- CRUD completo: `Controllers/InsuranceCompaniesController.cs` (`GET` para cualquier autenticado, `POST`/`PUT` solo Admin, con chequeo de nombre duplicado). Baja lógica vía `IsActive` (`OnDelete Restrict` en la FK — no se puede borrar en duro una aseguradora que ya tiene pólizas).
+- Página Admin `/insurance-companies` (mismo patrón que `/agentes`): alta, edición de nombre, toggle activo/inactivo.
+- Migración `20260715173327_AddInsuranceCompaniesAndPolicyPlanDetails` — crea la tabla y siembra 31 aseguradoras confirmadas por el archivo real: Aetna, Ambetter, AmeriHealth Caritas, Ameritas, Anthem, Avmed, Blue Cross Blue Shield, Bright Health, Care Source, Cigna, Community Health Choice, Fl Health Care Plans, Florida Blue, Florida Blue Dental, Friday, Health First, Kaiser Permanente, Medicaid, Molina Healthcare, One Dental, Oscar, Scott And White, Select Health, Simply, U Health Plans, United, Usable - Accidents, Usable - Critical Illness, Usable - Hospitalization, Wellcare, Wellpoint. Sin valor `"Otro"` sembrado — el sentido de la tabla es no necesitar catch-all.
+- `Policies.jsx`: el `<select>` de aseguradora ahora carga la lista real por API (no un array hardcodeado); las inactivas se muestran con sufijo "(Inactiva)" para no ocultar el valor ya guardado en una póliza vieja sin ofrecerlo para pólizas nuevas.
+- Verificado con curl (listado de 31, alta, alta duplicada rechazada con 400, edición + toggle activo/inactivo, `PolicyService.Search` filtrando por `insuranceCompanyId`) y con Playwright (página `/insurance-companies` completa, dropdown de Policies poblado desde la API, alta de póliza con aseguradora real, nombre correcto en tabla y detalle).
 
 ### 1.6 Relación con el principal (Customer) + Es aplicante (dependiente de póliza) — ✅ Hecho
 - `RelacionConPrincipal` en `Customer` (`[Required]`, `[AllowedValues]`: `Cónyuge`, `Hijo/a`, `Madre`, `Padre`, `Sobrino/a`, `Nieto/a`, `Hijastro/a`, `Hermano/a`, `Otro`) — atributo fijo de la persona, no cambia según la póliza.
@@ -40,10 +46,24 @@ Modelo `PolicyDocument`, migración `AddPolicyDocuments` aplicada. Archivos en d
 `NumberOfApplicants` (int, opcional) en `Models/Policy.cs` y DTOs, mismo migración que §1.8. Carga manual del agente, ubicado dentro de la sección "Dependientes" del formulario de Policy (visible solo al editar, mismo criterio que el resto de esa sección, §1.2) y mostrado en el modal de detalle. Verificado con curl (round-trip, rechazo de negativos) y con Playwright (visible solo en edición, persiste tras guardar).
 
 ### 1.10 Enum de Status de Policy — ✅ Hecho
-`PolicyCreateDto.Status` ahora restringido vía `[AllowedValues]` a 8 valores canónicos en español (mismo patrón que `Type`/`MigrationStatus`): `Draft`, `Pendiente`, `Cancelado`, `Por procesar`, `En proceso`, `En corrección`, `Procesado`, `Cambio de agente`. Default cambiado de `"Active"` a `"Draft"`. Traducciones EN agregadas en `en/enums.json` (`Pending`, `Canceled`, `To be processed`, `In Process`, `By correction`, `Processed`, `Agent change`).
+`PolicyCreateDto.Status` ahora restringido vía `[AllowedValues]` a 8 valores canónicos en español (mismo patrón que `Type`/`MigrationStatus`): `Draft`, `Pendiente`, `Cancelado`, `Por procesar`, `En proceso`, `Actualizado`, `Procesado`, `Cambio de agente`. Default cambiado de `"Active"` a `"Draft"`. Traducciones EN agregadas en `en/enums.json` (`Pending`, `Canceled`, `To be processed`, `In Process`, `Updated`, `Processed`, `Agent change`).
 - Migración `20260713180205_AddPolicyStatusEnum` aplicada: remapea datos existentes (`Cancelled`→`Cancelado`, `Active`/`activa`→`Procesado`, `Expired`→`Cancelado`) con `ELSE Status` como red de seguridad para valores no contemplados. Verificado contra la base de dev (0 pólizas al momento del cambio, por lo que no hubo remapeo real que auditar, pero la lógica quedó lista para Test/Prod).
-- Verificado con curl: `"Active"` (valor viejo) rechazado con 400; `"En corrección"` (valor nuevo) aceptado con 201.
-- Nota: el valor `"Actualizado"` que aparecía en la referencia visual original del Dashboard (§9.2) **no forma parte de este enum** — se reemplazó por `Pendiente` y `En corrección` en la lista final acordada. Ver §9.2, ya actualizada.
+- **Corrección post-análisis del archivo real de migración (Health/Obamacare)**: el 8vo valor original (`"En corrección"`) no existe en los datos reales — el valor real es `"Actualizado"`. Migración nueva `20260715173817_FixPolicyStatusActualizado` (sin cambio de esquema, solo `UPDATE Policies SET Status = 'Actualizado' WHERE Status = 'En corrección'`, red de seguridad para Test/Prod). La nota anterior de este punto (que decía que `"Actualizado"` no formaba parte del enum) queda revertida — sí es el valor real, reemplaza a `"En corrección"` en el `[AllowedValues]`, el `<select>` del frontend y `enums.json` (es/en). Ver §9.2, ya actualizada también.
+- Verificado con curl: `"Active"` y `"En corrección"` (valores viejos) rechazados con 400; `"Actualizado"` (valor real) aceptado con 201.
+
+### 1.11 Campos de plan (ACA) y financieros en Policy — ✅ Hecho (§ análisis archivo real)
+5 campos nuevos confirmados por el archivo real de migración (Health/Obamacare, 1258 filas), todos opcionales — `Type` (§1.1) también cubre Auto/Otro, que no tienen metal tier ni Tax Credit/Subsidy:
+- `PlanType` (dropdown: `Catastrophic`, `Bronze`, `Silver`, `Gold`, `Platinum` — metal tier de ACA, **distinto** de `Type`, ambos coexisten).
+- `InsurancePlan` (texto libre, nombre específico del plan).
+- `EffectiveDate` (fecha, inicio de cobertura).
+- `TaxCreditSubsidy` (decimal, opcional, rechaza negativos).
+- `MonthlyPremiumAmount` (decimal, opcional, rechaza negativos).
+
+Migración `20260715173327_AddInsuranceCompaniesAndPolicyPlanDetails` (misma migración que §1.5 — EF Core no permite separar en dos migraciones distintas cuando ambos cambios de modelo ya están hechos, captura todo el diff pendiente de una vez). Formulario principal y modal de detalle de `Policies.jsx` actualizados.
+
+**Nota abierta, no bloqueante**: `Policy` ya tenía `StartDate`/`EndDate` y `Premium` — hay superposición conceptual con `EffectiveDate` y `MonthlyPremiumAmount` que no se resolvió a propósito (se pidió que fueran campos nuevos, sin tocar el script de migración todavía). Reconciliar cuando se diseñe el script real.
+
+Verificado con curl (alta con los 5 campos, alta sin ellos con `null`, edición, filtro `insuranceCompanyId`) y con Playwright (los 5 campos visibles en el formulario, alta y detalle end-to-end, sin errores de consola).
 
 ---
 
@@ -124,17 +144,27 @@ Placeholder, bloqueado hasta tener la data migrada (§7).
 
 ## 7. Migración de datos del sistema anterior — ⏸ Bloqueado, en espera de respuesta
 
-Se solicitó al responsable del proyecto el archivo de export **completo** (todas las pólizas, todos los tipos en un solo archivo, no separado por tipo). Quedaron 4 preguntas enviadas, **en espera de respuesta**:
-1. Si la columna "Members" trae solo cantidad o el detalle completo de cada dependiente.
+Se solicitó al responsable del proyecto el archivo de export **completo** (todas las pólizas, todos los tipos en un solo archivo, no separado por tipo). Quedaron 4 preguntas enviadas — **3 siguen en espera de respuesta**, la 1ª ya se resolvió con el análisis del archivo real (ver §7.1):
+1. ~~Si la columna "Members" trae solo cantidad o el detalle completo de cada dependiente.~~ ✅ Resuelta — ver §7.1.
 2. Si existe un ID interno para Agentes/Agencias además del nombre.
 3. Si el export incluye solo pólizas activas o también históricas/canceladas.
 4. Diccionario de datos para: Reference, Marketplace ID, Contract identification, Renewal status, Confirmed consent.
 
 **Columnas detectadas** en la pantalla de export del sistema anterior (referencia para el futuro mapeo): Reference, Agency, Agent, Full name, First/Middle/Last name, DOB, Gender, Email, Phone, Legal Status, SSN, Green card, Work permit, Estado civil, Address 1/2, City, State/Province, Zip code, County, Employer name, Company Phone, Position/Occupation, Annual income, Policy number, Marketplace ID, Contract identification, Number of applicants, Effective date, Company, Insurance plan, Type of plan, Tax Credit/Subsidy, Monthly premium amount, Status, Tags, Period, Confirmed consent, Registration date, Update date, Renewal status, Members.
 
-> Nota: buena parte de estas columnas ya mapean directo a los campos nuevos de Customer (§3.2) y Policy (`Period`/`Number of applicants`, §1.8/§1.9) — todos cerrados. Ya no hay campos pendientes de agregar antes de diseñar el script de migración; solo falta el archivo real + las 4 respuestas de arriba.
+> Nota: buena parte de estas columnas ya mapean directo a los campos nuevos de Customer (§3.2) y Policy (`Period`/`Number of applicants`, §1.8/§1.9, y ahora también `InsuranceCompany`/`Type of plan`/`Insurance plan`/`Effective date`/`Tax Credit-Subsidy`/`Monthly premium amount`, §1.5/§1.11) — todos cerrados. Ya no hay campos pendientes de agregar antes de diseñar el script de migración; solo faltan las 3 respuestas de arriba (y confirmar si el archivo ya analizado, §7.1, es el export completo pedido o solo un recorte).
 
-**BLOQUEADO:** no diseñar el script de migración hasta recibir el archivo real + las 4 respuestas. Se probará primero contra la base del ambiente de test (§8.1), nunca directo contra producción.
+### 7.1 Hallazgos del análisis del archivo real (Health Insurance/Obamacare, 1258 filas)
+
+- **Detalle completo de dependientes confirmado**: la columna "Members" (y las columnas asociadas por dependiente) sí traen el detalle completo, hasta 8 dependientes por póliza — no solo el conteo. Corrige el supuesto anterior (se pensaba que quizás solo venía la cantidad).
+- **`Policy number`, `Marketplace ID` y `Contract identification` no sirven como clave de vinculación**: 90%, 86% y 99% de las filas respectivamente tienen esas columnas vacías. No se puede confiar en ninguna de las tres para vincular el historial de una misma póliza a través de sus duplicados.
+- **La reconstrucción de historial va a necesitar una heurística de matching, no un match 100% automático**: SSN + Aseguradora + fecha efectiva cercana, con revisión manual de los casos ambiguos. Caso real confirmado en el archivo: un cliente con 4 registros duplicados, cada uno con un `Reference` distinto, mismo `Effective date`, sin `Policy number` en ninguno de los 4 — nada permite decidir automáticamente si son 4 versiones de la misma póliza o 4 pólizas distintas.
+- **SSN tampoco puede ser la única clave**: vacío en ~7% de las filas. No sirve como único criterio ni para detectar duplicados de historial ni para relacionar dependientes ya existentes en `Customer`.
+- **Mapeo de "Dependency type"**: "Parent" (sin distinción de género) y "Dependent" (genérico) del archivo de origen mapean ambos a `"Otro"` en `RelacionConPrincipal` — ya cubierto por el enum actual (§1.6), no hace falta agregar valores nuevos.
+
+Estos hallazgos no destraban el bloqueo (siguen faltando 3 de las 4 respuestas), pero ya dejan clara la estrategia de matching a diseñar cuando se arme el script real: heurística + cola de revisión manual, no un mapeo directo por clave única.
+
+**BLOQUEADO:** no diseñar el script de migración hasta recibir las respuestas pendientes (y confirmar si el archivo ya analizado es el export completo o solo un recorte). Se probará primero contra la base del ambiente de test (§8.1), nunca directo contra producción.
 
 **Punto abierto no bloqueante:** cada dependiente en el sistema anterior tiene un campo "Policy number" individual — no está claro su propósito, aclarar con el responsable más adelante (no urgente).
 
@@ -182,7 +212,7 @@ No implementar hasta que la migración de datos del sistema anterior (§7) esté
 
 ### 9.2 Referencia visual del Dashboard
 Fila de tarjetas KPI: Agencias, Agentes, Pólizas (+ miembros), Recordatorios.
-Fila de tarjetas por estado de póliza (cantidad + miembros por cada una): `Draft`, `Pendiente`, `Cancelado`, `Por procesar`, `En proceso`, `En corrección`, `Procesado`, `Cambio de agente` — actualizado según el enum final de §1.10 (ya no incluye "Actualizado", que no llegó a implementarse; en su lugar el enum real suma `Pendiente` y `En corrección`).
+Fila de tarjetas por estado de póliza (cantidad + miembros por cada una): `Draft`, `Pendiente`, `Cancelado`, `Por procesar`, `En proceso`, `Actualizado`, `Procesado`, `Cambio de agente` — actualizado según el enum final de §1.10 (corregido tras el análisis del archivo real: "Actualizado" sí es el 8vo valor real, reemplaza a "En corrección").
 ✅ Enum de Status ya resuelto (§1.10) — este punto ya no está bloqueado por eso, solo sigue bloqueado por la migración de datos (§7, ver encabezado de §9).
 Gráficos: torta "Pólizas por Tipo" (campo `Type`, ya existe), torta "Pólizas por Status".
 
@@ -258,12 +288,12 @@ Verificado con curl (alta con los 18 campos, rechazo de registro sin `TermsAccep
 5. ~~Modal de detalle de póliza~~ ✅ Hecho (contenido base, ver §1.4)
 6. ~~Refactorizaciones (API client, variable de entorno, refresh automático)~~ ✅ Hecho
 7. ~~Mover DTOs de Customer/Policy a archivos separados~~ ✅ Hecho
-8. ~~Compañía aseguradora en Policy~~ ✅ Hecho (confirmado cerrado, §1.5)
+8. ~~Compañía aseguradora en Policy~~ ✅ Hecho (rediseñada a tabla propia tras el análisis del archivo real, §1.5)
 9. ~~Relación con el principal + Es aplicante~~ ✅ Hecho
 10. ~~Documentos de póliza~~ ✅ Hecho
 11. ~~Agentes (Agente/Asistente/Record) + datos demográficos en Customer~~ ✅ Hecho
 12. ~~Selector de idioma ES/EN~~ ✅ Hecho
-13. ~~Definir y cerrar el enum de Status de Policy~~ ✅ Hecho (§1.10)
+13. ~~Definir y cerrar el enum de Status de Policy~~ ✅ Hecho (§1.10, corregido tras el análisis del archivo real: "Actualizado" no "En corrección")
 14. ~~Campos nuevos de Customer + renombrado "Legal Status"~~ ✅ Hecho (§3.2, §3.3)
 15. ~~Period + Number of applicants en Policy~~ ✅ Hecho (§1.8, §1.9)
 16. ~~Crear Customer nuevo desde Members/Dependientes de la póliza~~ ✅ Hecho (§2)
@@ -271,5 +301,6 @@ Verificado con curl (alta con los 18 campos, rechazo de registro sin `TermsAccep
 18. ~~Campos nuevos de Agente~~ ✅ Hecho (§11)
 19. Firma digital de consentimiento — bloqueado hasta que el responsable elija proveedor (§4.1)
 20. ~~Infraestructura de hosting (VPS) — Dockerfiles/compose/README~~ ✅ Hecho (§8.1); falta el despliegue real al VPS
-21. Migración de datos del sistema anterior — bloqueado hasta recibir el archivo + respuestas (§7)
-22. Dashboard — bloqueado hasta tener la data migrada (§9)
+21. ~~Campos de plan (ACA) y financieros en Policy~~ ✅ Hecho (§1.11)
+22. Migración de datos del sistema anterior — bloqueado hasta recibir las 3 respuestas pendientes (§7, §7.1 ya tiene hallazgos del archivo real analizado)
+23. Dashboard — bloqueado hasta tener la data migrada (§9)
