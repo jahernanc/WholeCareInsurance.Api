@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using System.Threading.RateLimiting;
 using WholeCareInsurance.api.Data;
 using WholeCareInsurance.api.Middlewares;
 using WholeCareInsurance.api.Services;
@@ -97,6 +99,48 @@ builder.Services.AddCors(options =>
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// Rate limiting por IP solo en los endpoints públicos/sensibles de auth (blanco de
+// fuerza bruta o spam) — el resto de la API, ya protegida por JWT, queda sin límite.
+// Particiona por RemoteIpAddress, que ya viene resuelto vía X-Forwarded-For gracias
+// a UseForwardedHeaders (corre antes que UseRateLimiter en el pipeline, ver abajo).
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    options.OnRejected = async (context, token) =>
+    {
+        context.HttpContext.Response.ContentType = "application/problem+json";
+        await context.HttpContext.Response.WriteAsJsonAsync(new ProblemDetails
+        {
+            Title = "Demasiados intentos. Probá de nuevo en un momento.",
+            Status = StatusCodes.Status429TooManyRequests
+        }, options: null, contentType: "application/problem+json", cancellationToken: token);
+    };
+
+    // Login es el blanco clásico de fuerza bruta — límite más estricto que el resto.
+    options.AddPolicy("LoginPolicy", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+
+    // Register (requiere Admin autenticado, pero igual limitado por abuso) /
+    // forgot-password / reset-password (público, blanco de enumeración o spam de emails).
+    options.AddPolicy("AuthSensitivePolicy", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 20,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+});
+
 
 var app = builder.Build();
 
@@ -112,6 +156,8 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
 });
+
+app.UseRateLimiter();
 
 app.UseCors("AllowFrontend");
 

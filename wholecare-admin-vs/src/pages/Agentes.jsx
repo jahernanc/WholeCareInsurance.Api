@@ -18,13 +18,18 @@ function Agentes() {
     const [editingId, setEditingId] = useState(null);
     const [formError, setFormError] = useState("");
     const [submitting, setSubmitting] = useState(false);
+    const [search, setSearch] = useState("");
 
     const countiesForState = form.state ? (US_COUNTIES[form.state] ?? []) : [];
 
-    const loadUsers = async () => {
+    const loadUsers = async (searchOverride) => {
         try {
             setLoading(true);
-            const res = await apiFetch("/users");
+            const params = new URLSearchParams();
+            const effectiveSearch = searchOverride !== undefined ? searchOverride : search;
+            if (effectiveSearch) params.set("search", effectiveSearch);
+            const query = params.toString();
+            const res = await apiFetch(`/users${query ? `?${query}` : ""}`);
             if (!res.ok) throw new Error();
             setUsers(await res.json());
         } catch {
@@ -35,6 +40,12 @@ function Agentes() {
     };
 
     useEffect(() => { loadUsers(); }, []);
+
+    const handleSearch = () => loadUsers();
+    const handleClearSearch = () => {
+        setSearch("");
+        loadUsers("");
+    };
 
     const handleField = (e) => {
         const { name, value, type, checked } = e.target;
@@ -171,6 +182,25 @@ function Agentes() {
             >
                 {showForm ? t("closeFormButton") : t("newButton")}
             </button>
+
+            <div style={{ display: "flex", gap: 8, alignItems: "flex-end", marginBottom: 20 }}>
+                <div>
+                    <label style={{ display: "block", fontSize: 12 }}>{t("search.label")}</label>
+                    <input
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }}
+                        placeholder={t("search.placeholder")}
+                        style={{ padding: "7px 10px", borderRadius: 5, border: "1px solid #ccc", minWidth: 240 }}
+                    />
+                </div>
+                <button type="button" onClick={handleSearch} style={{ background: "#2563eb", color: "white", padding: "8px 14px", border: "none", borderRadius: 6, cursor: "pointer" }}>
+                    {t("search.searchButton")}
+                </button>
+                <button type="button" onClick={handleClearSearch} style={{ background: "#e5e7eb", color: "#333", padding: "8px 14px", border: "none", borderRadius: 6, cursor: "pointer" }}>
+                    {t("search.clearButton")}
+                </button>
+            </div>
 
             {showForm && (
                 <div style={{ border: "1px solid #ddd", borderRadius: 10, padding: 24, marginBottom: 30, background: "#fafafa", maxWidth: 720 }}>

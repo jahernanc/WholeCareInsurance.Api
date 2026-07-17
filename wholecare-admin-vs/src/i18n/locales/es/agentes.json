@@ -2,6 +2,12 @@
     "title": "Agentes",
     "newButton": "+ Nuevo agente",
     "closeFormButton": "Cerrar formulario",
+    "search": {
+        "label": "Buscar",
+        "placeholder": "Nombre o email...",
+        "searchButton": "Buscar",
+        "clearButton": "Limpiar"
+    },
     "form": {
         "titleCreate": "Nuevo agente",
         "titleEdit": "Editar agente",

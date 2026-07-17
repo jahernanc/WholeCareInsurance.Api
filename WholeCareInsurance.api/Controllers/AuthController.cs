@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
 using WholeCareInsurance.api.DTOs.Auth;
 using WholeCareInsurance.api.Services;
@@ -19,6 +20,7 @@ namespace WholeCareInsurance.api.Controllers
         }
 
         [Authorize(Roles = "Admin")]
+        [EnableRateLimiting("AuthSensitivePolicy")]
         [HttpPost("register")]
         public async Task<IActionResult> Register(AuthRegisterDto dto)
         {
@@ -42,6 +44,7 @@ namespace WholeCareInsurance.api.Controllers
             return Ok(new { message = "Usuario registrado correctamente", user });
         }
 
+        [EnableRateLimiting("LoginPolicy")]
         [HttpPost("login")]
         public async Task<IActionResult> Login(AuthLoginDto dto)
         {
@@ -95,6 +98,7 @@ namespace WholeCareInsurance.api.Controllers
             };
         }
 
+        [EnableRateLimiting("AuthSensitivePolicy")]
         [HttpPost("forgot-password")]
         public async Task<IActionResult> ForgotPassword(ForgotPasswordDto dto)
         {
@@ -104,6 +108,7 @@ namespace WholeCareInsurance.api.Controllers
             return Ok(new { message = "Si ese email está registrado, vas a recibir un link para restablecer tu contraseña." });
         }
 
+        [EnableRateLimiting("AuthSensitivePolicy")]
         [HttpPost("reset-password")]
         public async Task<IActionResult> ResetPassword(ResetPasswordDto dto)
         {

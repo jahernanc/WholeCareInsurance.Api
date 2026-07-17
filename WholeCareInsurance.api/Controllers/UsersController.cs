@@ -21,12 +21,19 @@ namespace WholeCareInsurance.api.Controllers
 
         [HttpGet]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> GetAll([FromQuery] string? role = null)
+        public async Task<IActionResult> GetAll([FromQuery] string? role = null, [FromQuery] string? search = null)
         {
             var users = await _usersService.GetAll();
 
             if (!string.IsNullOrWhiteSpace(role))
                 users = users.Where(u => u.Rol == role);
+
+            // Filtra en memoria (GetAll ya materializa la lista completa) por nombre o email —
+            // sin paginar, acorde al volumen actual de agentes (ver PENDIENTE.md §11.1).
+            if (!string.IsNullOrWhiteSpace(search))
+                users = users.Where(u =>
+                    u.Nombre.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                    u.Email.Contains(search, StringComparison.OrdinalIgnoreCase));
 
             return Ok(users.Select(ToResponse));
         }
