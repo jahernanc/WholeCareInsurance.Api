@@ -325,7 +325,92 @@ Verificado con curl (alta con los 18 campos, rechazo de registro sin `TermsAccep
 
 ---
 
-## 12. Orden sugerido de trabajo
+## 12. Campos específicos por Tipo de Póliza — 🔲 Documentado, NO implementar todavía
+
+Decisión: dado el bajo volumen actual (Life: 2 registros, Medicare: 7, Supplemental: 16 — vs. 1258 de Obamacare), se documenta el detalle completo de cada tipo para referencia futura, pero SOLO SE IMPLEMENTA cuando el volumen de uso lo justifique. No es trabajo pendiente activo.
+
+### 12.1 Comparativa de campos por tipo (según export CSV)
+
+| Campo | Obamacare (ACA) | Medicare | Life | Supplemental |
+|---|---|---|---|---|
+| Datos base (nombre, DOB, dirección, condado, etc.) | ✓ | ✓ | ✓ | ✓ |
+| Legal Status / Green card / Work permit / Estado civil | ✓ | ✓ | ✗ | ✗ |
+| Employer name / Company Phone / Occupation / Annual income | ✓ | ✗ | ✗ | ✗ |
+| Policy number / Marketplace ID / Contract identification | ✓ | ✗ | ✗ | ✗ |
+| Number of applicants + Dependientes (hasta 8) | ✓ | ✗ | ✗ | ✗ |
+| Insurance plan (texto) | ✓ | ✓ (usado) | ✗ | ✓ (usado) |
+| Type of plan (Bronze/Silver/etc.) | ✓ (usado) | presente pero siempre vacío en los datos | ✗ | ✗ |
+| Tax Credit/Subsidy / Monthly premium amount | ✓ | ✗ (pero SÍ en el formulario real, ver 12.10) | ✗ | ✗ (pero SÍ en el formulario real, ver 12.9) |
+| Tags / Confirmed consent / Renewal status | ✓ | ✗ | ✗ | ✗ |
+
+Conclusión: Obamacare es, por lejos, el tipo con más campos y complejidad (subsidios, dependientes, consentimiento) en el CSV. Pero ver 12.11 — el CSV no refleja el formulario completo real de ningún tipo.
+
+### 12.2 HALLAZGO CRÍTICO — El CSV no captura todos los campos del formulario real
+
+Al revisar los formularios reales de creación de Life, Supplemental y Medicare (capturas del sistema anterior), se encontraron campos y secciones completas que NO existen en ninguna columna del export CSV correspondiente.
+
+**Implicancia para la migración:** si se migra solo desde el CSV, esta información se pierde — no está disponible para migrar automáticamente. Si es información valiosa, habrá que preguntarle al responsable si existe otro export/backup que la incluya, o aceptar que se pierde y se recarga manualmente si hace falta a futuro. Esto aplica a los 3 tipos no-ACA (ver 12.11).
+
+### 12.3 Campos adicionales de Customer específicos de Life Insurance (no capturados en Obamacare ni en el CSV de Life)
+- Age (numérico, campo separado de Date of birth)
+- Country of Birth (dropdown)
+- Height, Weight
+- Checkbox: "Back date to save age?"
+- Checkbox: "¿Pasó más de 4 meses fuera de EE.UU. en los últimos 12 meses consecutivos?"
+- Checkbox: "¿Es miembro de organización militar o pretende serlo?"
+- Are you currently employed? (dropdown)
+- Driver's license (checkbox) + License number
+- Net Worth, Household income, Household net worth (además de Annual income, que ya existe)
+
+### 12.4 Aseguradoras específicas de Life Insurance detectadas en el dropdown del formulario
+Aetna, AIG, American Amicable, Americo, Columbian Financial Group, Fidelity, Forester, Great Western, Mutual Of Omaha, Mutual Trust Life, National Life Group, Prosperity, Senior Life, Transamerica — PENDIENTE de confirmar si la lista está completa (se cortó por el scroll de la captura, no confirmado si sigue después de Transamerica).
+
+### 12.5 Aseguradoras nuevas a agregar al catálogo InsuranceCompanies (confirmadas por datos reales de los 3 CSV, no específicas de un tipo — agregar cuando se decida sembrar estas también)
+- Medicare: Devoted, Health Sun
+- Life: AIG, National Life Group
+(Aetna y United ya estaban en el catálogo de 31 sembrado con Obamacare)
+
+### 12.6 Campos de Life Insurance no capturados en el CSV, solo vistos en el formulario real
+- Beneficiarios (sección con alta de múltiples beneficiarios — mismo patrón que Dependientes de Obamacare: Type of relationship, First/Last name, DOB, Gender, Phone, Email, SSN, botón "+ New"/"Remove")
+- Coverage: "¿Habrá una póliza adicional/alternativa con [Aseguradora]?" + texto, "Indicate underwriting requirements", checkbox de requisitos médicos con traductor
+- Premium Information: Billing Type, Premium Frequency, Planned Periodic/Modal Premium, Identify the source of funds for premium payment
+- Existing Insurance - Primary Insured: 4 checkboxes sobre pólizas de vida/anualidad existentes y reemplazos
+- Notice and Consent - Primary Insured: Name of physician/health care provider/other, Street address
+- Extras: Additional information (texto enriquecido), checkbox de declaración/consentimiento firmado
+
+### 12.7 HALLAZGO — Supplemental tiene subtipos/productos específicos por aseguradora
+El menú de creación de "Policies Supplemental Plans" no es un tipo homogéneo — ofrece productos concretos: Cigna Dental, Cigna Accidental, Cigna Cancer Stroke, Cigna Choice Hospital, Sure Bridge. Pendiente confirmar con el responsable si cada producto tiene variantes de formulario entre sí, o si el formulario relevado (Cigna Dental) es representativo de todos.
+
+### 12.8 Principio de diseño confirmado — una sola forma de cargar aplicantes/dependientes
+Se confirma (no es una decisión nueva, ya estaba definida en §2) que la forma de agregar un aplicante/dependiente a una póliza debe ser ÚNICA en el sistema nuevo, sin importar el Type de póliza. El sistema anterior varía esto por tipo de póliza (ej. en Supplemental el formulario de aplicante es distinto al de Obamacare); en el sistema nuevo NO se debe replicar esa inconsistencia — siempre el mismo flujo (buscar Customer existente o crear uno nuevo con ficha completa).
+
+### 12.9 Campos específicos de Supplemental (formulario "Cigna Dental", no capturados en el CSV)
+- Insurance: Effective date, Company, Insurance plan, Monthly premium amount
+- Cobertura anterior: 3 checkboxes (cobertura dental existente/pendiente, elegibilidad Medicare, reemplazo de cobertura dental)
+- Datos bancarios ⚠️ DATO SENSIBLE — requiere cifrado en reposo si se implementa: checkbox "¿asegurado paga la prima?", Tipo de cuenta (Cheque/Ahorros), Número de ruta, Account number, checkbox de titularidad, checkbox de autorización de cobro automático, día de pago automático.
+- HIPAA y Autorización de Mercadeo: checkbox de autorización de marketing, datos de representante autorizado (Nombre + Relación al asegurado).
+
+### 12.10 Campos específicos de Medicare (formulario completo, el más simple de los 4 tipos)
+No capturados en el CSV export:
+- Monthly premium amount (obligatorio, $)
+- Do you have Medicaid? (Sí/No, obligatorio)
+- Medicaid level (texto)
+- Referred to medical corporation? (Sí/No, obligatorio)
+- Medical corporation (dropdown, opciones no relevadas todavía)
+
+Sin sección de dependientes/beneficiarios — consistente con el CSV.
+
+### 12.11 Confirmado — patrón repetido en los 3 tipos: el CSV no refleja el formulario completo
+Se confirmó el mismo gap en los 3 tipos relevados (Life, Supplemental, Medicare): cada uno tiene campos reales en el formulario de creación que NO aparecen en ninguna columna del export CSV correspondiente. Antes de diseñar el script de migración, hay que asumir que estos campos adicionales (financieros, de elegibilidad, bancarios, consentimiento) se van a perder en la migración automática salvo que el responsable confirme que existe otra fuente de datos que sí los incluya.
+
+### 12.12 Relevamiento de formularios por tipo — COMPLETO
+Los 4 tipos de póliza fueron relevados (Obamacare a fondo con datos reales de 1258 filas; Medicare, Life y Supplemental por estructura de formulario + muestra chica de datos reales). Auto: sin datos cargados, sin formulario relevado todavía — pendiente si en algún momento se necesita.
+
+Todo lo de §12 sigue en estado "documentado, no implementar" hasta que el volumen de uso de estos 3 tipos lo justifique (decisión ya tomada con el responsable/developer).
+
+---
+
+## 13. Orden sugerido de trabajo
 
 1. ~~Tipo en Policy~~ ✅ Hecho
 2. ~~Dependientes (vínculo con Customers existentes)~~ ✅ Hecho
@@ -353,3 +438,4 @@ Verificado con curl (alta con los 18 campos, rechazo de registro sin `TermsAccep
 24. ~~Middleware global de excepciones no controladas~~ ✅ Hecho (§5.4)
 25. ~~AdminUserSeeder generalizado (admin real por ambiente vía env vars)~~ ✅ Hecho (§10.5)
 26. Dashboard — bloqueado hasta tener la data migrada (§9)
+27. ~~Relevamiento de campos específicos por Tipo de Póliza (Life/Medicare/Supplemental)~~ ✅ Documentado (§12) — no implementar hasta que el volumen lo justifique
