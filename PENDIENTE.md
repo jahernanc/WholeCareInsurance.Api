@@ -162,17 +162,19 @@ Placeholder, bloqueado hasta tener la data migrada (§7).
 
 ---
 
-## 7. Migración de datos del sistema anterior — ⏸ Bloqueado, en espera de respuesta
+## 7. Migración de datos del sistema anterior — ✅ Todas las preguntas resueltas — listo para diseñar el script de migración
 
-Se solicitó al responsable del proyecto el archivo de export **completo** (todas las pólizas, todos los tipos en un solo archivo, no separado por tipo). De las 4 preguntas originales, **3 quedaron resueltas por el análisis del archivo real** y solo queda una duda puntual dentro de la 4ª (ver §7.2):
+Se solicitó al responsable del proyecto el archivo de export **completo** (todas las pólizas, todos los tipos en un solo archivo, no separado por tipo). Las 4 preguntas originales quedaron **todas resueltas** por el análisis del archivo real más la respuesta del responsable sobre `Contract identification` (ver §7.2):
 1. ~~Si la columna "Members" trae solo cantidad o el detalle completo de cada dependiente.~~ ✅ Resuelta — ver §7.1.
 2. ~~Si existe un ID interno para Agentes/Agencias además del nombre.~~ ✅ Resuelta — ver §7.2.
 3. ~~Si el export incluye solo pólizas activas o también históricas/canceladas.~~ ✅ Resuelta — ver §7.2.
-4. Diccionario de datos para: Reference, Marketplace ID, Contract identification, Renewal status, Confirmed consent. 🔶 Parcialmente resuelta — ver §7.2, solo `Contract identification` sigue en duda (pregunta puntual enviada, en espera de respuesta).
+4. ~~Diccionario de datos para: Reference, Marketplace ID, Contract identification, Renewal status, Confirmed consent.~~ ✅ Resuelta — ver §7.2 (`Contract identification` confirmado por el responsable: texto libre, se migra tal cual).
+
+**Próximo paso**: diseñar el script de migración en sí — todavía no iniciado. Se probará primero contra la base del ambiente de test (§8.1), nunca directo contra producción. Sigue pendiente confirmar si el archivo ya analizado es el export completo pedido (todos los tipos) o solo el recorte de Obamacare — si hace falta, pedir también los archivos de Life/Medicare/Supplemental ya relevados en §12.
 
 **Columnas detectadas** en la pantalla de export del sistema anterior (referencia para el futuro mapeo): Reference, Agency, Agent, Full name, First/Middle/Last name, DOB, Gender, Email, Phone, Legal Status, SSN, Green card, Work permit, Estado civil, Address 1/2, City, State/Province, Zip code, County, Employer name, Company Phone, Position/Occupation, Annual income, Policy number, Marketplace ID, Contract identification, Number of applicants, Effective date, Company, Insurance plan, Type of plan, Tax Credit/Subsidy, Monthly premium amount, Status, Tags, Period, Confirmed consent, Registration date, Update date, Renewal status, Members.
 
-> Nota: buena parte de estas columnas ya mapean directo a los campos nuevos de Customer (§3.2) y Policy (`Period`/`Number of applicants`, §1.8/§1.9, y ahora también `InsuranceCompany`/`Type of plan`/`Insurance plan`/`Effective date`/`Tax Credit-Subsidy`/`Monthly premium amount`, §1.5/§1.11) — todos cerrados. Ya no hay campos pendientes de agregar antes de diseñar el script de migración; solo falta la respuesta sobre `Contract identification` (§7.2) y confirmar si el archivo ya analizado es el export completo pedido o solo el recorte de Obamacare.
+> Nota: buena parte de estas columnas ya mapean directo a los campos nuevos de Customer (§3.2) y Policy (`Period`/`Number of applicants`, §1.8/§1.9, y ahora también `InsuranceCompany`/`Type of plan`/`Insurance plan`/`Effective date`/`Tax Credit-Subsidy`/`Monthly premium amount`, §1.5/§1.11) — todos cerrados. Ya no hay campos pendientes de agregar antes de diseñar el script de migración.
 
 ### 7.1 Hallazgos del análisis del archivo real (Health Insurance/Obamacare, 1258 filas)
 
@@ -184,7 +186,7 @@ Se solicitó al responsable del proyecto el archivo de export **completo** (toda
 
 Estos hallazgos no destraban el bloqueo del todo (ver estado actualizado más abajo), pero ya dejan clara la estrategia de matching a diseñar cuando se arme el script real: heurística + cola de revisión manual, no un mapeo directo por clave única.
 
-### 7.2 Agentes/Agencias, historial completo y diccionario de datos — resuelve las preguntas 2, 3 y parte de la 4
+### 7.2 Agentes/Agencias, historial completo y diccionario de datos — resuelve las preguntas 2, 3 y 4
 
 **Pregunta 2 — ID interno de Agentes/Agencias (RESUELTA)**: no existe. Tanto `Agent` como `Agency` son campos de texto libre en el archivo.
 - `Agency`: solo 2 valores en las 1258 filas — "Preventive Health Insurance" (894 filas) y "Whole Care Insurance Group llC" (364 filas).
@@ -194,15 +196,15 @@ Bajo riesgo de colisión por nombre dado el volumen chico (22 agentes) — igual
 
 **Pregunta 3 — ¿solo activas o también históricas/canceladas? (RESUELTA)**: el archivo incluye **todo el historial**, no solo pólizas activas. Distribución real de `Status` en las 1258 filas: `Processed` (1016), `Updated` (79), `Canceled` (75), `Draft` (61), `To be processed` (21), `In Process` (3), `Agent change` (2), `Pending` (1).
 
-**Pregunta 4 — diccionario de datos (PARCIALMENTE RESUELTA)**:
+**Pregunta 4 — diccionario de datos (RESUELTA)**:
 - `Reference`: identificador único por **registro** (formato "P" + fecha + secuencial, ej. `P15072026018434`) — identifica la versión/registro puntual, no la póliza a través del tiempo. Por eso cada duplicado del historial de una misma póliza tiene un `Reference` distinto (consistente con el hallazgo de §7.1 sobre el caso de las 4 versiones duplicadas).
 - `Marketplace ID`: formato consistente con identificadores oficiales del Marketplace de ACA (Plan Year + Estado + código de plan, ej. `PY26 TN SBC 23552TN0020052-06`, a veces solo numérico). Es un dato externo — no se puede validar sin confirmación del responsable, pero el formato observado es coherente con lo esperado.
-- `Contract identification`: ⚠️ **sigue abierta** — formato inconsistente en los datos reales: a veces parece un código de plan (ej. `23552TN0020005`) y otras veces directamente el nombre del plan (ej. `Connect Silver-2 3000 Indiv Med Deductible - EPO`). No está claro si es un dato confiable para usar tal cual. Se envió una pregunta puntual al responsable sobre este campo específico, en espera de respuesta.
+- `Contract identification`: ✅ **resuelta, confirmado por el responsable** — es un campo de **texto libre** que los agentes completan manualmente, y no siempre lo llenan. Eso explica el formato inconsistente observado (a veces código de plan, ej. `23552TN0020005`; a veces nombre del plan, ej. `Connect Silver-2 3000 Indiv Med Deductible - EPO`; a veces vacío). No tiene estructura fija ni fuente de validación automática detrás. **Decisión para el script de migración**: se migra tal cual viene (texto libre, tolerando vacíos), sin parsearlo ni normalizarlo, y no se usa como clave de matching para nada (el matching de historial ya se resolvió con la heurística de SSN + Aseguradora + fecha efectiva, §7.1).
 - `Renewal status` y `Confirmed consent`: sin hallazgos nuevos todavía, quedan para cuando se revise el resto del diccionario.
 
-**Estado actualizado de las 4 preguntas originales**: 1, 2 y 3 resueltas por el análisis del archivo real; la 4 (diccionario de datos) resuelta en su mayor parte, con `Contract identification` como única duda puntual pendiente de respuesta.
+**Estado actualizado de las 4 preguntas originales**: las 4 quedan resueltas por el análisis del archivo real más la respuesta del responsable sobre `Contract identification`.
 
-**BLOQUEADO se mantiene únicamente por**: la respuesta del responsable sobre `Contract identification`, y por recibir los archivos de los demás tipos de póliza si se decide migrarlos además de Obamacare (el archivo analizado hasta ahora es específicamente Health Insurance/Obamacare — no está confirmado si es el export "completo, todos los tipos en un solo archivo" que se había pedido originalmente, o solo el recorte de este tipo). No diseñar el script de migración hasta resolver esto. Se probará primero contra la base del ambiente de test (§8.1), nunca directo contra producción.
+**Ya no hay bloqueo activo.** Sigue pendiente, no bloqueante, recibir los archivos de los demás tipos de póliza si se decide migrarlos además de Obamacare (el archivo analizado hasta ahora es específicamente Health Insurance/Obamacare — no está confirmado si es el export "completo, todos los tipos en un solo archivo" que se había pedido originalmente, o solo el recorte de este tipo; ver también §12 para el relevamiento de Life/Medicare/Supplemental). El próximo paso es diseñar el script de migración en sí (no iniciado); se probará primero contra la base del ambiente de test (§8.1), nunca directo contra producción.
 
 **Punto abierto no bloqueante:** cada dependiente en el sistema anterior tiene un campo "Policy number" individual — no está claro su propósito, aclarar con el responsable más adelante (no urgente).
 
@@ -433,7 +435,7 @@ Todo lo de §12 sigue en estado "documentado, no implementar" hasta que el volum
 19. Firma digital de consentimiento — bloqueado hasta que el responsable elija proveedor (§4.1)
 20. ~~Infraestructura de hosting (VPS) — Dockerfiles/compose/README~~ ✅ Hecho (§8.1); falta el despliegue real al VPS
 21. ~~Campos de plan (ACA) y financieros en Policy~~ ✅ Hecho (§1.11)
-22. Migración de datos del sistema anterior — 3 de las 4 preguntas originales resueltas por el análisis del archivo real (§7.1, §7.2); bloqueado solo por la respuesta sobre `Contract identification` y por los archivos de otros tipos de póliza si corresponde
+22. ~~Migración de datos del sistema anterior — las 4 preguntas originales resueltas~~ ✅ Hecho (§7.1, §7.2); listo para diseñar el script de migración (no iniciado)
 23. ~~Mensajes de error del backend no llegaban al usuario~~ ✅ Hecho (§5.3, encontrado verificando InsuranceCompanies en el navegador)
 24. ~~Middleware global de excepciones no controladas~~ ✅ Hecho (§5.4)
 25. ~~AdminUserSeeder generalizado (admin real por ambiente vía env vars)~~ ✅ Hecho (§10.5)
