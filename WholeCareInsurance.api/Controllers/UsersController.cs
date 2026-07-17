@@ -4,6 +4,7 @@ using System.Security.Claims;
 using WholeCareInsurance.api.DTOs.Users;
 using WholeCareInsurance.api.Models;
 using WholeCareInsurance.api.Services;
+using WholeCareInsurance.api.Utils;
 
 namespace WholeCareInsurance.api.Controllers
 {
@@ -70,6 +71,10 @@ namespace WholeCareInsurance.api.Controllers
             var existing = await _usersService.GetById(id);
             if (existing == null) return NotFound();
 
+            var conditionalFieldsError = AgentFieldValidation.Validate(dto.Licensed, dto.LicenseNumber, dto.HasCompanyContract, dto.ContractNumber, dto.CompanyName);
+            if (conditionalFieldsError != null)
+                return BadRequest(new ProblemDetails { Title = conditionalFieldsError });
+
             existing.Nombre = dto.Nombre;
             existing.Email = dto.Email;
             existing.Rol = dto.Rol;
@@ -84,12 +89,14 @@ namespace WholeCareInsurance.api.Controllers
             existing.State = dto.State;
             existing.County = dto.County;
             existing.Licensed = dto.Licensed;
-            existing.LicenseNumber = dto.LicenseNumber;
+            // No persistir un valor suelto si el flag correspondiente está en false
+            // (mismo criterio que ya aplica el frontend antes de enviar el formulario).
+            existing.LicenseNumber = dto.Licensed ? dto.LicenseNumber : null;
             existing.NpnNumber = dto.NpnNumber;
             existing.NpnOverride = dto.NpnOverride;
             existing.HasCompanyContract = dto.HasCompanyContract;
-            existing.ContractNumber = dto.ContractNumber;
-            existing.CompanyName = dto.CompanyName;
+            existing.ContractNumber = dto.HasCompanyContract ? dto.ContractNumber : null;
+            existing.CompanyName = dto.HasCompanyContract ? dto.CompanyName : null;
             existing.ContractsWanted = dto.ContractsWanted;
             existing.AdditionalInformation = dto.AdditionalInformation;
 

@@ -336,15 +336,15 @@ Los 18 campos agregados a `Models/User.cs`, `AuthRegisterDto`/`UserUpdateDto`/`U
 
 Verificado con curl (alta con los 18 campos, rechazo de registro sin `TermsAccepted`, edición con limpieza de campos condicionales) y con Playwright en español (35/35 checks: los campos nuevos renderizan, License Number/Contract Number/Company Name aparecen y desaparecen según sus dropdowns condicionales, Condado deshabilitado hasta elegir Estado, el submit se bloquea sin marcar el checkbox de términos, alta y edición end-to-end con persistencia correcta, tarjeta de la lista muestra los campos nuevos, sin errores de consola).
 
-### 11.1 Hallazgos de auditoría (2026-07-17) — deuda técnica, no bloqueante — 🔲 Pendiente
+### 11.1 Hallazgos de auditoría (2026-07-17) — deuda técnica, no bloqueante — 🔲 Parcialmente resuelto (1/3)
 
 Auditoría puntual del feature de Agentes (§3.1, §3.4, §11) contra el código real, a pedido del responsable. El feature en sí está completo y probado — estos son gaps menores encontrados en la revisión, no capturados hasta ahora en este documento:
 
-1. **Falta validación server-side de los pares condicionales.** `AuthRegisterDto`/`UserUpdateDto` no tienen validación cruzada (`IValidatableObject` o similar) que ate `LicenseNumber` a `Licensed`, ni `ContractNumber`/`CompanyName` a `HasCompanyContract`. La limpieza de esos campos (vaciarlos cuando el checkbox correspondiente está en "No") vive **solo** en el frontend (`Agentes.jsx`, `handleSubmit`). Un `POST /auth/register` o `PUT /users/{id}` llamado directo (no desde la UI) puede persistir `Licensed=false` con `LicenseNumber` cargado, o al revés — mismo tipo de gap que sí se cerró para `TermsAccepted` (§11, ese sí validado server-side), pero no se replicó para estos dos pares.
+1. ~~**Falta validación server-side de los pares condicionales.**~~ ✅ Hecho — ver §11.3.
 2. **`GET /users` no tiene paginación ni búsqueda**, solo filtro exacto por `?role=` (`UsersController.cs`). No es un problema al volumen actual de agentes, pero no estaba ni aceptado ni documentado como pendiente en ningún lado.
 3. **Sin rate limiting en la API** (ni en `/auth/register`, por donde se da de alta a un agente, ni en el resto de endpoints de `AuthController`). No es específico de Agentes, pero relevante porque el alta de agentes pasa por ahí.
 
-Sin fix implementado todavía — queda documentado para decidir prioridad. El más concreto de resolver es el punto 1 (validación cruzada server-side).
+Puntos 2 y 3 sin fix todavía — quedan documentados para decidir prioridad.
 
 ### 11.2 Address1/City/ZipCode/State/County pasan a obligatorios + Country fijo — ✅ Hecho (2026-07-17)
 
@@ -355,7 +355,16 @@ Ajuste sobre §11 (no era un gap de la auditoría de §11.1, sino un pedido nuev
 - `AuthRegisterDto`/`UserUpdateDto`: `[Required]` agregado a los 5 campos. `UserResponseDto` alineado a no-nullable por consistencia.
 - **Country**: campo nuevo, **solo UI, sin persistir** (decisión confirmada con el responsable — el sistema es EE.UU.-only, no aporta información real guardar una constante). Se muestra en el formulario como texto fijo, no editable, traducido (`"Estados Unidos"`/`"United States"` según el idioma activo) — no viaja en el body de `POST /auth/register` ni `PUT /users/{id}`.
 - Verificado con curl contra la base de dev real: `POST /auth/register` sin los 5 campos → `400` con los 5 errores de validación; con todos → `200`, alta correcta; `PUT /users/{id}` sin `State` → `400`. Migración aplicada y agente de prueba limpiado de la base al terminar.
-- **No verificado en navegador** (sin herramienta de automatización de UI disponible en esa sesión) — falta confirmar visualmente que el campo Country se vea deshabilitado y que el `required` nativo del navegador bloquee el submit antes de dar esto por cerrado del todo en la práctica.
+- **Verificado en navegador** por el responsable (`npm run dev`, sesión posterior): Country se ve fijo y deshabilitado, traducido correctamente al cambiar de idioma, y los 5 campos bloquean el submit nativo del navegador si están vacíos — cierra la verificación visual que había quedado pendiente.
+
+### 11.3 Validación cruzada server-side de Licensed/HasCompanyContract — ✅ Hecho (2026-07-17)
+
+Cierra el punto 1 de §11.1. `Utils/AgentFieldValidation.cs` (nuevo, mismo patrón que `FileValidationHelper.cs` ya existente en esa carpeta): valida que `Licensed=true` venga con `LicenseNumber`, y que `HasCompanyContract=true` venga con `ContractNumber` y `CompanyName`, devolviendo `400` (`ProblemDetails`, mismo estilo que el chequeo existente de `TermsAccepted`) si falta alguno.
+
+- Llamado desde `AuthController.Register` y `UsersController.Update`, antes de tocar la base.
+- Además de validar, **normaliza**: si el flag correspondiente está en `false`, `LicenseNumber`/`ContractNumber`/`CompanyName` se fuerzan a `null` antes de persistir — así un `PUT` que apaga el flag pero no limpia el campo asociado (o un call directo a la API que nunca pasó por la limpieza del frontend) no deja un valor suelto en la base.
+- Verificado con curl contra la base de dev real: `Licensed=true` sin `LicenseNumber` → `400`; `HasCompanyContract=true` sin `ContractNumber`/`CompanyName` → `400`; `Licensed=false` con `LicenseNumber` cargado → `200` y se persiste como `null`; alta con ambos pares completos → `200`; edición que apaga `HasCompanyContract` con `ContractNumber`/`CompanyName` todavía en el body → `200` y ambos quedan en `null`. Registros de prueba borrados de la base de dev al terminar.
+- Puntos 2 (paginación de `/users`) y 3 (rate limiting) de §11.1 siguen sin resolver.
 
 ---
 
@@ -475,4 +484,5 @@ Todo lo de §12 sigue en estado "documentado, no implementar" hasta que el volum
 27. ~~Relevamiento de campos específicos por Tipo de Póliza (Life/Medicare/Supplemental)~~ ✅ Documentado (§12) — no implementar hasta que el volumen lo justifique
 28. ~~Bug de arranque en frío con Docker real (Error 4060) — healthcheck de SQL Server + orden de migración/seed~~ ✅ Hecho (§8.1.1)
 29. Hallazgos de auditoría del feature de Agentes (validación cruzada server-side, paginación de `/users`, rate limiting) — sin implementar, ver §11.1
-30. ~~Address1/City/ZipCode/State/County obligatorios en Agente + Country fijo~~ ✅ Hecho (§11.2) — falta verificación en navegador
+30. ~~Address1/City/ZipCode/State/County obligatorios en Agente + Country fijo~~ ✅ Hecho (§11.2), verificado en navegador
+31. ~~Validación cruzada server-side de Licensed/HasCompanyContract~~ ✅ Hecho (§11.3) — cierra el punto 1 de §11.1, puntos 2 y 3 siguen abiertos

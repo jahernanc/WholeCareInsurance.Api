@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using WholeCareInsurance.api.DTOs.Auth;
 using WholeCareInsurance.api.Services;
+using WholeCareInsurance.api.Utils;
 
 namespace WholeCareInsurance.api.Controllers
 {
@@ -23,6 +24,16 @@ namespace WholeCareInsurance.api.Controllers
         {
             if (!dto.TermsAccepted)
                 return BadRequest(new ProblemDetails { Title = "Hay que aceptar los términos y condiciones." });
+
+            var conditionalFieldsError = AgentFieldValidation.Validate(dto.Licensed, dto.LicenseNumber, dto.HasCompanyContract, dto.ContractNumber, dto.CompanyName);
+            if (conditionalFieldsError != null)
+                return BadRequest(new ProblemDetails { Title = conditionalFieldsError });
+
+            // No persistir un valor suelto si el flag correspondiente está en false
+            // (mismo criterio que ya aplica el frontend antes de enviar el formulario).
+            dto.LicenseNumber = dto.Licensed ? dto.LicenseNumber : null;
+            dto.ContractNumber = dto.HasCompanyContract ? dto.ContractNumber : null;
+            dto.CompanyName = dto.HasCompanyContract ? dto.CompanyName : null;
 
             var user = await _authService.Register(dto);
             if (user == null)
