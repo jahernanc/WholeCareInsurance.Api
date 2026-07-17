@@ -115,19 +115,20 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 
 app.UseCors("AllowFrontend");
 
-using (var scope = app.Services.CreateScope())
-{
-    var seeder = scope.ServiceProvider.GetRequiredService<AdminUserSeeder>();
-    await seeder.Seed();
-}
-
 // Auto-migrate al iniciar el contenedor (decisión de despliegue, §8.1) — en dev
-// local se sigue usando `dotnet ef database update` a mano.
+// local se sigue usando `dotnet ef database update` a mano. Tiene que correr
+// antes del seeder: es Migrate() el que crea la base si todavía no existe.
 if (!app.Environment.IsDevelopment())
 {
     using var migrationScope = app.Services.CreateScope();
     var db = migrationScope.ServiceProvider.GetRequiredService<AppDbContext>();
     await db.Database.MigrateAsync();
+}
+
+using (var scope = app.Services.CreateScope())
+{
+    var seeder = scope.ServiceProvider.GetRequiredService<AdminUserSeeder>();
+    await seeder.Seed();
 }
 
 if (app.Environment.IsDevelopment())
