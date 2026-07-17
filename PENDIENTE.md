@@ -236,7 +236,18 @@ VPS ya comprado y corriendo: Ubuntu 24.04, KVM2 (2 CPU, 8GB RAM, 100GB disco), c
 
 **Verificado sin Docker instalado en esta máquina** (no se pudo levantar los contenedores acá — validar de verdad en el VPS): `npm run build` con `VITE_API_URL` seteado por variable de entorno confirma que el valor queda inlineado en el bundle final (mismo mecanismo que usa el build-arg de Docker); `dotnet publish -c Release` compila sin errores; el binario publicado, corrido con variables de entorno estilo producción (`ASPNETCORE_ENVIRONMENT=Production`, `Jwt__Key`, `ConnectionStrings__DefaultConnection`, `Cors__AllowedOrigin`, sin `Development`), arranca, corre el auto-migrate contra la base de dev sin aplicar nada (ya estaba al día), expone Swagger en 404 (deshabilitado fuera de Development) y responde `Access-Control-Allow-Origin` solo para el origin configurado por env var.
 
-**Pendiente real:** ejecutar esto en el VPS (dar de alta los servicios en EasyPanel, reemplazar los placeholders del compose por secretos reales, probar el build de las imágenes con Docker de verdad, configurar dominios/DNS). Se decidió posponer para una próxima sesión dedicada al VPS en sí.
+**Pendiente real:** ejecutar esto en el VPS (dar de alta los servicios en EasyPanel, reemplazar los placeholders del compose por secretos reales, configurar dominios/DNS). El build de las imágenes y el arranque real con Docker ya se probaron localmente (ver §8.1.1) — falta específicamente la ejecución en el VPS.
+
+### 8.1.1 Bug de arranque en frío (Error 4060) — healthcheck de SQL Server + orden de migración/seed — ✅ Hecho (2026-07-17)
+
+Primera vez que se levantó el `docker-compose.yml` con Docker de verdad (§8.1 se había verificado sin Docker instalado) — apareció un bug de arranque en frío que no era visible por lectura de código ni por build exitoso, solo corriendo los contenedores reales:
+
+- **Síntoma 1**: el contenedor `api` quedaba en loop de restart — arrancaba antes de que SQL Server terminara de inicializar (SQL Server acepta el puerto TCP antes de estar listo para autenticar conexiones).
+- **Fix 1**: `healthcheck` agregado al servicio `sqlserver` (`sqlcmd -Q 'SELECT 1'`, `interval: 10s`, `timeout: 5s`, `retries: 10`, `start_period: 30s`) + `depends_on` de `api-test`/`api-prod` cambiado de la forma corta a `condition: service_healthy`.
+- **Síntoma 2** (destapado por el fix 1): con el contenedor `api` ya esperando a que SQL Server esté sano, seguía fallando al arrancar con **Error 4060** ("Cannot open database requested by the login") en un volumen de `sqlserver-data` nuevo (sin bases creadas todavía).
+- **Causa**: en `Program.cs`, `AdminUserSeeder.Seed()` corría **antes** que `dbContext.Database.MigrateAsync()` — el seeder consultaba una base que la migración todavía no había creado (`Migrate()` es quien ejecuta `CREATE DATABASE` la primera vez).
+- **Fix 2**: se invirtió el orden en `Program.cs` — la migración corre primero, el seeder después. Sin cambios en la condición `!IsDevelopment()` que ya envolvía a la migración (dev local sigue usando `dotnet ef database update` a mano).
+- **Verificado con Docker real** (los 5 contenedores del compose — `sqlserver`, `api-test`, `api-prod`, `frontend-test`, `frontend-prod` — levantados sobre un volumen `sqlserver-data` nuevo, arranque en frío): sin loop de restart, `sqlserver` healthy, ambos `api-test`/`api-prod` arriba. Smoke test end-to-end con curl contra los dos ambientes dockerizados: login con el admin seedeado (`200` en ambos, `refreshToken` distinto en cada uno confirma bases separadas), y CRUD completo de Customer contra `api-test` (`POST` → `201`, `GET` por id y por listado → `200`, `DELETE` → `204`, listado post-delete vacío).
 
 ### 8.2 Ver §7 para la migración de datos (antes en esta sección, movida para agrupar con el resto de la migración).
 
@@ -441,3 +452,4 @@ Todo lo de §12 sigue en estado "documentado, no implementar" hasta que el volum
 25. ~~AdminUserSeeder generalizado (admin real por ambiente vía env vars)~~ ✅ Hecho (§10.5)
 26. Dashboard — bloqueado hasta tener la data migrada (§9)
 27. ~~Relevamiento de campos específicos por Tipo de Póliza (Life/Medicare/Supplemental)~~ ✅ Documentado (§12) — no implementar hasta que el volumen lo justifique
+28. ~~Bug de arranque en frío con Docker real (Error 4060) — healthcheck de SQL Server + orden de migración/seed~~ ✅ Hecho (§8.1.1)
