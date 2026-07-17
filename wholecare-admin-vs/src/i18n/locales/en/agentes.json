@@ -16,6 +16,8 @@
             "address1": "Address # 1",
             "address2": "Address # 2",
             "city": "City",
+            "country": "Country",
+            "countryValue": "United States",
             "zipCode": "Zip Code",
             "state": "State",
             "county": "County",

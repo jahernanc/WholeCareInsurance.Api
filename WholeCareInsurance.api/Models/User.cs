@@ -13,12 +13,12 @@
         // Datos de perfil del Agente (§11) — EE.UU.-only, mismo criterio que Customer.
         public string? MiddleName { get; set; }
         public string? Gender { get; set; }
-        public string? Address1 { get; set; }
+        public string Address1 { get; set; } = default!;
         public string? Address2 { get; set; }
-        public string? City { get; set; }
-        public string? ZipCode { get; set; }
-        public string? State { get; set; }
-        public string? County { get; set; }
+        public string City { get; set; } = default!;
+        public string ZipCode { get; set; } = default!;
+        public string State { get; set; } = default!;
+        public string County { get; set; } = default!;
 
         public bool Licensed { get; set; }
         public string? LicenseNumber { get; set; }

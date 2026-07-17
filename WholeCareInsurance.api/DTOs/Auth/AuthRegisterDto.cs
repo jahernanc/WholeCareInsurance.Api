@@ -29,12 +29,12 @@ namespace WholeCareInsurance.api.DTOs.Auth
         // tratarlo como "sin validar"), mismo criterio que Customer (§3.2).
         [MaxLength(20)] public string? Gender { get; set; }
 
-        [MaxLength(300)] public string? Address1 { get; set; }
+        [Required][MaxLength(300)] public string Address1 { get; set; } = default!;
         [MaxLength(300)] public string? Address2 { get; set; }
-        [MaxLength(100)] public string? City { get; set; }
-        [MaxLength(10)] public string? ZipCode { get; set; }
-        [MaxLength(2)] public string? State { get; set; }
-        [MaxLength(100)] public string? County { get; set; }
+        [Required][MaxLength(100)] public string City { get; set; } = default!;
+        [Required][MaxLength(10)] public string ZipCode { get; set; } = default!;
+        [Required][MaxLength(2)] public string State { get; set; } = default!;
+        [Required][MaxLength(100)] public string County { get; set; } = default!;
 
         public bool Licensed { get; set; }
         [MaxLength(50)] public string? LicenseNumber { get; set; }

@@ -325,7 +325,7 @@ El admin seedeado (§10.1) estaba 100% hardcodeado (`admin@wholecare.com` / `Adm
 Los 18 campos agregados a `Models/User.cs`, `AuthRegisterDto`/`UserUpdateDto`/`UserResponseDto`, migración `20260715133955_AddAgentProfileFields`, y formulario/tarjeta de `Agentes.jsx`:
 - `MiddleName` (texto, opcional)
 - `Gender` (dropdown Masculino/Femenino, mismo criterio que Customer §3.2 — reusa `GENDERS`/grupo `gender` de `translateEnum`)
-- `Address1`/`Address2`, `City`, `ZipCode` (texto, opcional, mismo patrón que Customer)
+- `Address1`/`Address2`, `City`, `ZipCode` (texto — inicialmente opcional, mismo patrón que Customer; ver §11.2, pasaron a obligatorios salvo `Address2`)
 - `State`/`County` (dropdowns EE.UU.-only, reusan directamente `src/data/usStates.js` y `usCounties.json` — **decisión confirmada con el responsable**: Country es siempre EE.UU., no se agregó como campo editable; "State/Province" del pedido original es el mismo `State` de 2 letras que ya usa Customer, condado dependiente del estado igual que en Customer)
 - `Licensed` (bool, dropdown Sí/No) + `LicenseNumber` (texto, **condicional**: solo visible/habilitado si Licensed = Sí — confirmado con el responsable)
 - `NpnNumber` (texto) + `NpnOverride` (bool, checkbox)
@@ -335,6 +335,27 @@ Los 18 campos agregados a `Models/User.cs`, `AuthRegisterDto`/`UserUpdateDto`/`U
 - `TermsAccepted` (bool) + `TermsAcceptedAt` (fecha/hora) — **confirmado con el responsable**: obligatorio para guardar (checkbox `required` nativo del navegador, mismo form para alta y edición) y se persiste el timestamp de cuándo se aceptó. Validado también en el backend (`AuthController.Register` rechaza con 400 si `TermsAccepted` no es `true`); en edición (`UsersController.Update`) no se re-exige — si ya era `true` se mantiene, y solo se pisa `TermsAcceptedAt` si pasa de `false` a `true`.
 
 Verificado con curl (alta con los 18 campos, rechazo de registro sin `TermsAccepted`, edición con limpieza de campos condicionales) y con Playwright en español (35/35 checks: los campos nuevos renderizan, License Number/Contract Number/Company Name aparecen y desaparecen según sus dropdowns condicionales, Condado deshabilitado hasta elegir Estado, el submit se bloquea sin marcar el checkbox de términos, alta y edición end-to-end con persistencia correcta, tarjeta de la lista muestra los campos nuevos, sin errores de consola).
+
+### 11.1 Hallazgos de auditoría (2026-07-17) — deuda técnica, no bloqueante — 🔲 Pendiente
+
+Auditoría puntual del feature de Agentes (§3.1, §3.4, §11) contra el código real, a pedido del responsable. El feature en sí está completo y probado — estos son gaps menores encontrados en la revisión, no capturados hasta ahora en este documento:
+
+1. **Falta validación server-side de los pares condicionales.** `AuthRegisterDto`/`UserUpdateDto` no tienen validación cruzada (`IValidatableObject` o similar) que ate `LicenseNumber` a `Licensed`, ni `ContractNumber`/`CompanyName` a `HasCompanyContract`. La limpieza de esos campos (vaciarlos cuando el checkbox correspondiente está en "No") vive **solo** en el frontend (`Agentes.jsx`, `handleSubmit`). Un `POST /auth/register` o `PUT /users/{id}` llamado directo (no desde la UI) puede persistir `Licensed=false` con `LicenseNumber` cargado, o al revés — mismo tipo de gap que sí se cerró para `TermsAccepted` (§11, ese sí validado server-side), pero no se replicó para estos dos pares.
+2. **`GET /users` no tiene paginación ni búsqueda**, solo filtro exacto por `?role=` (`UsersController.cs`). No es un problema al volumen actual de agentes, pero no estaba ni aceptado ni documentado como pendiente en ningún lado.
+3. **Sin rate limiting en la API** (ni en `/auth/register`, por donde se da de alta a un agente, ni en el resto de endpoints de `AuthController`). No es específico de Agentes, pero relevante porque el alta de agentes pasa por ahí.
+
+Sin fix implementado todavía — queda documentado para decidir prioridad. El más concreto de resolver es el punto 1 (validación cruzada server-side).
+
+### 11.2 Address1/City/ZipCode/State/County pasan a obligatorios + Country fijo — ✅ Hecho (2026-07-17)
+
+Ajuste sobre §11 (no era un gap de la auditoría de §11.1, sino un pedido nuevo del responsable): estos 5 campos ya existían pero eran opcionales — ahora `Address1`, `City`, `ZipCode`, `State` y `County` son obligatorios (`Address2` sigue opcional).
+
+- `Models/User.cs`: los 5 campos pasaron de `string?` a `string` (no nullable).
+- Migración `20260717155844_MakeAgentAddressFieldsRequired`: backfill (`UPDATE ... SET <campo> = COALESCE(<campo>, '')`) antes del `ALTER COLUMN ... NOT NULL` — necesario porque ya podía haber agentes reales con estos campos en `NULL` (el feature de §11 estaba en producción desde antes).
+- `AuthRegisterDto`/`UserUpdateDto`: `[Required]` agregado a los 5 campos. `UserResponseDto` alineado a no-nullable por consistencia.
+- **Country**: campo nuevo, **solo UI, sin persistir** (decisión confirmada con el responsable — el sistema es EE.UU.-only, no aporta información real guardar una constante). Se muestra en el formulario como texto fijo, no editable, traducido (`"Estados Unidos"`/`"United States"` según el idioma activo) — no viaja en el body de `POST /auth/register` ni `PUT /users/{id}`.
+- Verificado con curl contra la base de dev real: `POST /auth/register` sin los 5 campos → `400` con los 5 errores de validación; con todos → `200`, alta correcta; `PUT /users/{id}` sin `State` → `400`. Migración aplicada y agente de prueba limpiado de la base al terminar.
+- **No verificado en navegador** (sin herramienta de automatización de UI disponible en esa sesión) — falta confirmar visualmente que el campo Country se vea deshabilitado y que el `required` nativo del navegador bloquee el submit antes de dar esto por cerrado del todo en la práctica.
 
 ---
 
@@ -453,3 +474,5 @@ Todo lo de §12 sigue en estado "documentado, no implementar" hasta que el volum
 26. Dashboard — bloqueado hasta tener la data migrada (§9)
 27. ~~Relevamiento de campos específicos por Tipo de Póliza (Life/Medicare/Supplemental)~~ ✅ Documentado (§12) — no implementar hasta que el volumen lo justifique
 28. ~~Bug de arranque en frío con Docker real (Error 4060) — healthcheck de SQL Server + orden de migración/seed~~ ✅ Hecho (§8.1.1)
+29. Hallazgos de auditoría del feature de Agentes (validación cruzada server-side, paginación de `/users`, rate limiting) — sin implementar, ver §11.1
+30. ~~Address1/City/ZipCode/State/County obligatorios en Agente + Country fijo~~ ✅ Hecho (§11.2) — falta verificación en navegador

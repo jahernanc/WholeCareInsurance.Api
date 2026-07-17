@@ -222,7 +222,7 @@ function Agentes() {
 
                             <div style={fullRowStyle}>
                                 <label style={labelStyle}>{t("form.fields.address1")}</label>
-                                <input name="address1" value={form.address1} onChange={handleField} style={inputStyle} />
+                                <input name="address1" value={form.address1} onChange={handleField} required style={inputStyle} />
                             </div>
 
                             <div style={fullRowStyle}>
@@ -232,17 +232,22 @@ function Agentes() {
 
                             <div>
                                 <label style={labelStyle}>{t("form.fields.zipCode")}</label>
-                                <input name="zipCode" value={form.zipCode} onChange={handleField} style={inputStyle} />
+                                <input name="zipCode" value={form.zipCode} onChange={handleField} required style={inputStyle} />
                             </div>
 
                             <div>
                                 <label style={labelStyle}>{t("form.fields.city")}</label>
-                                <input name="city" value={form.city} onChange={handleField} style={inputStyle} />
+                                <input name="city" value={form.city} onChange={handleField} required style={inputStyle} />
+                            </div>
+
+                            <div>
+                                <label style={labelStyle}>{t("form.fields.country")}</label>
+                                <input value={t("form.fields.countryValue")} disabled style={{ ...inputStyle, background: "#eee", color: "#666" }} />
                             </div>
 
                             <div>
                                 <label style={labelStyle}>{t("form.fields.state")}</label>
-                                <select name="state" value={form.state} onChange={handleField} style={inputStyle}>
+                                <select name="state" value={form.state} onChange={handleField} required style={inputStyle}>
                                     <option value="">{t("form.selectPlaceholder")}</option>
                                     {US_STATES.map((s) => (
                                         <option key={s.code} value={s.code}>{s.name}</option>
@@ -252,7 +257,7 @@ function Agentes() {
 
                             <div>
                                 <label style={labelStyle}>{t("form.fields.county")}</label>
-                                <select name="county" value={form.county} onChange={handleField} disabled={!form.state} style={inputStyle}>
+                                <select name="county" value={form.county} onChange={handleField} disabled={!form.state} required style={inputStyle}>
                                     <option value="">{form.state ? t("form.selectPlaceholder") : t("form.selectStateFirst")}</option>
                                     {countiesForState.map((c) => (
                                         <option key={c} value={c}>{c}</option>
