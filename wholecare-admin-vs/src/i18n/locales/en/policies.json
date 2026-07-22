@@ -204,7 +204,10 @@
         "numberOfApplicants": "Number of applicants",
         "noDependents": "No dependents",
         "beneficiariesSection": "Beneficiaries",
-        "noBeneficiaries": "No beneficiaries"
+        "noBeneficiaries": "No beneficiaries",
+        "historySection": "History",
+        "noHistory": "No history yet",
+        "historyMigrationSource": "Migration"
     },
     "documents": {
         "title": "Documents",

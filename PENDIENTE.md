@@ -387,7 +387,7 @@ Cierra los puntos 2 y 3 de §11.1. **Decisión confirmada con el responsable** p
 
 ---
 
-## 12. Campos específicos por Tipo de Póliza — 🔲 Documentado, NO implementar todavía
+## 12. Campos específicos por Tipo de Póliza — ✅ Documentado e implementado (Medicare/Life Insurance/Supplemental Plans)
 
 Decisión: dado el bajo volumen actual (Life: 2 registros, Medicare: 7, Supplemental: 16 — vs. 1258 de Obamacare), se documenta el detalle completo de cada tipo para referencia futura, pero SOLO SE IMPLEMENTA cuando el volumen de uso lo justifique. No es trabajo pendiente activo.
 
@@ -484,11 +484,29 @@ Se confirmó el mismo gap en los 3 tipos relevados (Life, Supplemental, Medicare
 ### 12.12 Relevamiento de formularios por tipo — COMPLETO
 Los 4 tipos de póliza fueron relevados (Obamacare a fondo con datos reales de 1258 filas; Medicare, Life y Supplemental por estructura de formulario + muestra chica de datos reales). Auto: sin datos cargados, sin formulario relevado todavía — pendiente si en algún momento se necesita.
 
-Todo lo de §12 sigue en estado "documentado, no implementar" hasta que el volumen de uso de estos 3 tipos lo justifique (decisión ya tomada con el responsable/developer).
+~~Todo lo de §12 sigue en estado "documentado, no implementar" hasta que el volumen de uso de estos 3 tipos lo justifique~~ — **actualización**: el responsable pidió adelantar los 3 (decisión tomada), y quedaron implementados (§12.3, §12.6, §12.9, §12.10).
 
 ---
 
-## 13. Orden sugerido de trabajo
+## 13. Historial/Auditoría de Pólizas — ✅ Hecho
+
+Prerequisito para el script de migración (§7): necesita poder insertar snapshots históricos de una póliza reconstruidos desde los registros duplicados del sistema viejo, sin pasar por el flujo normal de "usuario logueado hace un cambio".
+
+- Entidad nueva `PolicyHistory`: `PolicyId` (FK, cascade), `FieldChanged`, `OldValue`/`NewValue` (nullable), `ChangedAt`, `ChangedByUserId` (FK a `User`, **nullable a propósito** — la carga desde migración no tiene usuario real), `Source` (`"Sistema"` | `"Migración"`).
+- **Alcance del tracking automático: solo `Status`** (no genérico para todos los campos de `Policy` — decisión explícita, más simple de auditar/revisar). Se registra en dos momentos:
+  - **Alta** (`POST /api/policies`): una entrada con `OldValue = null`, `NewValue = <status inicial>`.
+  - **Edición** (`PUT /api/policies/{id}`): una entrada solo si `Status` cambió (comparación antes/después de aplicar el DTO); si no cambió, no se agrega nada.
+  - En ambos casos, `ChangedByUserId` = usuario logueado (`CurrentUserId()`, mismo patrón que `CustomersController`), `Source = "Sistema"`.
+- Endpoint `GET /api/policies/{id}/history` — línea de tiempo completa, ordenada por `ChangedAt` descendente (más reciente primero).
+- Servicio nuevo `IPolicyHistoryService`/`PolicyHistoryService` (separado de `IPolicyService`), con método `AddBulk(IEnumerable<PolicyHistory>)` **sin endpoint HTTP** — pensado para que el futuro script de migración lo invoque directamente. Verificado con un insert directo por SQL simulando ese caso (`ChangedByUserId = NULL`, `Source = 'Migración'`): el schema lo acepta sin problemas de FK, y el endpoint `GET /history` lo devuelve correctamente (`changedByUserName: null`).
+- Migración `AddPolicyHistory`.
+- Frontend: sección "Historial" en el modal de detalle de `Policies.jsx` (junto a Dependientes/Beneficiarios/Documentos), lista cronológica descendente con fecha, campo (traducido reusando `form.fields.*` de `policies.json` cuando existe la clave, con fallback al nombre del campo), valor anterior → valor nuevo (traducidos vía `translateEnum("policyStatus", ...)` para `Status`), y quién (nombre del usuario, o "Migración" si `Source === "Migración"`).
+
+Verificado con curl: alta genera 1 entrada, edición con cambio de `Status` genera una 2da entrada, edición sin cambio de `Status` no agrega nada, y borrar la póliza borra en cascada su historial.
+
+---
+
+## 14. Orden sugerido de trabajo
 
 1. ~~Tipo en Policy~~ ✅ Hecho
 2. ~~Dependientes (vínculo con Customers existentes)~~ ✅ Hecho
@@ -522,3 +540,4 @@ Todo lo de §12 sigue en estado "documentado, no implementar" hasta que el volum
 30. ~~Address1/City/ZipCode/State/County obligatorios en Agente + Country fijo~~ ✅ Hecho (§11.2), verificado en navegador
 31. ~~Validación cruzada server-side de Licensed/HasCompanyContract~~ ✅ Hecho (§11.3) — cierra el punto 1 de §11.1
 32. ~~Búsqueda en `/users` + rate limiting en endpoints sensibles de auth~~ ✅ Hecho (§11.4) — cierra los puntos 2 y 3 de §11.1
+33. ~~Historial/Auditoría de Pólizas (PolicyHistory, tracking de Status, prerequisito para el script de migración)~~ ✅ Hecho (§13)

@@ -155,6 +155,7 @@ function Policies() {
     const [detailDependents, setDetailDependents] = useState([]);
     const [detailBeneficiaries, setDetailBeneficiaries] = useState([]);
     const [detailDocuments, setDetailDocuments] = useState([]);
+    const [detailHistory, setDetailHistory] = useState([]);
     const [documentError, setDocumentError] = useState("");
     const [uploadingDocument, setUploadingDocument] = useState(false);
     const [openDocMenuId, setOpenDocMenuId] = useState(null);
@@ -363,6 +364,7 @@ function Policies() {
         setDetailDependents([]);
         setDetailBeneficiaries([]);
         setDetailDocuments([]);
+        setDetailHistory([]);
         setDocumentError("");
         setOpenDocMenuId(null);
         try {
@@ -379,6 +381,13 @@ function Policies() {
         } catch (error) {
             console.error("Error loading beneficiaries for detail view:", error);
         }
+        try {
+            const res = await apiFetch(`/api/policies/${policy.id}/history`);
+            if (!res.ok) throw new Error();
+            setDetailHistory(await res.json());
+        } catch (error) {
+            console.error("Error loading history for detail view:", error);
+        }
         await loadDocuments(policy.id);
     };
 
@@ -387,6 +396,7 @@ function Policies() {
         setDetailDependents([]);
         setDetailBeneficiaries([]);
         setDetailDocuments([]);
+        setDetailHistory([]);
         setDocumentError("");
         setOpenDocMenuId(null);
     };
@@ -2294,6 +2304,23 @@ function Policies() {
                                     </ul>
                                 )}
                             </>
+                        )}
+
+                        <h4 style={{ marginTop: 16, marginBottom: 6 }}>{t("detail.historySection")}</h4>
+                        {detailHistory.length === 0 ? (
+                            <p style={{ color: "#666" }}>{t("detail.noHistory")}</p>
+                        ) : (
+                            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                                {detailHistory.map((h) => (
+                                    <li key={h.id} style={{ padding: "4px 0", fontSize: 14 }}>
+                                        {formatDocumentDate(h.changedAt)} — {t(`form.fields.${h.fieldChanged.charAt(0).toLowerCase()}${h.fieldChanged.slice(1)}`, { defaultValue: h.fieldChanged })}:{" "}
+                                        {h.oldValue === null || h.oldValue === undefined ? "-" : (h.fieldChanged === "Status" ? translateEnum("policyStatus", h.oldValue) : h.oldValue)}
+                                        {" → "}
+                                        {h.fieldChanged === "Status" ? translateEnum("policyStatus", h.newValue) : h.newValue}
+                                        {" ("}{h.source === "Migración" ? t("detail.historyMigrationSource") : (h.changedByUserName ?? "-")}{")"}
+                                    </li>
+                                ))}
+                            </ul>
                         )}
 
                         <div

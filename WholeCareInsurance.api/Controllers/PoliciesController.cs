@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.StaticFiles;
+using System.Security.Claims;
 using WholeCareInsurance.api.DTOs.Policies;
 using WholeCareInsurance.api.Models;
 using WholeCareInsurance.api.Services;
@@ -17,15 +18,20 @@ namespace WholeCareInsurance.api.Controllers
         private readonly ICustomerService _customers;
         private readonly IInsuranceCompanyService _insuranceCompanies;
         private readonly IPolicyDocumentStorage _documentStorage;
+        private readonly IPolicyHistoryService _policyHistory;
         private static readonly FileExtensionContentTypeProvider ContentTypeProvider = new();
 
-        public PoliciesController(IPolicyService policies, ICustomerService customers, IInsuranceCompanyService insuranceCompanies, IPolicyDocumentStorage documentStorage)
+        public PoliciesController(IPolicyService policies, ICustomerService customers, IInsuranceCompanyService insuranceCompanies, IPolicyDocumentStorage documentStorage, IPolicyHistoryService policyHistory)
         {
             _policies = policies;
             _customers = customers;
             _insuranceCompanies = insuranceCompanies;
             _documentStorage = documentStorage;
+            _policyHistory = policyHistory;
         }
+
+        private int CurrentUserId()
+            => int.Parse(User.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value);
 
         [HttpGet]
         public async Task<IActionResult> GetAll(
@@ -116,6 +122,8 @@ namespace WholeCareInsurance.api.Controllers
             var created = await _policies.Create(policy);
             created = await _policies.GetById(created.Id) ?? created;
 
+            await _policyHistory.RecordStatusChange(created.Id, null, created.Status, CurrentUserId());
+
             return CreatedAtAction(nameof(GetById), new { id = created.Id }, ToResponse(created));
         }
 
@@ -140,6 +148,8 @@ namespace WholeCareInsurance.api.Controllers
                     return BadRequest(new ProblemDetails { Title = $"InsuranceCompanyId {dto.InsuranceCompanyId} no existe." });
                 existing.InsuranceCompanyId = dto.InsuranceCompanyId;
             }
+
+            var oldStatus = existing.Status;
 
             existing.PolicyNumber = dto.PolicyNumber;
             existing.Type = dto.Type;
@@ -190,6 +200,8 @@ namespace WholeCareInsurance.api.Controllers
 
             var updated = await _policies.Update(existing);
             updated = await _policies.GetById(updated.Id) ?? updated;
+
+            await _policyHistory.RecordStatusChange(id, oldStatus, dto.Status, CurrentUserId());
 
             return Ok(ToResponse(updated));
         }
@@ -403,6 +415,16 @@ namespace WholeCareInsurance.api.Controllers
             return NoContent();
         }
 
+        [HttpGet("{id:int}/history")]
+        public async Task<IActionResult> GetHistory(int id)
+        {
+            var policy = await _policies.GetById(id);
+            if (policy == null) return NotFound();
+
+            var history = (await _policyHistory.GetForPolicy(id)).Select(ToHistoryResponse);
+            return Ok(history);
+        }
+
         private static PolicyResponseDto ToResponse(Policy p) => new()
         {
             Id = p.Id,
@@ -477,6 +499,18 @@ namespace WholeCareInsurance.api.Controllers
             Phone = b.Phone,
             Email = b.Email,
             SocialSecurityNumber = b.SocialSecurityNumber
+        };
+
+        private static PolicyHistoryResponseDto ToHistoryResponse(PolicyHistory h) => new()
+        {
+            Id = h.Id,
+            FieldChanged = h.FieldChanged,
+            OldValue = h.OldValue,
+            NewValue = h.NewValue,
+            ChangedAt = h.ChangedAt,
+            ChangedByUserId = h.ChangedByUserId,
+            ChangedByUserName = h.ChangedByUser?.Nombre,
+            Source = h.Source
         };
     }
 }

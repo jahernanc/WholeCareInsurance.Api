@@ -20,6 +20,7 @@ builder.Services.AddScoped<IUsersService, UsersService>();
 builder.Services.AddScoped<AdminUserSeeder>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<IPolicyService, PolicyService>();
+builder.Services.AddScoped<IPolicyHistoryService, PolicyHistoryService>();
 builder.Services.AddScoped<IInsuranceCompanyService, InsuranceCompanyService>();
 builder.Services.AddSingleton<IPolicyDocumentStorage, PolicyDocumentStorage>();
 
