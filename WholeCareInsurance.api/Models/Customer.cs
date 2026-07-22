@@ -31,6 +31,23 @@
         public string? Tags { get; set; }
         public string? ContactLanguage { get; set; }
 
+        // Campos específicos de Life Insurance (§12.3). Sin relación con Type de Policy
+        // a nivel de modelo (un Customer puede tener pólizas de varios tipos) — la
+        // condicionalidad por Type = "Life Insurance" se resuelve solo en el frontend.
+        public int? Age { get; set; }
+        public string? CountryOfBirth { get; set; }
+        public string? Height { get; set; }
+        public string? Weight { get; set; }
+        public bool? BackDateToSaveAge { get; set; }
+        public bool? SpentMoreThan4MonthsAbroad { get; set; }
+        public bool? MilitaryOrganizationMember { get; set; }
+        public bool? CurrentlyEmployed { get; set; }
+        public bool? HasDriverLicense { get; set; }
+        public string? DriverLicenseNumber { get; set; }
+        public decimal? NetWorth { get; set; }
+        public decimal? HouseholdIncome { get; set; }
+        public decimal? HouseholdNetWorth { get; set; }
+
         public int? AgentId { get; set; }
         public User? Agent { get; set; }
 

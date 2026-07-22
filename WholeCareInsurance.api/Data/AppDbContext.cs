@@ -15,6 +15,7 @@ namespace WholeCareInsurance.api.Data
         public DbSet<Policy> Policies => Set<Policy>();
         public DbSet<PolicyDependent> PolicyDependents => Set<PolicyDependent>();
         public DbSet<PolicyDocument> PolicyDocuments => Set<PolicyDocument>();
+        public DbSet<PolicyBeneficiary> PolicyBeneficiaries => Set<PolicyBeneficiary>();
         public DbSet<InsuranceCompany> InsuranceCompanies => Set<InsuranceCompany>();
 
 

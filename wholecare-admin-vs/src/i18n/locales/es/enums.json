@@ -1,9 +1,15 @@
 {
     "policyType": {
-        "Obama Care": "Obama Care",
-        "Salud": "Salud",
+        "Obama Care": "Health Insurance (ObamaCare)",
+        "Medicare": "Medicare",
+        "Life Insurance": "Seguro de vida",
+        "Supplemental Plans": "Planes suplementarios",
         "Auto": "Auto",
         "Otro": "Otro"
+    },
+    "bankAccountType": {
+        "Cheque": "Cheque",
+        "Ahorros": "Ahorros"
     },
     "policyStatus": {
         "Draft": "Draft",

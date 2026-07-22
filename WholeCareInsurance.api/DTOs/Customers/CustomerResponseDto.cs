@@ -31,6 +31,20 @@ namespace WholeCareInsurance.api.DTOs.Customers
         public string? Tags { get; set; }
         public string? ContactLanguage { get; set; }
 
+        public int? Age { get; set; }
+        public string? CountryOfBirth { get; set; }
+        public string? Height { get; set; }
+        public string? Weight { get; set; }
+        public bool? BackDateToSaveAge { get; set; }
+        public bool? SpentMoreThan4MonthsAbroad { get; set; }
+        public bool? MilitaryOrganizationMember { get; set; }
+        public bool? CurrentlyEmployed { get; set; }
+        public bool? HasDriverLicense { get; set; }
+        public string? DriverLicenseNumber { get; set; }
+        public decimal? NetWorth { get; set; }
+        public decimal? HouseholdIncome { get; set; }
+        public decimal? HouseholdNetWorth { get; set; }
+
         public int? AgentId { get; set; }
         public string? AgentName { get; set; }
         public int? AssistantAgentId { get; set; }

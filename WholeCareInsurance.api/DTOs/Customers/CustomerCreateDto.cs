@@ -59,5 +59,31 @@ namespace WholeCareInsurance.api.DTOs.Customers
         // User.PreferredLanguage, que es el idioma de la interfaz del usuario logueado).
         // Sin [AllowedValues] por el mismo motivo que Gender.
         [MaxLength(20)] public string? ContactLanguage { get; set; }
+
+        // Campos específicos de Life Insurance (§12.3). Todos opcionales: un Customer
+        // puede no tener ninguna póliza de este tipo. Editables solo desde la sección
+        // "Datos Life Insurance del titular"/"crear dependiente nuevo" de Policies.jsx
+        // cuando Type = Life Insurance (Customer no tiene noción de Type).
+        [Range(0, 150, ErrorMessage = "La edad no es válida.")]
+        public int? Age { get; set; }
+
+        [MaxLength(100)] public string? CountryOfBirth { get; set; }
+        [MaxLength(20)] public string? Height { get; set; }
+        [MaxLength(20)] public string? Weight { get; set; }
+        public bool? BackDateToSaveAge { get; set; }
+        public bool? SpentMoreThan4MonthsAbroad { get; set; }
+        public bool? MilitaryOrganizationMember { get; set; }
+        public bool? CurrentlyEmployed { get; set; }
+        public bool? HasDriverLicense { get; set; }
+        [MaxLength(50)] public string? DriverLicenseNumber { get; set; }
+
+        [Range(0, double.MaxValue, ErrorMessage = "El patrimonio neto no puede ser negativo.")]
+        public decimal? NetWorth { get; set; }
+
+        [Range(0, double.MaxValue, ErrorMessage = "El ingreso del hogar no puede ser negativo.")]
+        public decimal? HouseholdIncome { get; set; }
+
+        [Range(0, double.MaxValue, ErrorMessage = "El patrimonio neto del hogar no puede ser negativo.")]
+        public decimal? HouseholdNetWorth { get; set; }
     }
 }

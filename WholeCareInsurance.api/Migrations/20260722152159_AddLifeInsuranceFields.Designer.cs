@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using WholeCareInsurance.api.Data;
 
@@ -11,9 +12,11 @@ using WholeCareInsurance.api.Data;
 namespace WholeCareInsurance.api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260722152159_AddLifeInsuranceFields")]
+    partial class AddLifeInsuranceFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -237,10 +240,6 @@ namespace WholeCareInsurance.api.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("AccountNumber")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
                     b.Property<string>("AdditionalInformation")
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
@@ -251,19 +250,6 @@ namespace WholeCareInsurance.api.Migrations
                     b.Property<string>("AdditionalOrAlternatePolicyDetail")
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)");
-
-                    b.Property<bool?>("AuthorizeMarketingInfo")
-                        .HasColumnType("bit");
-
-                    b.Property<bool?>("AuthorizedAutomaticPayment")
-                        .HasColumnType("bit");
-
-                    b.Property<int?>("AutoPaymentDay")
-                        .HasColumnType("int");
-
-                    b.Property<string>("BankAccountType")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
 
                     b.Property<string>("BillingType")
                         .HasMaxLength(50)
@@ -278,14 +264,8 @@ namespace WholeCareInsurance.api.Migrations
                     b.Property<DateTime?>("EffectiveDate")
                         .HasColumnType("datetime2");
 
-                    b.Property<bool?>("EligibleForMedicare")
-                        .HasColumnType("bit");
-
                     b.Property<DateTime>("EndDate")
                         .HasColumnType("datetime2");
-
-                    b.Property<bool?>("HasExistingDentalCoverage")
-                        .HasColumnType("bit");
 
                     b.Property<bool?>("HasExistingLifeInsurance")
                         .HasColumnType("bit");
@@ -299,15 +279,6 @@ namespace WholeCareInsurance.api.Migrations
                     b.Property<string>("InsurancePlan")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
-
-                    b.Property<bool?>("InsuredIsAccountHolder")
-                        .HasColumnType("bit");
-
-                    b.Property<bool?>("InsuredPaysThePremium")
-                        .HasColumnType("bit");
-
-                    b.Property<bool?>("IsReplacingDentalCoverage")
-                        .HasColumnType("bit");
 
                     b.Property<bool?>("IsReplacingExistingPolicy")
                         .HasColumnType("bit");
@@ -364,18 +335,6 @@ namespace WholeCareInsurance.api.Migrations
 
                     b.Property<bool?>("ReferredToMedicalCorporation")
                         .HasColumnType("bit");
-
-                    b.Property<string>("RepresentativeName")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("RepresentativeRelationship")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("RoutingNumber")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
 
                     b.Property<string>("SourceOfFunds")
                         .HasMaxLength(200)

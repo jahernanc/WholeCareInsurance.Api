@@ -7,7 +7,11 @@
 ## 1. Policies — campos y funcionalidades
 
 ### 1.1 Campo Tipo (dropdown) — ✅ Hecho
-`Type` en `Policy` restringido a `Obama Care`, `Salud`, `Auto`, `Otro` vía `[AllowedValues]` en `PolicyCreateDto`. `<select>` en el formulario, igual patrón que el resto de los enums.
+`Type` en `Policy` restringido a `Obama Care`, `Medicare`, `Life Insurance`, `Supplemental Plans`, `Auto`, `Otro` vía `[AllowedValues]` en `PolicyCreateDto`. `<select>` en el formulario, igual patrón que el resto de los enums.
+
+**Actualización (§12.10)**: el valor `Salud` se renombró a `Medicare` (era en realidad ese tipo) al implementar los campos específicos de Medicare — migración `AddMedicarePolicyFieldsAndRenameSaludToMedicare` incluye un `UPDATE` de datos para las pólizas ya guardadas con `Type = 'Salud'`.
+
+**Actualización**: `Obama Care` se muestra en pantalla como "Health Insurance (ObamaCare)" — cambio solo de traducción/label en `enums.json` (es/en), el valor real guardado en la columna `Type` sigue siendo `"Obama Care"` (sin migración).
 
 ### 1.2 Dependientes (vínculo con Customers existentes) — ✅ Hecho
 Los dependientes son **Customers** vinculados a un Customer principal dentro de una póliza (tabla intermedia `PolicyDependents`, `PolicyId`+`CustomerId`).
@@ -170,7 +174,9 @@ Se solicitó al responsable del proyecto el archivo de export **completo** (toda
 3. ~~Si el export incluye solo pólizas activas o también históricas/canceladas.~~ ✅ Resuelta — ver §7.2.
 4. ~~Diccionario de datos para: Reference, Marketplace ID, Contract identification, Renewal status, Confirmed consent.~~ ✅ Resuelta — ver §7.2 (`Contract identification` confirmado por el responsable: texto libre, se migra tal cual).
 
-**Próximo paso**: diseñar el script de migración en sí — todavía no iniciado. Se probará primero contra la base del ambiente de test (§8.1), nunca directo contra producción. Sigue pendiente confirmar si el archivo ya analizado es el export completo pedido (todos los tipos) o solo el recorte de Obamacare — si hace falta, pedir también los archivos de Life/Medicare/Supplemental ya relevados en §12.
+**Próximo paso**: diseñar el script de migración en sí — todavía no iniciado. Se probará primero contra la base del ambiente de test (§8.1), nunca directo contra producción.
+
+**✅ Resuelto — formato del export**: confirmado por el responsable que la migración usará **4 archivos separados, uno por tipo de póliza** (Obamacare, Medicare, Life Insurance, Supplemental Plans), no un único archivo combinado con todos los tipos. El archivo ya analizado en §7.1 (1258 filas) es específicamente el de Health Insurance/Obamacare. Los otros 3 (Life, Medicare, Supplemental) ya fueron relevados por estructura de formulario + muestra chica de datos reales (§12), pero **todavía no se analizaron a fondo como el de Obamacare** (que tuvo el análisis completo de 1258 filas) — al diseñar el script, cada archivo probablemente necesite su propia lógica de mapeo/parseo dado que son exports independientes, no necesariamente con las mismas columnas entre sí.
 
 **Columnas detectadas** en la pantalla de export del sistema anterior (referencia para el futuro mapeo): Reference, Agency, Agent, Full name, First/Middle/Last name, DOB, Gender, Email, Phone, Legal Status, SSN, Green card, Work permit, Estado civil, Address 1/2, City, State/Province, Zip code, County, Employer name, Company Phone, Position/Occupation, Annual income, Policy number, Marketplace ID, Contract identification, Number of applicants, Effective date, Company, Insurance plan, Type of plan, Tax Credit/Subsidy, Monthly premium amount, Status, Tags, Period, Confirmed consent, Registration date, Update date, Renewal status, Members.
 
@@ -204,7 +210,7 @@ Bajo riesgo de colisión por nombre dado el volumen chico (22 agentes) — igual
 
 **Estado actualizado de las 4 preguntas originales**: las 4 quedan resueltas por el análisis del archivo real más la respuesta del responsable sobre `Contract identification`.
 
-**Ya no hay bloqueo activo.** Sigue pendiente, no bloqueante, recibir los archivos de los demás tipos de póliza si se decide migrarlos además de Obamacare (el archivo analizado hasta ahora es específicamente Health Insurance/Obamacare — no está confirmado si es el export "completo, todos los tipos en un solo archivo" que se había pedido originalmente, o solo el recorte de este tipo; ver también §12 para el relevamiento de Life/Medicare/Supplemental). El próximo paso es diseñar el script de migración en sí (no iniciado); se probará primero contra la base del ambiente de test (§8.1), nunca directo contra producción.
+**Ya no hay bloqueo activo.** Confirmado que se migrarán los 4 tipos de póliza (Obamacare, Medicare, Life Insurance, Supplemental Plans) desde 4 archivos separados — ver nota arriba. El próximo paso es diseñar el script de migración en sí (no iniciado); se probará primero contra la base del ambiente de test (§8.1), nunca directo contra producción.
 
 **Punto abierto no bloqueante:** cada dependiente en el sistema anterior tiene un campo "Policy number" individual — no está claro su propósito, aclarar con el responsable más adelante (no urgente).
 
@@ -407,16 +413,22 @@ Al revisar los formularios reales de creación de Life, Supplemental y Medicare 
 
 **Implicancia para la migración:** si se migra solo desde el CSV, esta información se pierde — no está disponible para migrar automáticamente. Si es información valiosa, habrá que preguntarle al responsable si existe otro export/backup que la incluya, o aceptar que se pierde y se recarga manualmente si hace falta a futuro. Esto aplica a los 3 tipos no-ACA (ver 12.11).
 
-### 12.3 Campos adicionales de Customer específicos de Life Insurance (no capturados en Obamacare ni en el CSV de Life)
+### 12.3 Campos adicionales de Customer específicos de Life Insurance — ✅ Hecho
 - Age (numérico, campo separado de Date of birth)
-- Country of Birth (dropdown)
-- Height, Weight
-- Checkbox: "Back date to save age?"
-- Checkbox: "¿Pasó más de 4 meses fuera de EE.UU. en los últimos 12 meses consecutivos?"
-- Checkbox: "¿Es miembro de organización militar o pretende serlo?"
-- Are you currently employed? (dropdown)
-- Driver's license (checkbox) + License number
-- Net Worth, Household income, Household net worth (además de Annual income, que ya existe)
+- Country of Birth (texto libre — sin catálogo de países en el sistema, mismo criterio que MedicalCorporation en §12.10; se puede migrar a dropdown si se releva la lista real más adelante)
+- Height, Weight (texto libre, admite formatos tipo `5'8"`/`180 lb`)
+- Checkbox: "Back date to save age?" (`BackDateToSaveAge`)
+- Checkbox: "¿Pasó más de 4 meses fuera de EE.UU. en los últimos 12 meses consecutivos?" (`SpentMoreThan4MonthsAbroad`)
+- Checkbox: "¿Es miembro de organización militar o pretende serlo?" (`MilitaryOrganizationMember`)
+- Are you currently employed? (`CurrentlyEmployed`, bool?, dropdown Sí/No)
+- Driver's license (`HasDriverLicense`, checkbox) + License number (`DriverLicenseNumber`, condicional)
+- Net Worth, Household income, Household net worth (`NetWorth`/`HouseholdIncome`/`HouseholdNetWorth`, además de Annual income, que ya existe)
+
+Todos opcionales — `Customer` no tiene noción de `Type` de póliza (un mismo Customer puede tener pólizas de varios tipos), así que la condicionalidad por `Type = Life Insurance` se resuelve enteramente en el frontend, no en el modelo. Dos lugares de edición en `Policies.jsx`:
+- **"crear dependiente nuevo"**: los 13 campos se agregan a `CustomerFormFields` (componente compartido con `Customers.jsx`) detrás de un prop `showLifeInsuranceFields`, que solo se pasa en `true` desde el flujo de dependientes de Policies.jsx cuando `Type = Life Insurance`. `Customers.jsx` nunca los muestra.
+- **"Datos Life Insurance del titular"** (nueva, decisión de la sesión): el titular de la póliza se elige por dropdown de Customers existentes, no se crea/edita inline como los dependientes — se agregó una sección propia en `Policies.jsx`, visible cuando `Type = Life Insurance` y hay un titular seleccionado, que precarga los 13 campos del Customer elegido y los guarda con un botón propio vía `PUT /api/customers/{id}` (reenviando el objeto completo, igual criterio que `Customers.jsx`, ya que `CustomerUpdateDto` no admite parcial).
+
+Los 13 campos, en ambos lugares, se renderizan desde un componente compartido nuevo `LifeInsuranceFields.jsx` (extraído para no duplicar el JSX entre `CustomerFormFields` y la sección del titular).
 
 ### 12.4 Aseguradoras específicas de Life Insurance detectadas en el dropdown del formulario
 Aetna, AIG, American Amicable, Americo, Columbian Financial Group, Fidelity, Forester, Great Western, Mutual Of Omaha, Mutual Trust Life, National Life Group, Prosperity, Senior Life, Transamerica — PENDIENTE de confirmar si la lista está completa (se cortó por el scroll de la captura, no confirmado si sigue después de Transamerica).
@@ -426,13 +438,17 @@ Aetna, AIG, American Amicable, Americo, Columbian Financial Group, Fidelity, For
 - Life: AIG, National Life Group
 (Aetna y United ya estaban en el catálogo de 31 sembrado con Obamacare)
 
-### 12.6 Campos de Life Insurance no capturados en el CSV, solo vistos en el formulario real
-- Beneficiarios (sección con alta de múltiples beneficiarios — mismo patrón que Dependientes de Obamacare: Type of relationship, First/Last name, DOB, Gender, Phone, Email, SSN, botón "+ New"/"Remove")
-- Coverage: "¿Habrá una póliza adicional/alternativa con [Aseguradora]?" + texto, "Indicate underwriting requirements", checkbox de requisitos médicos con traductor
-- Premium Information: Billing Type, Premium Frequency, Planned Periodic/Modal Premium, Identify the source of funds for premium payment
-- Existing Insurance - Primary Insured: 4 checkboxes sobre pólizas de vida/anualidad existentes y reemplazos
-- Notice and Consent - Primary Insured: Name of physician/health care provider/other, Street address
-- Extras: Additional information (texto enriquecido), checkbox de declaración/consentimiento firmado
+### 12.6 Campos de Life Insurance no capturados en el CSV, solo vistos en el formulario real — ✅ Hecho
+- **Beneficiarios**: entidad nueva `PolicyBeneficiary` (FK a Policy, sin vínculo con `Customer` — a diferencia de Dependientes, son datos propios del beneficiario, no requieren que exista como cliente del sistema). Campos: `TypeOfRelationship`, `FirstName`, `LastName`, `DateOfBirth`, `Gender`, `Phone`, `Email`, `SocialSecurityNumber`. Endpoints `GET/POST /api/policies/{id}/beneficiaries`, `DELETE /api/policies/{id}/beneficiaries/{beneficiaryId}` (sin PUT, solo alta/baja — mismo criterio que `PolicyDocument`). Sección "Beneficiarios" en `Policies.jsx`, visible con `Type = Life Insurance`, mismo patrón visual que Dependientes ("+ New"/"Remove").
+- Coverage: `AdditionalOrAlternatePolicy` (bool?) + `AdditionalOrAlternatePolicyDetail` (texto, condicional), `UnderwritingRequirements` (texto), `NeedsMedicalRequirements` (bool?, checkbox con nota de intérprete/traductor)
+- Premium Information: `BillingType`, `PremiumFrequency`, `PlannedPeriodicModalPremium`, `SourceOfFunds`
+- Existing Insurance - Primary Insured: `HasExistingLifeInsurance`, `IsReplacingExistingPolicy`, `UsingFundsFromInforcePolicy`, `ProvideComparativeInfoForm` (4 checkboxes)
+- Notice and Consent - Primary Insured: `PhysicianName`, `PhysicianAddress`
+- Extras: `AdditionalInformation` (textarea simple, no hay editor rich-text en el proyecto — se verificó que no existía ya en `Policy`, solo en `User`/Agente), `ConsentSigned` (checkbox simple, sin relación con firma digital real — el ítem 19 del roadmap, firma digital de consentimiento, sigue bloqueado hasta elegir proveedor)
+
+Todos opcionales — `Type` (§1.1) también cubre Obama Care/Medicare/Auto/Otro, que no los usan. Se agregó `Life Insurance` a los `AllowedValues` de `Type` (antes: `Obama Care`, `Medicare`, `Auto`, `Otro`). Migración `AddLifeInsuranceFields` (mismo diff que §12.3, EF Core no permite separar en dos migraciones cuando ambos cambios de modelo ya están hechos). Los 16 campos se muestran en `Policies.jsx` solo cuando `Type = Life Insurance`, mismo mecanismo condicional ya usado para Medicare (§12.10).
+
+Verificado con curl (alta/edición de Customer con los 13 campos de Life Insurance, alta de Policy Life Insurance con los 16 campos, alta/listado/baja de beneficiarios) y `dotnet build`/`npm run build`/`npm run lint` sin errores nuevos.
 
 ### 12.7 HALLAZGO — Supplemental tiene subtipos/productos específicos por aseguradora
 El menú de creación de "Policies Supplemental Plans" no es un tipo homogéneo — ofrece productos concretos: Cigna Dental, Cigna Accidental, Cigna Cancer Stroke, Cigna Choice Hospital, Sure Bridge. Pendiente confirmar con el responsable si cada producto tiene variantes de formulario entre sí, o si el formulario relevado (Cigna Dental) es representativo de todos.
@@ -440,19 +456,25 @@ El menú de creación de "Policies Supplemental Plans" no es un tipo homogéneo 
 ### 12.8 Principio de diseño confirmado — una sola forma de cargar aplicantes/dependientes
 Se confirma (no es una decisión nueva, ya estaba definida en §2) que la forma de agregar un aplicante/dependiente a una póliza debe ser ÚNICA en el sistema nuevo, sin importar el Type de póliza. El sistema anterior varía esto por tipo de póliza (ej. en Supplemental el formulario de aplicante es distinto al de Obamacare); en el sistema nuevo NO se debe replicar esa inconsistencia — siempre el mismo flujo (buscar Customer existente o crear uno nuevo con ficha completa).
 
-### 12.9 Campos específicos de Supplemental (formulario "Cigna Dental", no capturados en el CSV)
-- Insurance: Effective date, Company, Insurance plan, Monthly premium amount
-- Cobertura anterior: 3 checkboxes (cobertura dental existente/pendiente, elegibilidad Medicare, reemplazo de cobertura dental)
-- Datos bancarios ⚠️ DATO SENSIBLE — requiere cifrado en reposo si se implementa: checkbox "¿asegurado paga la prima?", Tipo de cuenta (Cheque/Ahorros), Número de ruta, Account number, checkbox de titularidad, checkbox de autorización de cobro automático, día de pago automático.
-- HIPAA y Autorización de Mercadeo: checkbox de autorización de marketing, datos de representante autorizado (Nombre + Relación al asegurado).
+### 12.9 Campos específicos de Supplemental Plans — ✅ Hecho
+- Insurance: Effective date, Company, Insurance plan, Monthly premium amount → ya existían en `Policy` (§1.5/§1.11), reusados tal cual, sin duplicar.
+- Cobertura anterior: `HasExistingDentalCoverage`, `EligibleForMedicare`, `IsReplacingDentalCoverage` (3 checkboxes, bool?).
+- Datos bancarios: `InsuredPaysThePremium` (checkbox), `BankAccountType` (dropdown Cheque/Ahorros), `RoutingNumber`, `AccountNumber`, `InsuredIsAccountHolder` (checkbox), `AuthorizedAutomaticPayment` (checkbox), `AutoPaymentDay` (dropdown 1-28, evita 29-31 por meses cortos).
+- HIPAA y Autorización de Mercadeo: `AuthorizeMarketingInfo` (checkbox), `RepresentativeName`, `RepresentativeRelationship`.
 
-### 12.10 Campos específicos de Medicare (formulario completo, el más simple de los 4 tipos)
+**⚠️ Decisión explícita de riesgo — `RoutingNumber`/`AccountNumber` SIN cifrado en reposo.** Se evaluó y se decidió NO implementar cifrado a nivel de base de datos para estos dos campos (quedan como `nvarchar` planos en `Policies`). Riesgo aceptado explícitamente por el responsable, documentado acá para que quede como decisión registrada, no como un descuido. Mitigador aplicado (no reemplaza cifrado real): en el frontend, ambos campos usan `MaskedInput` — arrancan ocultos (`type="password"`) con un botón de mostrar/ocultar, igual que el resto de los campos sensibles del sistema (ver retrofit de SSN más abajo). Reconsiderar cifrado en reposo si este tipo de póliza crece en volumen o si se audita cumplimiento (PCI/HIPAA).
+
+**Retrofit de masking a SSN (no estaba documentado antes, se agrega ahora):** al no existir ningún patrón previo de ocultar/mostrar en el sistema (ni siquiera en los campos de password), se diseñaron dos componentes nuevos — `MaskedInput.jsx` (input editable) y `MaskedText.jsx` (solo lectura), con un helper compartido `maskValue()` (últimos 4 caracteres visibles). Se aplicaron a `RoutingNumber`/`AccountNumber` (nuevo) y se retrofiteó a `SocialSecurityNumber` en: `CustomerFormFields.jsx` (input), tarjeta de `Customers.jsx`, detalle de titular y listado de dependientes en `Policies.jsx`, y el input de SSN del formulario de alta de beneficiario. **Excepción, limitación de HTML**: el SSN que aparece dentro del `<option>` del dropdown nativo de titular no admite componentes interactivos — se resolvió con enmascarado estático (últimos 4 dígitos visibles siempre, sin botón), usando el mismo helper `maskValue()`.
+
+### 12.10 Campos específicos de Medicare — ✅ Hecho
 No capturados en el CSV export:
-- Monthly premium amount (obligatorio, $)
-- Do you have Medicaid? (Sí/No, obligatorio)
-- Medicaid level (texto)
-- Referred to medical corporation? (Sí/No, obligatorio)
-- Medical corporation (dropdown, opciones no relevadas todavía)
+- Monthly premium amount (reusa el campo ya existente en `Policy`, §1.11 — no se duplicó)
+- Do you have Medicaid? (`HasMedicaid`, bool?, dropdown Sí/No)
+- Medicaid level (`MedicaidLevel`, texto)
+- Referred to medical corporation? (`ReferredToMedicalCorporation`, bool?, dropdown Sí/No)
+- Medical corporation (`MedicalCorporation`, texto libre — no existe catálogo de "medical corporations" en el sistema, a diferencia de `InsuranceCompany`; si se releva la lista real más adelante se puede migrar a dropdown/tabla propia igual que se hizo con aseguradoras)
+
+Todos opcionales a nivel de modelo (`Type` también cubre Obama Care/Auto/Otro, que no los usan). En el formulario de `Policies.jsx` se muestran solo cuando `Type = Medicare` (primer caso de un campo condicionado por `Type`; mismo criterio a futuro para Life/Supplemental si se implementan). Migración `AddMedicarePolicyFieldsAndRenameSaludToMedicare` (misma migración que el rename de §1.1).
 
 Sin sección de dependientes/beneficiarios — consistente con el CSV.
 
@@ -494,7 +516,7 @@ Todo lo de §12 sigue en estado "documentado, no implementar" hasta que el volum
 24. ~~Middleware global de excepciones no controladas~~ ✅ Hecho (§5.4)
 25. ~~AdminUserSeeder generalizado (admin real por ambiente vía env vars)~~ ✅ Hecho (§10.5)
 26. Dashboard — bloqueado hasta tener la data migrada (§9)
-27. ~~Relevamiento de campos específicos por Tipo de Póliza (Life/Medicare/Supplemental)~~ ✅ Documentado (§12) — no implementar hasta que el volumen lo justifique
+27. ~~Relevamiento de campos específicos por Tipo de Póliza (Life/Medicare/Supplemental)~~ ✅ Documentado (§12) e ✅ implementado en su totalidad: Medicare (§12.10), Life Insurance (§12.3/§12.6) y Supplemental Plans (§12.9) — decisión del responsable de adelantarlos pese al bajo volumen relevado
 28. ~~Bug de arranque en frío con Docker real (Error 4060) — healthcheck de SQL Server + orden de migración/seed~~ ✅ Hecho (§8.1.1)
 29. ~~Hallazgos de auditoría del feature de Agentes (validación cruzada server-side, búsqueda en `/users`, rate limiting)~~ ✅ Resuelto 3/3, ver §11.1
 30. ~~Address1/City/ZipCode/State/County obligatorios en Agente + Country fijo~~ ✅ Hecho (§11.2), verificado en navegador

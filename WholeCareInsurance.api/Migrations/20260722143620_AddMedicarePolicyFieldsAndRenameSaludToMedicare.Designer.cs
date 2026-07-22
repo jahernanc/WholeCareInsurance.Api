@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using WholeCareInsurance.api.Data;
 
@@ -11,9 +12,11 @@ using WholeCareInsurance.api.Data;
 namespace WholeCareInsurance.api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260722143620_AddMedicarePolicyFieldsAndRenameSaludToMedicare")]
+    partial class AddMedicarePolicyFieldsAndRenameSaludToMedicare
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -39,9 +42,6 @@ namespace WholeCareInsurance.api.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)");
 
-                    b.Property<int?>("Age")
-                        .HasColumnType("int");
-
                     b.Property<int?>("AgentId")
                         .HasColumnType("int");
 
@@ -50,9 +50,6 @@ namespace WholeCareInsurance.api.Migrations
 
                     b.Property<int?>("AssistantAgentId")
                         .HasColumnType("int");
-
-                    b.Property<bool?>("BackDateToSaveAge")
-                        .HasColumnType("bit");
 
                     b.Property<string>("City")
                         .HasMaxLength(100)
@@ -66,23 +63,12 @@ namespace WholeCareInsurance.api.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
-                    b.Property<string>("CountryOfBirth")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
                     b.Property<string>("County")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.Property<bool?>("CurrentlyEmployed")
-                        .HasColumnType("bit");
-
                     b.Property<DateTime>("DateOfBirth")
                         .HasColumnType("datetime2");
-
-                    b.Property<string>("DriverLicenseNumber")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
 
                     b.Property<string>("Email")
                         .IsRequired()
@@ -106,19 +92,6 @@ namespace WholeCareInsurance.api.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<bool?>("HasDriverLicense")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Height")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<decimal?>("HouseholdIncome")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal?>("HouseholdNetWorth")
-                        .HasColumnType("decimal(18,2)");
-
                     b.Property<string>("LastName")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -136,12 +109,6 @@ namespace WholeCareInsurance.api.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
-
-                    b.Property<bool?>("MilitaryOrganizationMember")
-                        .HasColumnType("bit");
-
-                    b.Property<decimal?>("NetWorth")
-                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("Occupation")
                         .HasMaxLength(100)
@@ -165,9 +132,6 @@ namespace WholeCareInsurance.api.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
-                    b.Property<bool?>("SpentMoreThan4MonthsAbroad")
-                        .HasColumnType("bit");
-
                     b.Property<string>("State")
                         .HasMaxLength(2)
                         .HasColumnType("nvarchar(2)");
@@ -175,10 +139,6 @@ namespace WholeCareInsurance.api.Migrations
                     b.Property<string>("Tags")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("Weight")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
 
                     b.Property<string>("WorkPermit")
                         .HasMaxLength(50)
@@ -237,58 +197,14 @@ namespace WholeCareInsurance.api.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("AccountNumber")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<string>("AdditionalInformation")
-                        .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
-
-                    b.Property<bool?>("AdditionalOrAlternatePolicy")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("AdditionalOrAlternatePolicyDetail")
-                        .HasMaxLength(300)
-                        .HasColumnType("nvarchar(300)");
-
-                    b.Property<bool?>("AuthorizeMarketingInfo")
-                        .HasColumnType("bit");
-
-                    b.Property<bool?>("AuthorizedAutomaticPayment")
-                        .HasColumnType("bit");
-
-                    b.Property<int?>("AutoPaymentDay")
-                        .HasColumnType("int");
-
-                    b.Property<string>("BankAccountType")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<string>("BillingType")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<bool?>("ConsentSigned")
-                        .HasColumnType("bit");
-
                     b.Property<int>("CustomerId")
                         .HasColumnType("int");
 
                     b.Property<DateTime?>("EffectiveDate")
                         .HasColumnType("datetime2");
 
-                    b.Property<bool?>("EligibleForMedicare")
-                        .HasColumnType("bit");
-
                     b.Property<DateTime>("EndDate")
                         .HasColumnType("datetime2");
-
-                    b.Property<bool?>("HasExistingDentalCoverage")
-                        .HasColumnType("bit");
-
-                    b.Property<bool?>("HasExistingLifeInsurance")
-                        .HasColumnType("bit");
 
                     b.Property<bool?>("HasMedicaid")
                         .HasColumnType("bit");
@@ -299,18 +215,6 @@ namespace WholeCareInsurance.api.Migrations
                     b.Property<string>("InsurancePlan")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
-
-                    b.Property<bool?>("InsuredIsAccountHolder")
-                        .HasColumnType("bit");
-
-                    b.Property<bool?>("InsuredPaysThePremium")
-                        .HasColumnType("bit");
-
-                    b.Property<bool?>("IsReplacingDentalCoverage")
-                        .HasColumnType("bit");
-
-                    b.Property<bool?>("IsReplacingExistingPolicy")
-                        .HasColumnType("bit");
 
                     b.Property<string>("MedicaidLevel")
                         .HasMaxLength(100)
@@ -323,29 +227,15 @@ namespace WholeCareInsurance.api.Migrations
                     b.Property<decimal?>("MonthlyPremiumAmount")
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<bool?>("NeedsMedicalRequirements")
-                        .HasColumnType("bit");
-
                     b.Property<int?>("NumberOfApplicants")
                         .HasColumnType("int");
 
                     b.Property<int>("Period")
                         .HasColumnType("int");
 
-                    b.Property<string>("PhysicianAddress")
-                        .HasMaxLength(300)
-                        .HasColumnType("nvarchar(300)");
-
-                    b.Property<string>("PhysicianName")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
                     b.Property<string>("PlanType")
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
-
-                    b.Property<decimal?>("PlannedPeriodicModalPremium")
-                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("PolicyNumber")
                         .IsRequired()
@@ -355,31 +245,8 @@ namespace WholeCareInsurance.api.Migrations
                     b.Property<decimal>("Premium")
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<string>("PremiumFrequency")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<bool?>("ProvideComparativeInfoForm")
-                        .HasColumnType("bit");
-
                     b.Property<bool?>("ReferredToMedicalCorporation")
                         .HasColumnType("bit");
-
-                    b.Property<string>("RepresentativeName")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("RepresentativeRelationship")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("RoutingNumber")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<string>("SourceOfFunds")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
 
                     b.Property<DateTime>("StartDate")
                         .HasColumnType("datetime2");
@@ -397,13 +264,6 @@ namespace WholeCareInsurance.api.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.Property<string>("UnderwritingRequirements")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<bool?>("UsingFundsFromInforcePolicy")
-                        .HasColumnType("bit");
-
                     b.HasKey("Id");
 
                     b.HasIndex("CustomerId");
@@ -414,58 +274,6 @@ namespace WholeCareInsurance.api.Migrations
                         .IsUnique();
 
                     b.ToTable("Policies");
-                });
-
-            modelBuilder.Entity("WholeCareInsurance.api.Models.PolicyBeneficiary", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("DateOfBirth")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Email")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("FirstName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("Gender")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<string>("LastName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("Phone")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<int>("PolicyId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("SocialSecurityNumber")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<string>("TypeOfRelationship")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PolicyId");
-
-                    b.ToTable("PolicyBeneficiaries");
                 });
 
             modelBuilder.Entity("WholeCareInsurance.api.Models.PolicyDependent", b =>
@@ -712,17 +520,6 @@ namespace WholeCareInsurance.api.Migrations
                     b.Navigation("Customer");
 
                     b.Navigation("InsuranceCompany");
-                });
-
-            modelBuilder.Entity("WholeCareInsurance.api.Models.PolicyBeneficiary", b =>
-                {
-                    b.HasOne("WholeCareInsurance.api.Models.Policy", "Policy")
-                        .WithMany()
-                        .HasForeignKey("PolicyId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Policy");
                 });
 
             modelBuilder.Entity("WholeCareInsurance.api.Models.PolicyDependent", b =>

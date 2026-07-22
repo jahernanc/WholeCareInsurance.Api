@@ -49,4 +49,19 @@ export const emptyCustomerForm = {
     annualIncome: "",
     tags: "",
     contactLanguage: "",
+    // Específicos de Life Insurance (§12.3) — solo se muestran en CustomerFormFields
+    // cuando showLifeInsuranceFields=true (ver Policies.jsx, Type = Life Insurance).
+    age: "",
+    countryOfBirth: "",
+    height: "",
+    weight: "",
+    backDateToSaveAge: false,
+    spentMoreThan4MonthsAbroad: false,
+    militaryOrganizationMember: false,
+    currentlyEmployed: "",
+    hasDriverLicense: false,
+    driverLicenseNumber: "",
+    netWorth: "",
+    householdIncome: "",
+    householdNetWorth: "",
 };

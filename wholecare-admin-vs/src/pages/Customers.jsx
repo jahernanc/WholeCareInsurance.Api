@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { apiFetch, isAdmin } from "../api";
 import { translateEnum } from "../i18n/translateEnum";
 import CustomerFormFields from "../components/CustomerFormFields";
+import MaskedText from "../components/MaskedText";
 import { emptyCustomerForm } from "../data/customerFormOptions";
 
 const API = "/api/customers";
@@ -197,7 +198,7 @@ function Customers() {
                                 {c.firstName} {c.lastName}
                             </div>
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 20px", fontSize: 14, color: "#444" }}>
-                                <span>{t("card.ssn")}: {c.socialSecurityNumber}</span>
+                                <span>{t("card.ssn")}: <MaskedText value={c.socialSecurityNumber} /></span>
                                 <span>{t("card.birth")}: {c.dateOfBirth?.substring(0, 10)}</span>
                                 <span>{t("card.email")}: {c.email}</span>
                                 <span>{t("card.phone")}: {c.phone}</span>

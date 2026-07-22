@@ -150,6 +150,19 @@ namespace WholeCareInsurance.api.Controllers
             existing.AnnualIncome = dto.AnnualIncome;
             existing.Tags = dto.Tags;
             existing.ContactLanguage = dto.ContactLanguage;
+            existing.Age = dto.Age;
+            existing.CountryOfBirth = dto.CountryOfBirth;
+            existing.Height = dto.Height;
+            existing.Weight = dto.Weight;
+            existing.BackDateToSaveAge = dto.BackDateToSaveAge;
+            existing.SpentMoreThan4MonthsAbroad = dto.SpentMoreThan4MonthsAbroad;
+            existing.MilitaryOrganizationMember = dto.MilitaryOrganizationMember;
+            existing.CurrentlyEmployed = dto.CurrentlyEmployed;
+            existing.HasDriverLicense = dto.HasDriverLicense;
+            existing.DriverLicenseNumber = dto.DriverLicenseNumber;
+            existing.NetWorth = dto.NetWorth;
+            existing.HouseholdIncome = dto.HouseholdIncome;
+            existing.HouseholdNetWorth = dto.HouseholdNetWorth;
 
             var updated = await _customers.Update(existing);
             var withAgents = await _customers.GetById(updated.Id);
@@ -220,6 +233,19 @@ namespace WholeCareInsurance.api.Controllers
             AnnualIncome = c.AnnualIncome,
             Tags = c.Tags,
             ContactLanguage = c.ContactLanguage,
+            Age = c.Age,
+            CountryOfBirth = c.CountryOfBirth,
+            Height = c.Height,
+            Weight = c.Weight,
+            BackDateToSaveAge = c.BackDateToSaveAge,
+            SpentMoreThan4MonthsAbroad = c.SpentMoreThan4MonthsAbroad,
+            MilitaryOrganizationMember = c.MilitaryOrganizationMember,
+            CurrentlyEmployed = c.CurrentlyEmployed,
+            HasDriverLicense = c.HasDriverLicense,
+            DriverLicenseNumber = c.DriverLicenseNumber,
+            NetWorth = c.NetWorth,
+            HouseholdIncome = c.HouseholdIncome,
+            HouseholdNetWorth = c.HouseholdNetWorth,
             AgentId = c.AgentId,
             AgentName = c.Agent?.Nombre,
             AssistantAgentId = c.AssistantAgentId,
@@ -255,7 +281,20 @@ namespace WholeCareInsurance.api.Controllers
             CompanyPhone = dto.CompanyPhone,
             AnnualIncome = dto.AnnualIncome,
             Tags = dto.Tags,
-            ContactLanguage = dto.ContactLanguage
+            ContactLanguage = dto.ContactLanguage,
+            Age = dto.Age,
+            CountryOfBirth = dto.CountryOfBirth,
+            Height = dto.Height,
+            Weight = dto.Weight,
+            BackDateToSaveAge = dto.BackDateToSaveAge,
+            SpentMoreThan4MonthsAbroad = dto.SpentMoreThan4MonthsAbroad,
+            MilitaryOrganizationMember = dto.MilitaryOrganizationMember,
+            CurrentlyEmployed = dto.CurrentlyEmployed,
+            HasDriverLicense = dto.HasDriverLicense,
+            DriverLicenseNumber = dto.DriverLicenseNumber,
+            NetWorth = dto.NetWorth,
+            HouseholdIncome = dto.HouseholdIncome,
+            HouseholdNetWorth = dto.HouseholdNetWorth
         };
     }
 }

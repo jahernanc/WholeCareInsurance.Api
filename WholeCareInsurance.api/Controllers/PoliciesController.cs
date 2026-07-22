@@ -77,7 +77,40 @@ namespace WholeCareInsurance.api.Controllers
                 InsurancePlan = dto.InsurancePlan,
                 EffectiveDate = dto.EffectiveDate,
                 TaxCreditSubsidy = dto.TaxCreditSubsidy,
-                MonthlyPremiumAmount = dto.MonthlyPremiumAmount
+                MonthlyPremiumAmount = dto.MonthlyPremiumAmount,
+                HasMedicaid = dto.HasMedicaid,
+                MedicaidLevel = dto.MedicaidLevel,
+                ReferredToMedicalCorporation = dto.ReferredToMedicalCorporation,
+                MedicalCorporation = dto.MedicalCorporation,
+                AdditionalOrAlternatePolicy = dto.AdditionalOrAlternatePolicy,
+                AdditionalOrAlternatePolicyDetail = dto.AdditionalOrAlternatePolicyDetail,
+                UnderwritingRequirements = dto.UnderwritingRequirements,
+                NeedsMedicalRequirements = dto.NeedsMedicalRequirements,
+                BillingType = dto.BillingType,
+                PremiumFrequency = dto.PremiumFrequency,
+                PlannedPeriodicModalPremium = dto.PlannedPeriodicModalPremium,
+                SourceOfFunds = dto.SourceOfFunds,
+                HasExistingLifeInsurance = dto.HasExistingLifeInsurance,
+                IsReplacingExistingPolicy = dto.IsReplacingExistingPolicy,
+                UsingFundsFromInforcePolicy = dto.UsingFundsFromInforcePolicy,
+                ProvideComparativeInfoForm = dto.ProvideComparativeInfoForm,
+                PhysicianName = dto.PhysicianName,
+                PhysicianAddress = dto.PhysicianAddress,
+                AdditionalInformation = dto.AdditionalInformation,
+                ConsentSigned = dto.ConsentSigned,
+                HasExistingDentalCoverage = dto.HasExistingDentalCoverage,
+                EligibleForMedicare = dto.EligibleForMedicare,
+                IsReplacingDentalCoverage = dto.IsReplacingDentalCoverage,
+                InsuredPaysThePremium = dto.InsuredPaysThePremium,
+                BankAccountType = dto.BankAccountType,
+                RoutingNumber = dto.RoutingNumber,
+                AccountNumber = dto.AccountNumber,
+                InsuredIsAccountHolder = dto.InsuredIsAccountHolder,
+                AuthorizedAutomaticPayment = dto.AuthorizedAutomaticPayment,
+                AutoPaymentDay = dto.AutoPaymentDay,
+                AuthorizeMarketingInfo = dto.AuthorizeMarketingInfo,
+                RepresentativeName = dto.RepresentativeName,
+                RepresentativeRelationship = dto.RepresentativeRelationship
             };
 
             var created = await _policies.Create(policy);
@@ -121,6 +154,39 @@ namespace WholeCareInsurance.api.Controllers
             existing.EffectiveDate = dto.EffectiveDate;
             existing.TaxCreditSubsidy = dto.TaxCreditSubsidy;
             existing.MonthlyPremiumAmount = dto.MonthlyPremiumAmount;
+            existing.HasMedicaid = dto.HasMedicaid;
+            existing.MedicaidLevel = dto.MedicaidLevel;
+            existing.ReferredToMedicalCorporation = dto.ReferredToMedicalCorporation;
+            existing.MedicalCorporation = dto.MedicalCorporation;
+            existing.AdditionalOrAlternatePolicy = dto.AdditionalOrAlternatePolicy;
+            existing.AdditionalOrAlternatePolicyDetail = dto.AdditionalOrAlternatePolicyDetail;
+            existing.UnderwritingRequirements = dto.UnderwritingRequirements;
+            existing.NeedsMedicalRequirements = dto.NeedsMedicalRequirements;
+            existing.BillingType = dto.BillingType;
+            existing.PremiumFrequency = dto.PremiumFrequency;
+            existing.PlannedPeriodicModalPremium = dto.PlannedPeriodicModalPremium;
+            existing.SourceOfFunds = dto.SourceOfFunds;
+            existing.HasExistingLifeInsurance = dto.HasExistingLifeInsurance;
+            existing.IsReplacingExistingPolicy = dto.IsReplacingExistingPolicy;
+            existing.UsingFundsFromInforcePolicy = dto.UsingFundsFromInforcePolicy;
+            existing.ProvideComparativeInfoForm = dto.ProvideComparativeInfoForm;
+            existing.PhysicianName = dto.PhysicianName;
+            existing.PhysicianAddress = dto.PhysicianAddress;
+            existing.AdditionalInformation = dto.AdditionalInformation;
+            existing.ConsentSigned = dto.ConsentSigned;
+            existing.HasExistingDentalCoverage = dto.HasExistingDentalCoverage;
+            existing.EligibleForMedicare = dto.EligibleForMedicare;
+            existing.IsReplacingDentalCoverage = dto.IsReplacingDentalCoverage;
+            existing.InsuredPaysThePremium = dto.InsuredPaysThePremium;
+            existing.BankAccountType = dto.BankAccountType;
+            existing.RoutingNumber = dto.RoutingNumber;
+            existing.AccountNumber = dto.AccountNumber;
+            existing.InsuredIsAccountHolder = dto.InsuredIsAccountHolder;
+            existing.AuthorizedAutomaticPayment = dto.AuthorizedAutomaticPayment;
+            existing.AutoPaymentDay = dto.AutoPaymentDay;
+            existing.AuthorizeMarketingInfo = dto.AuthorizeMarketingInfo;
+            existing.RepresentativeName = dto.RepresentativeName;
+            existing.RepresentativeRelationship = dto.RepresentativeRelationship;
 
             var updated = await _policies.Update(existing);
             updated = await _policies.GetById(updated.Id) ?? updated;
@@ -295,6 +361,48 @@ namespace WholeCareInsurance.api.Controllers
             return NoContent();
         }
 
+        [HttpGet("{id:int}/beneficiaries")]
+        public async Task<IActionResult> GetBeneficiaries(int id)
+        {
+            var policy = await _policies.GetById(id);
+            if (policy == null) return NotFound();
+
+            var beneficiaries = (await _policies.GetBeneficiaries(id)).Select(ToBeneficiaryResponse);
+            return Ok(beneficiaries);
+        }
+
+        [HttpPost("{id:int}/beneficiaries")]
+        public async Task<IActionResult> AddBeneficiary(int id, [FromBody] BeneficiaryCreateDto dto)
+        {
+            var policy = await _policies.GetById(id);
+            if (policy == null) return NotFound();
+
+            var created = await _policies.AddBeneficiary(new PolicyBeneficiary
+            {
+                PolicyId = id,
+                TypeOfRelationship = dto.TypeOfRelationship,
+                FirstName = dto.FirstName,
+                LastName = dto.LastName,
+                DateOfBirth = dto.DateOfBirth,
+                Gender = dto.Gender,
+                Phone = dto.Phone,
+                Email = dto.Email,
+                SocialSecurityNumber = dto.SocialSecurityNumber
+            });
+
+            return CreatedAtAction(nameof(GetBeneficiaries), new { id }, ToBeneficiaryResponse(created));
+        }
+
+        [HttpDelete("{id:int}/beneficiaries/{beneficiaryId:int}")]
+        public async Task<IActionResult> RemoveBeneficiary(int id, int beneficiaryId)
+        {
+            var beneficiary = await _policies.GetBeneficiary(id, beneficiaryId);
+            if (beneficiary == null) return NotFound();
+
+            await _policies.RemoveBeneficiary(beneficiary);
+            return NoContent();
+        }
+
         private static PolicyResponseDto ToResponse(Policy p) => new()
         {
             Id = p.Id,
@@ -313,7 +421,40 @@ namespace WholeCareInsurance.api.Controllers
             InsurancePlan = p.InsurancePlan,
             EffectiveDate = p.EffectiveDate,
             TaxCreditSubsidy = p.TaxCreditSubsidy,
-            MonthlyPremiumAmount = p.MonthlyPremiumAmount
+            MonthlyPremiumAmount = p.MonthlyPremiumAmount,
+            HasMedicaid = p.HasMedicaid,
+            MedicaidLevel = p.MedicaidLevel,
+            ReferredToMedicalCorporation = p.ReferredToMedicalCorporation,
+            MedicalCorporation = p.MedicalCorporation,
+            AdditionalOrAlternatePolicy = p.AdditionalOrAlternatePolicy,
+            AdditionalOrAlternatePolicyDetail = p.AdditionalOrAlternatePolicyDetail,
+            UnderwritingRequirements = p.UnderwritingRequirements,
+            NeedsMedicalRequirements = p.NeedsMedicalRequirements,
+            BillingType = p.BillingType,
+            PremiumFrequency = p.PremiumFrequency,
+            PlannedPeriodicModalPremium = p.PlannedPeriodicModalPremium,
+            SourceOfFunds = p.SourceOfFunds,
+            HasExistingLifeInsurance = p.HasExistingLifeInsurance,
+            IsReplacingExistingPolicy = p.IsReplacingExistingPolicy,
+            UsingFundsFromInforcePolicy = p.UsingFundsFromInforcePolicy,
+            ProvideComparativeInfoForm = p.ProvideComparativeInfoForm,
+            PhysicianName = p.PhysicianName,
+            PhysicianAddress = p.PhysicianAddress,
+            AdditionalInformation = p.AdditionalInformation,
+            ConsentSigned = p.ConsentSigned,
+            HasExistingDentalCoverage = p.HasExistingDentalCoverage,
+            EligibleForMedicare = p.EligibleForMedicare,
+            IsReplacingDentalCoverage = p.IsReplacingDentalCoverage,
+            InsuredPaysThePremium = p.InsuredPaysThePremium,
+            BankAccountType = p.BankAccountType,
+            RoutingNumber = p.RoutingNumber,
+            AccountNumber = p.AccountNumber,
+            InsuredIsAccountHolder = p.InsuredIsAccountHolder,
+            AuthorizedAutomaticPayment = p.AuthorizedAutomaticPayment,
+            AutoPaymentDay = p.AutoPaymentDay,
+            AuthorizeMarketingInfo = p.AuthorizeMarketingInfo,
+            RepresentativeName = p.RepresentativeName,
+            RepresentativeRelationship = p.RepresentativeRelationship
         };
 
         private static PolicyDocumentResponseDto ToDocumentResponse(PolicyDocument d) => new()
@@ -323,6 +464,19 @@ namespace WholeCareInsurance.api.Controllers
             ContentType = d.ContentType,
             SizeBytes = d.SizeBytes,
             UploadedAt = d.UploadedAt
+        };
+
+        private static BeneficiaryResponseDto ToBeneficiaryResponse(PolicyBeneficiary b) => new()
+        {
+            Id = b.Id,
+            TypeOfRelationship = b.TypeOfRelationship,
+            FirstName = b.FirstName,
+            LastName = b.LastName,
+            DateOfBirth = b.DateOfBirth,
+            Gender = b.Gender,
+            Phone = b.Phone,
+            Email = b.Email,
+            SocialSecurityNumber = b.SocialSecurityNumber
         };
     }
 }

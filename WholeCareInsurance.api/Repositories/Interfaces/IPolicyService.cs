@@ -21,5 +21,10 @@ namespace WholeCareInsurance.api.Services
         Task<PolicyDocument?> GetDocument(int policyId, int documentId);
         Task<PolicyDocument> AddDocument(PolicyDocument document);
         Task RemoveDocument(PolicyDocument document);
+
+        Task<List<PolicyBeneficiary>> GetBeneficiaries(int policyId);
+        Task<PolicyBeneficiary?> GetBeneficiary(int policyId, int beneficiaryId);
+        Task<PolicyBeneficiary> AddBeneficiary(PolicyBeneficiary beneficiary);
+        Task RemoveBeneficiary(PolicyBeneficiary beneficiary);
     }
 }

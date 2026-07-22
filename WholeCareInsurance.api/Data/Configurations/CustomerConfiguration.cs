@@ -43,6 +43,14 @@ namespace WholeCareInsurance.api.Data.Configurations
             entity.Property(c => c.Tags).HasMaxLength(500);
             entity.Property(c => c.ContactLanguage).HasMaxLength(20);
 
+            entity.Property(c => c.CountryOfBirth).HasMaxLength(100);
+            entity.Property(c => c.Height).HasMaxLength(20);
+            entity.Property(c => c.Weight).HasMaxLength(20);
+            entity.Property(c => c.DriverLicenseNumber).HasMaxLength(50);
+            entity.Property(c => c.NetWorth).HasColumnType("decimal(18,2)");
+            entity.Property(c => c.HouseholdIncome).HasColumnType("decimal(18,2)");
+            entity.Property(c => c.HouseholdNetWorth).HasColumnType("decimal(18,2)");
+
             entity.HasMany(c => c.Policies)
                   .WithOne(p => p.Customer)
                   .HasForeignKey(p => p.CustomerId)

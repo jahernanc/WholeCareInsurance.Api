@@ -9,6 +9,8 @@ import {
     GENDERS,
     CONTACT_LANGUAGES,
 } from "../data/customerFormOptions";
+import LifeInsuranceFields from "./LifeInsuranceFields";
+import MaskedInput from "./MaskedInput";
 
 const inputStyle = { width: "100%", padding: "7px 10px", marginTop: 4, boxSizing: "border-box", borderRadius: 5, border: "1px solid #ccc" };
 const labelStyle = { fontWeight: 500, fontSize: 13 };
@@ -16,7 +18,7 @@ const labelStyle = { fontWeight: 500, fontSize: 13 };
 // Campos del formulario de Customer, extraídos como componente compartido para que
 // Customers.jsx y la sección "crear dependiente nuevo" de Policies.jsx (§2) tengan
 // paridad de campos garantizada por estructura, no por copiar/pegar el mismo JSX dos veces.
-function CustomerFormFields({ form, onFieldChange, agents = [], userIsAdmin = false }) {
+function CustomerFormFields({ form, onFieldChange, agents = [], userIsAdmin = false, showLifeInsuranceFields = false }) {
     const { t } = useTranslation(["customers", "common"]);
     const encargados = agents.filter((a) => a.isEncargado);
     const countiesForState = form.state ? (US_COUNTIES[form.state] ?? []) : [];
@@ -26,7 +28,7 @@ function CustomerFormFields({ form, onFieldChange, agents = [], userIsAdmin = fa
 
             <div>
                 <label style={labelStyle}>{t("form.fields.ssn")}</label>
-                <input name="socialSecurityNumber" value={form.socialSecurityNumber} onChange={onFieldChange} required style={inputStyle} />
+                <MaskedInput name="socialSecurityNumber" value={form.socialSecurityNumber} onChange={onFieldChange} required style={inputStyle} />
             </div>
 
             <div>
@@ -183,6 +185,16 @@ function CustomerFormFields({ form, onFieldChange, agents = [], userIsAdmin = fa
                 <label style={labelStyle}>{t("form.fields.tags")}</label>
                 <input name="tags" value={form.tags} onChange={onFieldChange} style={inputStyle} />
             </div>
+
+            {showLifeInsuranceFields && (
+                <>
+                    <div style={{ gridColumn: "1 / -1", borderTop: "1px solid #ddd", marginTop: 8, paddingTop: 8 }}>
+                        <label style={{ ...labelStyle, fontWeight: 700 }}>{t("form.lifeInsuranceSection")}</label>
+                    </div>
+
+                    <LifeInsuranceFields form={form} onFieldChange={onFieldChange} />
+                </>
+            )}
 
             {userIsAdmin && (
                 <>
