@@ -10,7 +10,7 @@ import MaskedText from "../components/MaskedText";
 import { maskValue } from "../utils/maskValue";
 import { emptyCustomerForm } from "../data/customerFormOptions";
 
-const POLICY_TYPES = ["Obama Care", "Medicare", "Life Insurance", "Supplemental Plans", "Auto", "Otro"];
+const POLICY_TYPES = ["Health Insurance (ACA)", "Medicare", "Life Insurance", "Supplemental Plans", "Auto", "Otro"];
 const BANK_ACCOUNT_TYPES = ["Cheque", "Ahorros"];
 const AUTO_PAYMENT_DAYS = Array.from({ length: 28 }, (_, i) => i + 1);
 const POLICY_STATUSES = ["Draft", "Pendiente", "Cancelado", "Por procesar", "En proceso", "Actualizado", "Procesado", "Cambio de agente"];

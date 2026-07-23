@@ -7,11 +7,11 @@
 ## 1. Policies — campos y funcionalidades
 
 ### 1.1 Campo Tipo (dropdown) — ✅ Hecho
-`Type` en `Policy` restringido a `Obama Care`, `Medicare`, `Life Insurance`, `Supplemental Plans`, `Auto`, `Otro` vía `[AllowedValues]` en `PolicyCreateDto`. `<select>` en el formulario, igual patrón que el resto de los enums.
+`Type` en `Policy` restringido a `Health Insurance (ACA)`, `Medicare`, `Life Insurance`, `Supplemental Plans`, `Auto`, `Otro` vía `[AllowedValues]` en `PolicyCreateDto`. `<select>` en el formulario, igual patrón que el resto de los enums.
 
 **Actualización (§12.10)**: el valor `Salud` se renombró a `Medicare` (era en realidad ese tipo) al implementar los campos específicos de Medicare — migración `AddMedicarePolicyFieldsAndRenameSaludToMedicare` incluye un `UPDATE` de datos para las pólizas ya guardadas con `Type = 'Salud'`.
 
-**Actualización**: `Obama Care` se muestra en pantalla como "Health Insurance (ObamaCare)" — cambio solo de traducción/label en `enums.json` (es/en), el valor real guardado en la columna `Type` sigue siendo `"Obama Care"` (sin migración).
+**Actualización**: `Obama Care` se renombró a `Health Insurance (ACA)` — a pedido del responsable, ahora el valor guardado en `Type` y el texto mostrado en pantalla son idénticos (se descartó la separación previa entre valor interno y label traducido). Migración `UpdateObamaCareToHealthInsuranceACA` incluye el `UPDATE` de datos para las pólizas ya guardadas con `Type = 'Obama Care'`. Se eliminó la entrada `"Obama Care"` de `enums.json` (es/en): `translateEnum` cae al valor crudo cuando no encuentra la key, así que no hace falta un mapeo idéntico.
 
 ### 1.2 Dependientes (vínculo con Customers existentes) — ✅ Hecho
 Los dependientes son **Customers** vinculados a un Customer principal dentro de una póliza (tabla intermedia `PolicyDependents`, `PolicyId`+`CustomerId`).

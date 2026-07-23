@@ -7,7 +7,7 @@ namespace WholeCareInsurance.api.DTOs.Policies
         public string PolicyNumber { get; set; } = default!;
 
         [Required]
-        [AllowedValues("Obama Care", "Medicare", "Life Insurance", "Supplemental Plans", "Auto", "Otro",
+        [AllowedValues("Health Insurance (ACA)", "Medicare", "Life Insurance", "Supplemental Plans", "Auto", "Otro",
             ErrorMessage = "Tipo de póliza inválido.")]
         public string Type { get; set; } = default!;
 
