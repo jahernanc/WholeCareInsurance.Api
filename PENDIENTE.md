@@ -508,7 +508,53 @@ Verificado con curl: alta genera 1 entrada, edición con cambio de `Status` gene
 
 ---
 
-## 14. Orden sugerido de trabajo
+## 14. Paginado en Policies — 🔲 Pendiente, plan ya diseñado
+
+Con el volumen real post-migración (1210 pólizas), la vista de Policies necesita paginado — hoy carga todo sin límite, generando scroll interminable.
+
+Plan ya definido, listo para implementar cuando se priorice:
+
+- Ordenar por Id DESC (proxy confiable de "orden de alta" — no existe CreatedAt/RegistrationDate en el modelo Policy, y no hace falta agregarlo solo para esto).
+- PolicyService.Search acepta page/pageSize (default pageSize=20, clampeado server-side a un máximo de 100), devuelve (Items, TotalCount).
+- PoliciesController.GetAll acepta ?page=, pageSize fijo en constante DefaultPageSize=20 en el controller (no expuesto al usuario todavía). Respuesta cambia de array plano a PagedResponseDto<PolicyResponseDto> (Items, TotalCount, Page, PageSize, TotalPages) — CAMBIO INCOMPATIBLE de forma de respuesta, requiere actualizar Policies.jsx en el mismo cambio, no es aditivo.
+- IPolicyService.GetAll() (usado por CustomersController.GetPoliciesForCustomer) NO se toca — pocas pólizas por cliente, no necesita paginado.
+- Frontend: estado page/totalCount, PAGE_SIZE=20 constante, reset a página 1 en cada búsqueda/filtro nuevo (handleSearch, handleClearFilters, cambio de period), controles de paginado (Anterior/Siguiente, "Página P de N", "Mostrando X-Y de Z"), i18n nuevo (pagination.previous/next/pageInfo/showing).
+- Verificación pendiente al implementar: orden por defecto muestra las pólizas migradas más recientes primero; cambiar de página mantiene filtros activos; caso de página parcial al final (ej. Type=Life Insurance con solo 2 resultados).
+
+Antes de implementar, confirmar con un grep que GET /api/policies no tiene otro consumidor además de Policies.jsx.
+
+---
+
+## 15. Agentes reales del sistema anterior — Agency + importación — 🔲 Pendiente
+
+### 15.1 Campo Agency en Agente — 🔲 Pendiente
+
+Se encontró un export real de Agentes del sistema anterior (`migration-source/report-agent-agent-index-kUiLdU.xlsx`, 41 filas) con 2 agencias reales recurrentes: "Whole Care Insurance Group llC" (21) y "Preventive Health Insurance" (20) — el mismo par que ya aparecía en los 4 archivos de pólizas. Se decidió (reconsiderando una decisión anterior que optaba por no agregarlo) sumar el campo `Agency` al modelo de `User`.
+
+A definir al implementar: si conviene un `[AllowedValues]` simple con estos 2 valores (más liviano, ya que a diferencia de `InsuranceCompany` no se prevé que esta lista crezca mucho) o replicar el patrón de tabla propia — evaluar y decidir en el momento de implementar. Campo opcional en el formulario de Agentes.
+
+### 15.2 Importar los 41 agentes reales como Users — 🔲 Pendiente (depende de §15.1)
+
+Fuente: `migration-source/report-agent-agent-index-kUiLdU.xlsx`. Estructura: Reference, Full name, First name, Last name, Email, Phone, Agency, Registration date — export liviano, sin dirección, licencia, NPN ni password.
+
+Decisiones ya tomadas, listas para implementar:
+- Nombre = First name + Last name. Email directo (único, se usa para login). Agency = campo directo del archivo (depende de que §15.1 ya esté implementado).
+- Rol: "Admin" para "Alejandra Díaz Cortez" (email `admin@wholecareinsurancellc.com`) y "Alexander Centeno" — confirmado con el responsable. El resto (39 filas) → Rol="Agente".
+- Address1/City/ZipCode/State/County: placeholder vacío, a completar manualmente después (mismo criterio ya usado en el backfill de §11.2).
+- MiddleName/Gender/Licensed/NpnNumber/HasCompanyContract/ContractsWanted/AdditionalInformation/IsEncargado: null/false por defecto, no vienen en este export.
+- TermsAccepted: A DEFINIR al implementar (dar recomendación fundamentada — son agentes que ya usaban el sistema anterior, pero no hay evidencia de que hayan aceptado ESTOS términos nuevos).
+- MustChangePassword: true (patrón ya establecido).
+- Password: UNA sola password temporal segura, IGUAL PARA LOS 41 (se comunican manualmente por el responsable/developer) — mostrar una sola vez en consola/reporte, nunca persistida en un archivo versionado en git.
+- Idempotencia: match por Email, saltear si ya existe (permite re-correr el import sin duplicar).
+- Implementación sugerida: modo nuevo del proyecto `WholeCareInsurance.Migration` ya existente (ej. `--import-agents`), reusando su infraestructura.
+
+### 15.3 Reasignación de agentes en pólizas ya migradas — 🔲 Pendiente (depende de §15.2)
+
+Una vez que los 41 agentes reales estén cargados como Users (§15.2), reasignar las ~2490 filas de `Customer.AgentId` que quedaron con el fallback a Admin durante la migración de pólizas (§7). El reporte `migration-report-20260723-132722.json` ya tiene el nombre original de agente por fila — se puede armar un script de reasignación por nombre sin re-correr toda la migración de pólizas.
+
+---
+
+## 16. Orden sugerido de trabajo
 
 1. ~~Tipo en Policy~~ ✅ Hecho
 2. ~~Dependientes (vínculo con Customers existentes)~~ ✅ Hecho
@@ -543,3 +589,7 @@ Verificado con curl: alta genera 1 entrada, edición con cambio de `Status` gene
 31. ~~Validación cruzada server-side de Licensed/HasCompanyContract~~ ✅ Hecho (§11.3) — cierra el punto 1 de §11.1
 32. ~~Búsqueda en `/users` + rate limiting en endpoints sensibles de auth~~ ✅ Hecho (§11.4) — cierra los puntos 2 y 3 de §11.1
 33. ~~Historial/Auditoría de Pólizas (PolicyHistory, tracking de Status, prerequisito para el script de migración)~~ ✅ Hecho (§13)
+34. Paginado en Policies — pendiente, plan ya diseñado (§14)
+35. Campo Agency en Agente — pendiente (§15.1)
+36. Importar los 41 agentes reales como Users — pendiente, depende de 35 (§15.2)
+37. Reasignación de agentes en pólizas ya migradas — pendiente, depende de 36 (§15.3)
