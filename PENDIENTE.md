@@ -166,7 +166,7 @@ Placeholder, bloqueado hasta tener la data migrada (§7).
 
 ---
 
-## 7. Migración de datos del sistema anterior — ✅ Todas las preguntas resueltas — listo para diseñar el script de migración
+## 7. Migración de datos del sistema anterior — ✅ Hecho (script implementado y corrido con `--commit` el 2026-07-23)
 
 Se solicitó al responsable del proyecto el archivo de export **completo** (todas las pólizas, todos los tipos en un solo archivo, no separado por tipo). Las 4 preguntas originales quedaron **todas resueltas** por el análisis del archivo real más la respuesta del responsable sobre `Contract identification` (ver §7.2):
 1. ~~Si la columna "Members" trae solo cantidad o el detalle completo de cada dependiente.~~ ✅ Resuelta — ver §7.1.
@@ -174,7 +174,9 @@ Se solicitó al responsable del proyecto el archivo de export **completo** (toda
 3. ~~Si el export incluye solo pólizas activas o también históricas/canceladas.~~ ✅ Resuelta — ver §7.2.
 4. ~~Diccionario de datos para: Reference, Marketplace ID, Contract identification, Renewal status, Confirmed consent.~~ ✅ Resuelta — ver §7.2 (`Contract identification` confirmado por el responsable: texto libre, se migra tal cual).
 
-**Próximo paso**: diseñar el script de migración en sí — todavía no iniciado. Se probará primero contra la base del ambiente de test (§8.1), nunca directo contra producción.
+**✅ Hecho**: script implementado en `WholeCareInsurance.Migration/` (consola .NET, `ProjectReference` a `WholeCareInsurance.api`, EF Core directo sin pasar por la API HTTP). Modos `--dry-run` (simula todo, no persiste, genera reporte) y `--commit --confirm` (real, una transacción por Policy consolidada para poder reintentar sin reprocesar lo ya migrado). Corrido con éxito contra los 4 archivos reales el 2026-07-23: 1185 Health Insurance (ACA) + 7 Medicare + 2 Life Insurance + 16 Supplemental Plans, 0 filas no procesables. Backup previo en `D:\backups\WholeCareInsuranceDb_pre_migracion.bak`. Reporte completo (incluye nombre de Agente original por fila, para el pendiente de abajo) en `WholeCareInsurance.Migration/migration-report-20260723-132722.json`.
+
+**Pendiente no bloqueante**: 2490 filas migradas quedaron con `Customer.AgentId` apuntando al fallback (primer User con Rol=Admin) porque esta base todavía no tiene cargados los ~23 agentes reales del CSV como `User`. Cuando estén cargados, armar un script de reasignación que matchee `Customer.AgentId` por el nombre de agente original (ya está en el reporte JSON, campo `AgentFallbacks`) contra `User.Nombre` — no hace falta re-correr la migración completa para esto.
 
 **✅ Resuelto — formato del export**: confirmado por el responsable que la migración usará **4 archivos separados, uno por tipo de póliza** (Obamacare, Medicare, Life Insurance, Supplemental Plans), no un único archivo combinado con todos los tipos. El archivo ya analizado en §7.1 (1258 filas) es específicamente el de Health Insurance/Obamacare. Los otros 3 (Life, Medicare, Supplemental) ya fueron relevados por estructura de formulario + muestra chica de datos reales (§12), pero **todavía no se analizaron a fondo como el de Obamacare** (que tuvo el análisis completo de 1258 filas) — al diseñar el script, cada archivo probablemente necesite su propia lógica de mapeo/parseo dado que son exports independientes, no necesariamente con las mismas columnas entre sí.
 
@@ -210,7 +212,7 @@ Bajo riesgo de colisión por nombre dado el volumen chico (22 agentes) — igual
 
 **Estado actualizado de las 4 preguntas originales**: las 4 quedan resueltas por el análisis del archivo real más la respuesta del responsable sobre `Contract identification`.
 
-**Ya no hay bloqueo activo.** Confirmado que se migrarán los 4 tipos de póliza (Obamacare, Medicare, Life Insurance, Supplemental Plans) desde 4 archivos separados — ver nota arriba. El próximo paso es diseñar el script de migración en sí (no iniciado); se probará primero contra la base del ambiente de test (§8.1), nunca directo contra producción.
+**Ya no hay bloqueo activo.** Se migraron los 4 tipos de póliza (Obamacare, Medicare, Life Insurance, Supplemental Plans) desde 4 archivos separados — ver "✅ Hecho" arriba.
 
 **Punto abierto no bloqueante:** cada dependiente en el sistema anterior tiene un campo "Policy number" individual — no está claro su propósito, aclarar con el responsable más adelante (no urgente).
 
@@ -529,7 +531,7 @@ Verificado con curl: alta genera 1 entrada, edición con cambio de `Status` gene
 19. Firma digital de consentimiento — bloqueado hasta que el responsable elija proveedor (§4.1)
 20. ~~Infraestructura de hosting (VPS) — Dockerfiles/compose/README~~ ✅ Hecho (§8.1); falta el despliegue real al VPS
 21. ~~Campos de plan (ACA) y financieros en Policy~~ ✅ Hecho (§1.11)
-22. ~~Migración de datos del sistema anterior — las 4 preguntas originales resueltas~~ ✅ Hecho (§7.1, §7.2); listo para diseñar el script de migración (no iniciado)
+22. ~~Migración de datos del sistema anterior~~ ✅ Hecho (§7): script implementado y corrido con `--commit`; queda pendiente no bloqueante reasignar `Customer.AgentId` de las filas con fallback cuando los agentes reales estén cargados (ver §7)
 23. ~~Mensajes de error del backend no llegaban al usuario~~ ✅ Hecho (§5.3, encontrado verificando InsuranceCompanies en el navegador)
 24. ~~Middleware global de excepciones no controladas~~ ✅ Hecho (§5.4)
 25. ~~AdminUserSeeder generalizado (admin real por ambiente vía env vars)~~ ✅ Hecho (§10.5)
