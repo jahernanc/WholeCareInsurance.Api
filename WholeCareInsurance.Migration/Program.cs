@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using System.Security.Cryptography;
 using WholeCareInsurance.api.Data;
 using WholeCareInsurance.Migration.Importers;
 using WholeCareInsurance.Migration.Matching;
@@ -29,6 +30,17 @@ namespace WholeCareInsurance.Migration
 
             await using var db = new AppDbContext(dbOptions);
             await db.Database.OpenConnectionAsync();
+
+            // §15.2: importa agentes ANTES que pólizas, para que si algún día se corren
+            // juntos en el mismo --commit, EntityMatcher.ResolveAgentAsync ya encuentre los
+            // agentes reales por Nombre en vez de caer al fallback Admin en esa misma corrida.
+            var agentFile = FindFile(options.SourceDir, "agent");
+            if (agentFile != null)
+            {
+                var sharedTempPassword = GenerateTempPassword();
+                var agentReport = await AgentImporter.RunAsync(agentFile, db, options.Commit, sharedTempPassword);
+                agentReport.Print(options.Commit, sharedTempPassword);
+            }
 
             var report = new MigrationReport
             {
@@ -155,6 +167,10 @@ namespace WholeCareInsurance.Migration
 
             return all;
         }
+
+        // Mismo criterio que los refresh/reset tokens de AuthService (§10.4): RandomNumberGenerator, no Guid.NewGuid().
+        private static string GenerateTempPassword()
+            => Convert.ToBase64String(RandomNumberGenerator.GetBytes(12)).Replace("+", "9").Replace("/", "8").Replace("=", "");
 
         private static string? FindFile(string sourceDir, string marker)
             => Directory.GetFiles(sourceDir, "*.xlsx")
