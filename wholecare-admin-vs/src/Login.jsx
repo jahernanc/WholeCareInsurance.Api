@@ -72,7 +72,7 @@ function Login() {
                     style={{ width: "100%", marginBottom: 10, padding: 8 }}
                 />
 
-                <button type="submit" style={{ width: "100%", padding: 10 }}>
+                <button type="submit" style={{ width: "100%", padding: 10, background: "#16a34a", color: "white", border: "none", borderRadius: 6, cursor: "pointer" }}>
                     {t("submit")}
                 </button>
 

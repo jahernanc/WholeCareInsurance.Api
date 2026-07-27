@@ -398,7 +398,7 @@ function Agentes() {
                         <button
                             type="submit"
                             disabled={submitting}
-                            style={{ marginTop: 16, background: "#2563eb", color: "white", padding: "9px 20px", border: "none", borderRadius: 6, cursor: "pointer" }}
+                            style={{ marginTop: 16, background: "#16a34a", color: "white", padding: "9px 20px", border: "none", borderRadius: 6, cursor: "pointer" }}
                         >
                             {editingId
                                 ? (submitting ? t("common:actions.saving") : t("common:actions.saveChanges"))
@@ -430,7 +430,7 @@ function Agentes() {
                                 <span>{t("card.hasCompanyContract")}: {u.hasCompanyContract ? t("card.yes") : t("card.no")}</span>
                             </div>
                             <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
-                                <button onClick={() => handleEdit(u)} style={{ background: "#007bff", color: "white", border: "none", padding: "5px 12px", borderRadius: 5, cursor: "pointer" }}>
+                                <button onClick={() => handleEdit(u)} style={{ background: "#eab308", color: "#1f2937", border: "none", padding: "5px 12px", borderRadius: 5, cursor: "pointer" }}>
                                     {t("common:actions.edit")}
                                 </button>
                             </div>

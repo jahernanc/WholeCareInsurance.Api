@@ -91,7 +91,7 @@ function Profile() {
                     <button
                         type="submit"
                         disabled={submitting}
-                        style={{ background: "#2563eb", color: "white", padding: "9px 20px", border: "none", borderRadius: 6, cursor: "pointer" }}
+                        style={{ background: "#16a34a", color: "white", padding: "9px 20px", border: "none", borderRadius: 6, cursor: "pointer" }}
                     >
                         {submitting ? t("changePassword.submitting") : t("changePassword.submit")}
                     </button>

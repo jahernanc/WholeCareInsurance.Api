@@ -1587,7 +1587,7 @@ function Policies() {
                                         type="button"
                                         onClick={handleSaveTitularLife}
                                         disabled={savingTitularLife}
-                                        style={{ marginTop: 8 }}
+                                        style={{ marginTop: 8, background: "#16a34a", color: "white", padding: "8px 16px", border: "none", borderRadius: 6, cursor: "pointer" }}
                                     >
                                         {savingTitularLife ? t("form.savingTitularLife") : t("form.saveTitularLife")}
                                     </button>
@@ -1600,7 +1600,11 @@ function Policies() {
                                 </p>
                             )}
 
-                            <button type="submit" disabled={submitting}>
+                            <button
+                                type="submit"
+                                disabled={submitting}
+                                style={{ background: "#16a34a", color: "white", padding: "9px 20px", border: "none", borderRadius: 6, cursor: "pointer" }}
+                            >
                                 {editingId
                                     ? (submitting ? t("form.submitUpdating") : t("form.submitUpdate"))
                                     : (submitting ? t("form.submitCreating") : t("form.submitCreate"))}
