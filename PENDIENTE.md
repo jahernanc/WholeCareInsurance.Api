@@ -565,7 +565,55 @@ Nuevo modo `--reassign-agents` en `WholeCareInsurance.Migration`, combinable con
 
 ---
 
-## 16. Orden sugerido de trabajo
+## 16. Modal/Dialog reutilizable para crear/editar — 🔲 Pendiente, plan ya diseñado
+
+### 16.1 Problema reportado
+
+El formulario de crear/editar se monta **inline sin backdrop**, empujando el listado hacia abajo en vez de superponerse limpiamente — reportado primero en `Policies.jsx` al usar "Editar", visualmente confuso (da la impresión de que quedan dos cosas montadas una debajo de la otra).
+
+**Confirmado el mismo patrón exacto en 4 pantallas**: un botón "+ Nuevo X" togglea el estado `showForm`, y `{showForm && <div>...}` se renderiza en el flujo normal de la página (sin `position: fixed` ni backdrop). El mismo bloque de formulario se reusa para crear y editar (`editingId ? titleEdit : titleCreate`).
+- `Policies.jsx` — confirmado, la pantalla más usada.
+- `Customers.jsx` — mismo patrón exacto.
+- `Agentes.jsx` — mismo patrón exacto.
+- `InsuranceCompanies.jsx` — mismo patrón exacto.
+
+No aplica a `Profile.jsx`, `Dashboard.jsx` ni las pantallas de auth (`Login`/`ForgotPassword`/`ResetPassword`/`ChangePasswordForced`) — no tienen flujo de listado+formulario.
+
+### 16.2 Ya existe un modal real, pero aislado a una sola vista
+
+`Policies.jsx` tiene un modal real ya implementado — el de "Ver detalle" (🔍): `position: fixed`, backdrop `rgba(0,0,0,0.5)`, centrado con flexbox. **No se reusó para crear/editar** — quedó como implementación aislada, inline en esa misma página, no como componente aparte.
+
+### 16.3 No existe ningún componente Modal/Dialog reutilizable
+
+Buscado en todo `src/` y en `package.json`: sin shadcn/ui, Radix, Headless UI ni ninguna librería de UI de terceros. Los componentes compartidos existentes (`CustomerFormFields.jsx`, `LifeInsuranceFields.jsx`, `MaskedInput.jsx`, `MaskedText.jsx`) son todos campos de formulario, ninguno de layout/overlay.
+
+### 16.4 Approach aprobado
+
+Crear `src/components/Modal.jsx` genérico, basado en el estilo visual del modal de detalle ya existente en `Policies.jsx` (mismos valores de backdrop/posicionamiento, para no introducir un estilo visual nuevo), sumando lo que hoy falta:
+- Backdrop con click-outside para cerrar (el modal de detalle ya lo tiene).
+- **Nuevo**: cierre con Escape.
+- **Nuevo**: scroll lock del `body` mientras está abierto.
+- **Nuevo**: foco atrapado dentro del modal (Tab/Shift+Tab no se escapan) + foco inicial al primer elemento enfocable + restauración del foco al elemento que abrió el modal, al cerrar.
+- `role="dialog"` + `aria-modal="true"`.
+
+**API mínima**: `<Modal open={showForm} onClose={() => setShowForm(false)}>{/* contenido actual del formulario */}</Modal>` — cada pantalla solo cambia el wrapper, no la lógica interna del formulario (estado, validación, submit siguen igual).
+
+### 16.5 Orden de migración aprobado
+
+1. Crear `Modal.jsx`.
+2. Migrar `Policies.jsx` (crear/editar) — el caso confirmado, pantalla con más tráfico.
+3. Migrar `Customers.jsx`.
+4. Migrar `Agentes.jsx`.
+5. Migrar `InsuranceCompanies.jsx`.
+6. Refactorizar el modal de detalle ya existente de `Policies.jsx` (el de la lupa 🔍) para que también use el `Modal` compartido en vez de su propia implementación duplicada — una sola fuente de verdad, y de paso hereda Escape/foco atrapado que hoy no tiene.
+
+### 16.6 Verificación pendiente al implementar
+
+Probar **crear y editar** en cada pantalla recién migrada antes de pasar a la siguiente (no migrar las 4 y probar todo junto al final). Al terminar las 6, correr `dotnet build` (si aplica) + `npm run build` + `npm run lint` una vez más antes de dar el trabajo por cerrado.
+
+---
+
+## 17. Orden sugerido de trabajo
 
 1. ~~Tipo en Policy~~ ✅ Hecho
 2. ~~Dependientes (vínculo con Customers existentes)~~ ✅ Hecho
@@ -607,3 +655,4 @@ Nuevo modo `--reassign-agents` en `WholeCareInsurance.Migration`, combinable con
 38. Cierre del gap de seguridad de §10.1 (MustChangePassword solo de frontend) — ✅ Hecho, middleware de backend agregado
 39. Reconciliación de campos §1.11 (StartDate/EndDate/Premium vs EffectiveDate/Period/MonthlyPremiumAmount) — ✅ Analizado y resuelto, se dejan como están (decisión del responsable, documentado en §1.11)
 40. ~~Dashboard (KPIs, gráficos por Tipo/Status, estadísticas, últimas pólizas, próximos a cumplir 65, scoping por rol)~~ ✅ Hecho (§9), incluye `Policy.UpdatedAt` nuevo (§9.6) y paleta de colores semántica en toda la app (§9.1)
+41. Modal/Dialog reutilizable para crear/editar (Policies/Customers/Agentes/InsuranceCompanies) — pendiente, plan ya diseñado (§16)
