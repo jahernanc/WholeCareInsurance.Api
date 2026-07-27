@@ -11,6 +11,7 @@ namespace WholeCareInsurance.api.DTOs.Users
 
         public string? MiddleName { get; set; }
         public string? Gender { get; set; }
+        public string? Agency { get; set; }
         public string Address1 { get; set; }
         public string? Address2 { get; set; }
         public string City { get; set; }

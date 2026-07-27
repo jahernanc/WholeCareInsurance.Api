@@ -29,6 +29,13 @@ namespace WholeCareInsurance.api.DTOs.Auth
         // tratarlo como "sin validar"), mismo criterio que Customer (§3.2).
         [MaxLength(20)] public string? Gender { get; set; }
 
+        // Agencia real del sistema anterior (§15.1) — a diferencia de Gender, sí se valida
+        // contra los 2 valores confirmados (no se espera que crezca), incluyendo null
+        // explícito en la lista para que siga siendo opcional.
+        [AllowedValues(null, "Whole Care Insurance Group llC", "Preventive Health Insurance", ErrorMessage = "Agencia inválida.")]
+        [MaxLength(150)]
+        public string? Agency { get; set; }
+
         [Required][MaxLength(300)] public string Address1 { get; set; } = default!;
         [MaxLength(300)] public string? Address2 { get; set; }
         [Required][MaxLength(100)] public string City { get; set; } = default!;

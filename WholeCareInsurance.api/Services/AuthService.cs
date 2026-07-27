@@ -39,6 +39,7 @@ namespace WholeCareInsurance.api.Services
 
                 MiddleName = dto.MiddleName,
                 Gender = dto.Gender,
+                Agency = dto.Agency,
                 Address1 = dto.Address1,
                 Address2 = dto.Address2,
                 City = dto.City,
@@ -71,6 +72,7 @@ namespace WholeCareInsurance.api.Services
                 PreferredLanguage = created.PreferredLanguage,
                 MiddleName = created.MiddleName,
                 Gender = created.Gender,
+                Agency = created.Agency,
                 Address1 = created.Address1,
                 Address2 = created.Address2,
                 City = created.City,

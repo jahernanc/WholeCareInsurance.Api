@@ -13,6 +13,8 @@
         // Datos de perfil del Agente (§11) — EE.UU.-only, mismo criterio que Customer.
         public string? MiddleName { get; set; }
         public string? Gender { get; set; }
+        // Agencia real del sistema anterior (§15.1) — solo 2 valores confirmados, no se espera que crezca como InsuranceCompany.
+        public string? Agency { get; set; }
         public string Address1 { get; set; } = default!;
         public string? Address2 { get; set; }
         public string City { get; set; } = default!;

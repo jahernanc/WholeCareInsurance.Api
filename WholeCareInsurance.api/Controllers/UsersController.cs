@@ -89,6 +89,7 @@ namespace WholeCareInsurance.api.Controllers
 
             existing.MiddleName = dto.MiddleName;
             existing.Gender = dto.Gender;
+            existing.Agency = dto.Agency;
             existing.Address1 = dto.Address1;
             existing.Address2 = dto.Address2;
             existing.City = dto.City;
@@ -128,6 +129,7 @@ namespace WholeCareInsurance.api.Controllers
             PreferredLanguage = u.PreferredLanguage,
             MiddleName = u.MiddleName,
             Gender = u.Gender,
+            Agency = u.Agency,
             Address1 = u.Address1,
             Address2 = u.Address2,
             City = u.City,

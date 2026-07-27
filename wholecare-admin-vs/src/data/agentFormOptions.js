@@ -1,5 +1,8 @@
 export const CONTRACT_INTERESTS = ["Medicare", "Obamacare", "Supplemental Plans", "Life Insurance"];
 
+// Agencias reales del sistema anterior (§15.1) — solo 2 confirmadas, validadas server-side.
+export const AGENCIES = ["Whole Care Insurance Group llC", "Preventive Health Insurance"];
+
 export const emptyAgentForm = {
     nombre: "",
     email: "",
@@ -8,6 +11,7 @@ export const emptyAgentForm = {
     isEncargado: false,
     middleName: "",
     gender: "",
+    agency: "",
     address1: "",
     address2: "",
     city: "",

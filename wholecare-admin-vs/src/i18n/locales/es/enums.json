@@ -60,6 +60,10 @@
         "Masculino": "Masculino",
         "Femenino": "Femenino"
     },
+    "agency": {
+        "Whole Care Insurance Group llC": "Whole Care Insurance Group llC",
+        "Preventive Health Insurance": "Preventive Health Insurance"
+    },
     "contactLanguage": {
         "Inglés": "Inglés",
         "Español": "Español"

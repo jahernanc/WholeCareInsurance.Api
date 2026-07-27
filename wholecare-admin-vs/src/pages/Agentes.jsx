@@ -5,7 +5,7 @@ import { translateEnum } from "../i18n/translateEnum";
 import { US_STATES } from "../data/usStates";
 import US_COUNTIES from "../data/usCounties.json";
 import { GENDERS } from "../data/customerFormOptions";
-import { CONTRACT_INTERESTS, emptyAgentForm } from "../data/agentFormOptions";
+import { CONTRACT_INTERESTS, AGENCIES, emptyAgentForm } from "../data/agentFormOptions";
 
 const ROLES = ["Admin", "Agente"];
 
@@ -88,6 +88,7 @@ function Agentes() {
             isEncargado: u.isEncargado,
             middleName: u.middleName ?? "",
             gender: u.gender ?? "",
+            agency: u.agency ?? "",
             address1: u.address1 ?? "",
             address2: u.address2 ?? "",
             city: u.city ?? "",
@@ -123,6 +124,7 @@ function Agentes() {
                 isEncargado: form.isEncargado,
                 middleName: form.middleName,
                 gender: form.gender,
+                agency: form.agency,
                 address1: form.address1,
                 address2: form.address2,
                 city: form.city,
@@ -230,6 +232,16 @@ function Agentes() {
                                     <option value="">{t("form.selectPlaceholder")}</option>
                                     {GENDERS.map((g) => (
                                         <option key={g} value={g}>{translateEnum("gender", g)}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label style={labelStyle}>{t("form.fields.agency")}</label>
+                                <select name="agency" value={form.agency} onChange={handleField} style={inputStyle}>
+                                    <option value="">{t("form.selectPlaceholder")}</option>
+                                    {AGENCIES.map((a) => (
+                                        <option key={a} value={a}>{translateEnum("agency", a)}</option>
                                     ))}
                                 </select>
                             </div>
@@ -411,6 +423,7 @@ function Agentes() {
                                 <span>{t("card.email")}: {u.email}</span>
                                 <span>{t("card.role")}: {translateEnum("userRol", u.rol)}</span>
                                 <span>{t("card.isEncargado")}: {u.isEncargado ? t("card.yes") : t("card.no")}</span>
+                                <span>{t("card.agency")}: {u.agency ? translateEnum("agency", u.agency) : "-"}</span>
                                 <span>{t("card.location")}: {[u.city, u.county, u.state].filter(Boolean).join(", ") || "-"}</span>
                                 <span>{t("card.licensed")}: {u.licensed ? `${t("card.yes")} (${u.licenseNumber || "-"})` : t("card.no")}</span>
                                 <span>{t("card.npnNumber")}: {u.npnNumber || "-"}</span>

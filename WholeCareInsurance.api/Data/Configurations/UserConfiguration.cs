@@ -44,6 +44,7 @@ namespace WholeCareInsurance.api.Data.Configurations
             // Datos de perfil del Agente (§11)
             entity.Property(u => u.MiddleName).HasMaxLength(100);
             entity.Property(u => u.Gender).HasMaxLength(20);
+            entity.Property(u => u.Agency).HasMaxLength(150);
             entity.Property(u => u.Address1).HasMaxLength(300);
             entity.Property(u => u.Address2).HasMaxLength(300);
             entity.Property(u => u.City).HasMaxLength(100);
