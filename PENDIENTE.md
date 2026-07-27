@@ -1,6 +1,8 @@
 # Pendientes — WholeCareInsurance
 
 > Auditado contra código real el 2026-07-13 (modelos, DTOs, migraciones aplicadas y componentes de frontend). Donde el pedido del responsable no coincidía con lo implementado, se priorizó lo verificado en código — ver notas "⚠️ Discrepancia" en los puntos afectados.
+>
+> Re-auditado el 2026-07-27: paginado en Policies (§14), cierre del gap de seguridad de MustChangePassword (§10.1), reconciliación de campos de Policy (§1.11) y agentes reales del sistema anterior (§15, completo) — ver detalle en cada sección.
 
 ---
 
@@ -65,7 +67,13 @@ Modelo `PolicyDocument`, migración `AddPolicyDocuments` aplicada. Archivos en d
 
 Migración `20260715173327_AddInsuranceCompaniesAndPolicyPlanDetails` (misma migración que §1.5 — EF Core no permite separar en dos migraciones distintas cuando ambos cambios de modelo ya están hechos, captura todo el diff pendiente de una vez). Formulario principal y modal de detalle de `Policies.jsx` actualizados.
 
-**Nota abierta, no bloqueante**: `Policy` ya tenía `StartDate`/`EndDate` y `Premium` — hay superposición conceptual con `EffectiveDate` y `MonthlyPremiumAmount` que no se resolvió a propósito (se pidió que fueran campos nuevos, sin tocar el script de migración todavía). Reconciliar cuando se diseñe el script real.
+**✅ Resuelta (análisis de datos + decisión del responsable, post-migración real)**: `Policy` ya tenía `StartDate`/`EndDate` y `Premium` — había superposición conceptual con `EffectiveDate`/`Period`/`MonthlyPremiumAmount`. Analizadas las 1211 pólizas migradas en la base de dev + el código del script (`WholeCareInsurance.Migration/Importers/ImportPipeline.cs:145-176`):
+- `StartDate` = primera `EffectiveDate` del historial consolidado de cada póliza (línea 156) — coincide con la `EffectiveDate` vigente en 1198/1211 (99%, pólizas con un solo registro en el sistema viejo); difiere solo en 13 pólizas ACA con más de un registro histórico (cambio de plan a mitad de año).
+- `EndDate` = siempre 31/12 del `Period` (línea 147, inferido a propósito porque el origen no tenía fecha de fin real — deja constancia con un warning en el reporte por cada póliza). 1210/1211 lo cumplen sin excepción.
+- `Premium` = copia directa de `MonthlyPremiumAmount` cuando el origen la trae, si no queda en `0` (línea 173-176) — NO es `MonthlyPremiumAmount × 12`. 904 pólizas con valores idénticos + 281 con ambos en `0` + 25 con `MonthlyPremiumAmount` nulo y `Premium=0` = 1210/1211.
+- El único caso (de 1211) que no encaja en ningún patrón (`Id 7021`, Medicare) tiene fechas y montos que no siguen la lógica del script de migración — es casi seguro un registro cargado a mano por curl/Swagger durante alguna sesión de pruebas, no un dato real migrado.
+
+**Decisión del responsable**: dejar los 3 campos como están, sin deprecar ni redefinir, mientras no haya una necesidad real (ej. Dashboard, §9) que fuerce a resolver la redundancia. Documentado también como comentario corto en `Models/Policy.cs`.
 
 Verificado con curl (alta con los 5 campos, alta sin ellos con `null`, edición, filtro `insuranceCompanyId`) y con Playwright (los 5 campos visibles en el formulario, alta y detalle end-to-end, sin errores de consola).
 
@@ -301,7 +309,9 @@ Tres flujos nuevos, ninguno existía antes de esta sesión (no había forced-cha
 
 ### 10.1 Cambio forzado en el primer login
 `User.MustChangePassword` (bool) nuevo — se pone en `true` cuando un Admin crea un agente vía `POST /auth/register` (`Agentes.jsx`), y también para el admin seedeado (`AdminUserSeeder`, más una migración de datos que lo fuerza en bases ya existentes, ya que `Admin123!` es una credencial default documentada en este mismo archivo). El login (`AuthResponseDto`) devuelve el flag; el frontend lo persiste en `localStorage` y redirige a `/change-password` (ruta nueva, sin `AppLayout`) antes de dejar entrar a cualquier otra pantalla. `AppLayout` también revisa el flag en su reconciliación de fondo contra `GET /users/me` (mismo mecanismo que ya usaba para el idioma), para cubrir el caso de un Admin que fuerza el cambio sobre una sesión ya activa.
-- **Gap conocido, no cerrado a propósito**: el gating es solo de frontend (redirect de rutas). Alguien con el access token podría seguir llamando otros endpoints de la API directamente mientras `MustChangePassword=true`. Cerrar esto del todo requeriría un filtro/middleware de backend — no se implementó porque no estaba en el plan original aprobado; queda como mejora pendiente si se necesita.
+- **✅ Gap cerrado (2026-07-27)**: el gating ya no es solo de frontend. `Middlewares/MustChangePasswordMiddleware.cs` nuevo — consulta `MustChangePassword` contra la base (no contra el JWT, que no lleva ese claim a propósito, ver arriba) en cada request autenticado, y corta con `403` (`ProblemDetails`) antes de llegar al controller si está en `true`. Registrado en `Program.cs` después de `UseAuthorization()` y antes de `MapControllers()`.
+  - Exceptuados: `POST /auth/change-password` (el propio endpoint que permite salir del estado), `POST /auth/logout` (para no dejar a alguien sin poder cerrar sesión), `POST /auth/refresh` (no requiere `[Authorize]`, no debe cortarse la renovación del token), y `GET /users/me` — este último crítico: es el mismo endpoint que `AppLayout.jsx` ya usa para detectar el flag en una sesión activa y redirigir a `/change-password`; bloquearlo habría roto ese mecanismo en vez de reforzarlo.
+  - Verificado con curl/node contra un usuario real con el flag forzado a `true` temporalmente (restaurado al terminar): `GET /api/policies` → `403`; los 4 exceptuados llegan al controller sin interceptar (`200`/`400`/`401`/`204` según el caso, nunca `403`).
 
 ### 10.2 Cambio de contraseña desde el perfil
 Un solo endpoint (`POST /auth/change-password`, contraseña actual + nueva) sirve tanto al cambio forzado como al cambio voluntario — nueva página `/profile` (dentro de `AppLayout`), enlazada desde el ítem "Profile" del menú del Header, que antes era un `<div>` sin `onClick` (dead link). Al cambiar la contraseña se limpia el refresh token guardado, forzando el re-login en cualquier otra sesión activa.
@@ -508,49 +518,47 @@ Verificado con curl: alta genera 1 entrada, edición con cambio de `Status` gene
 
 ---
 
-## 14. Paginado en Policies — 🔲 Pendiente, plan ya diseñado
+## 14. Paginado en Policies — ✅ Hecho (2026-07-27)
 
-Con el volumen real post-migración (1210 pólizas), la vista de Policies necesita paginado — hoy carga todo sin límite, generando scroll interminable.
+Con el volumen real post-migración (1211 pólizas), la vista de Policies necesitaba paginado — cargaba todo sin límite, generando scroll interminable.
 
-Plan ya definido, listo para implementar cuando se priorice:
-
-- Ordenar por Id DESC (proxy confiable de "orden de alta" — no existe CreatedAt/RegistrationDate en el modelo Policy, y no hace falta agregarlo solo para esto).
-- PolicyService.Search acepta page/pageSize (default pageSize=20, clampeado server-side a un máximo de 100), devuelve (Items, TotalCount).
-- PoliciesController.GetAll acepta ?page=, pageSize fijo en constante DefaultPageSize=20 en el controller (no expuesto al usuario todavía). Respuesta cambia de array plano a PagedResponseDto<PolicyResponseDto> (Items, TotalCount, Page, PageSize, TotalPages) — CAMBIO INCOMPATIBLE de forma de respuesta, requiere actualizar Policies.jsx en el mismo cambio, no es aditivo.
-- IPolicyService.GetAll() (usado por CustomersController.GetPoliciesForCustomer) NO se toca — pocas pólizas por cliente, no necesita paginado.
-- Frontend: estado page/totalCount, PAGE_SIZE=20 constante, reset a página 1 en cada búsqueda/filtro nuevo (handleSearch, handleClearFilters, cambio de period), controles de paginado (Anterior/Siguiente, "Página P de N", "Mostrando X-Y de Z"), i18n nuevo (pagination.previous/next/pageInfo/showing).
-- Verificación pendiente al implementar: orden por defecto muestra las pólizas migradas más recientes primero; cambiar de página mantiene filtros activos; caso de página parcial al final (ej. Type=Life Insurance con solo 2 resultados).
-
-Antes de implementar, confirmar con un grep que GET /api/policies no tiene otro consumidor además de Policies.jsx.
+- `GET /api/policies` ahora devuelve `PagedResponseDto<PolicyResponseDto>` (`Items`, `TotalCount`, `Page`, `PageSize`, `TotalPages`) en vez de un array plano — **cambio incompatible de forma de respuesta**, actualizado en el mismo cambio en `Policies.jsx` (único consumidor, confirmado por grep antes de implementar).
+- `PolicyService.Search` acepta `page`/`pageSize`, ordena por `Id DESC`, clampea `pageSize` a un máximo de 100 server-side. `PoliciesController.GetAll` acepta `?page=`, `pageSize` fijo en `DefaultPageSize=20` (constante, no expuesto al usuario todavía).
+- `IPolicyService.GetAll()` (usado por `CustomersController.GetPoliciesForCustomer`) no se tocó, como estaba previsto.
+- Frontend: estado `page`/`totalCount`/`totalPages`, controles Anterior/Siguiente + "Página P de N" + "Mostrando X-Y de Z", reset a página 1 en `handleSearch`/`handleClearFilters`/cambio de `period` (los demás call sites de `loadData()` sin argumentos preservan la página actual por diseño). i18n nuevo (`pagination.previous/next/pageInfo/showing`, es/en).
+- Verificado con curl real contra la base de dev: `totalCount: 1211`, `totalPages: 61`, orden `Id DESC` sin gaps entre páginas, filtro combinado (`type=Life Insurance`) trae 2 de 2 en 1 sola página, `page=0` clampeado a 1, página fuera de rango devuelve array vacío sin error. No se pudo verificar el click de los botones en un navegador real (sin extensión de browser conectada en esta sesión).
 
 ---
 
-## 15. Agentes reales del sistema anterior — Agency + importación — 🔲 Pendiente
+## 15. Agentes reales del sistema anterior — Agency + importación — ✅ Hecho (2026-07-27)
 
-### 15.1 Campo Agency en Agente — 🔲 Pendiente
+### 15.1 Campo Agency en Agente — ✅ Hecho
 
-Se encontró un export real de Agentes del sistema anterior (`migration-source/report-agent-agent-index-kUiLdU.xlsx`, 41 filas) con 2 agencias reales recurrentes: "Whole Care Insurance Group llC" (21) y "Preventive Health Insurance" (20) — el mismo par que ya aparecía en los 4 archivos de pólizas. Se decidió (reconsiderando una decisión anterior que optaba por no agregarlo) sumar el campo `Agency` al modelo de `User`.
+`User.Agency` (`string?`, `nvarchar(150)`), migración `AddUserAgency` aplicada, configurado en `UserConfiguration.cs` (`HasMaxLength(150)`, mismo patrón que el resto de los campos de perfil de Agente).
 
-A definir al implementar: si conviene un `[AllowedValues]` simple con estos 2 valores (más liviano, ya que a diferencia de `InsuranceCompany` no se prevé que esta lista crezca mucho) o replicar el patrón de tabla propia — evaluar y decidir en el momento de implementar. Campo opcional en el formulario de Agentes.
+- **Tipo de dato confirmado con el responsable**: `[AllowedValues]` con los 2 valores reales del archivo (`"Whole Care Insurance Group llC"`, `"Preventive Health Insurance"`), verificados sin variantes de tipeo (dump directo del `.xlsx`, 41 filas). Patrón nuevo en este código: como el campo es opcional, se incluyó `null` explícito en la lista de valores permitidos (`[AllowedValues(null, "Whole Care Insurance Group llC", "Preventive Health Insurance")]`) — los campos opcionales existentes (`Gender`, etc.) evitaban `AllowedValues` por completo porque la implementación de .NET rechaza `null` si no está en la lista; acá se probó explícitamente que incluirlo funciona.
+- Frontend: dropdown en `Agentes.jsx` (junto a Género), mostrado también en la tarjeta de listado. i18n es/en completo (`form.fields.agency`, `card.agency`, grupo `agency` en `enums.json`).
+- Verificado con curl: valor válido → `201`; sin `Agency` → `201` con `null`; valor inventado → `400` (`"Agency":["Agencia inválida."]`).
 
-### 15.2 Importar los 41 agentes reales como Users — 🔲 Pendiente (depende de §15.1)
+### 15.2 Importar los 41 agentes reales como Users — ✅ Hecho
 
-Fuente: `migration-source/report-agent-agent-index-kUiLdU.xlsx`. Estructura: Reference, Full name, First name, Last name, Email, Phone, Agency, Registration date — export liviano, sin dirección, licencia, NPN ni password.
+`AgentImporter.cs` nuevo (standalone, sin `ImportPipeline`/`EntityMatcher` — no hay Customer/Policy involucrados, mapeo directo fila → `User`). `Program.cs` extendido: `FindFile(sourceDir, "agent")` detecta `report-agent-agent-index-kUiLdU.xlsx`, se corre **antes** que las pólizas en el mismo `--dry-run`/`--commit` (para que un futuro run combinado ya resuelva agentes reales en vez de fallback).
 
-Decisiones ya tomadas, listas para implementar:
-- Nombre = First name + Last name. Email directo (único, se usa para login). Agency = campo directo del archivo (depende de que §15.1 ya esté implementado).
-- Rol: "Admin" para "Alejandra Díaz Cortez" (email `admin@wholecareinsurancellc.com`) y "Alexander Centeno" — confirmado con el responsable. El resto (39 filas) → Rol="Agente".
-- Address1/City/ZipCode/State/County: placeholder vacío, a completar manualmente después (mismo criterio ya usado en el backfill de §11.2).
-- MiddleName/Gender/Licensed/NpnNumber/HasCompanyContract/ContractsWanted/AdditionalInformation/IsEncargado: null/false por defecto, no vienen en este export.
-- TermsAccepted: A DEFINIR al implementar (dar recomendación fundamentada — son agentes que ya usaban el sistema anterior, pero no hay evidencia de que hayan aceptado ESTOS términos nuevos).
-- MustChangePassword: true (patrón ya establecido).
-- Password: UNA sola password temporal segura, IGUAL PARA LOS 41 (se comunican manualmente por el responsable/developer) — mostrar una sola vez en consola/reporte, nunca persistida en un archivo versionado en git.
-- Idempotencia: match por Email, saltear si ya existe (permite re-correr el import sin duplicar).
-- Implementación sugerida: modo nuevo del proyecto `WholeCareInsurance.Migration` ya existente (ej. `--import-agents`), reusando su infraestructura.
+- Nombre = First name + Last name. Rol="Admin" para `admin@wholecareinsurancellc.com` (Alejandra Díaz Cortez) y `alexfinancial22@gmail.com` (Alexander Centeno) — confirmado. Resto (39) → Rol="Agente".
+- Address1/City/ZipCode/State/County en `""` (placeholder vacío, mismo criterio que el backfill de §11.2). MiddleName/Gender/Licensed/NpnNumber/HasCompanyContract/ContractsWanted/AdditionalInformation/IsEncargado: null/false.
+- **TermsAccepted = `false`, sin fecha** (decisión confirmada): no hay evidencia de que estos 41 agentes hayan aceptado los términos nuevos del sistema — asentar `true` habría sido incorrecto. No bloquea nada (el login no chequea este flag). `MustChangePassword = true`.
+- Password temporal única generada con `RandomNumberGenerator` (mismo criterio que refresh/reset tokens, §10.4), mostrada una sola vez en consola/reporte, nunca persistida en un archivo versionado en git. Idempotente por Email.
+- Verificado con `--dry-run` y `--commit --confirm` reales contra la base de dev: 41/41 creados, 0 colisiones de email o nombre contra los Users existentes, 2 Admin + 39 Agente correctos, `Agency` poblada 20/21 como el archivo real, `MustChangePassword=1` solo en los 41 nuevos, pólizas sin tocar (1211 antes y después).
 
-### 15.3 Reasignación de agentes en pólizas ya migradas — 🔲 Pendiente (depende de §15.2)
+### 15.3 Reasignación de agentes en pólizas ya migradas — ✅ Hecho
 
-Una vez que los 41 agentes reales estén cargados como Users (§15.2), reasignar las ~2490 filas de `Customer.AgentId` que quedaron con el fallback a Admin durante la migración de pólizas (§7). El reporte `migration-report-20260723-132722.json` ya tiene el nombre original de agente por fila — se puede armar un script de reasignación por nombre sin re-correr toda la migración de pólizas.
+Nuevo modo `--reassign-agents` en `WholeCareInsurance.Migration`, combinable con `--dry-run`/`--commit --confirm`.
+
+- Reutiliza `EntityMatcher` con **dos métodos nuevos de solo lectura** (`TryFindExistingCustomerId`, `TryFindExistingAgentId`) que nunca crean nada — a diferencia de los métodos originales de la migración inicial (`ResolveCustomerAsync` sí crea un Customer nuevo si no matchea). Evita el riesgo de crear Customers fantasma al releer los 4 `.xlsx` solo para reasignar.
+- **Corrección sobre el plan original**: el reporte `migration-report-20260723-132722.json` (campo `AgentFallbacks`) **no alcanza solo** para la reasignación — sus entradas guardan `SourceFile`/`SourceRow`/`OriginalAgentName` pero no el `CustomerId` resuelto (la resolución del Customer pasa *después* de resolver el agente en el pipeline original). Por eso hizo falta releer los 4 archivos y re-resolver el Customer con el mismo criterio determinístico (SSN, luego Nombre+Apellido+FechaNacimiento), no solo cruzar el JSON contra `User.Nombre`.
+- Criterio de "agente vigente" por Customer: la fila con `Update date` más reciente entre todas sus apariciones en los 4 archivos combinados (simplificación consciente frente a `PolicyGrouper` — `AgentId` vive en `Customer`, no en `Policy`, no hace falta reconstruir la identidad exacta de cada póliza).
+- Salvaguarda: solo reasigna si `Customer.AgentId` sigue siendo el fallback Admin al momento de correr (no pisa reasignaciones manuales previas).
+- Verificado con `--dry-run` y `--commit --confirm` reales, resultados idénticos entre ambos: **1178 de 1179 Customers reasignados** (99.92%), 0 sin match de agente, 1 caso residual (`Customer #21386`, no matcheó en la re-lectura aunque sí lo había hecho la migración original — no representa riesgo, queda igual que antes, sin dato incorrecto), pólizas sin tocar.
 
 ---
 
@@ -589,7 +597,9 @@ Una vez que los 41 agentes reales estén cargados como Users (§15.2), reasignar
 31. ~~Validación cruzada server-side de Licensed/HasCompanyContract~~ ✅ Hecho (§11.3) — cierra el punto 1 de §11.1
 32. ~~Búsqueda en `/users` + rate limiting en endpoints sensibles de auth~~ ✅ Hecho (§11.4) — cierra los puntos 2 y 3 de §11.1
 33. ~~Historial/Auditoría de Pólizas (PolicyHistory, tracking de Status, prerequisito para el script de migración)~~ ✅ Hecho (§13)
-34. Paginado en Policies — pendiente, plan ya diseñado (§14)
-35. Campo Agency en Agente — pendiente (§15.1)
-36. Importar los 41 agentes reales como Users — pendiente, depende de 35 (§15.2)
-37. Reasignación de agentes en pólizas ya migradas — pendiente, depende de 36 (§15.3)
+34. ~~Paginado en Policies~~ ✅ Hecho (§14)
+35. ~~Campo Agency en Agente~~ ✅ Hecho (§15.1)
+36. ~~Importar los 41 agentes reales como Users~~ ✅ Hecho (§15.2)
+37. ~~Reasignación de agentes en pólizas ya migradas~~ ✅ Hecho (§15.3), 1178/1179 (99.92%)
+38. Cierre del gap de seguridad de §10.1 (MustChangePassword solo de frontend) — ✅ Hecho, middleware de backend agregado
+39. Reconciliación de campos §1.11 (StartDate/EndDate/Premium vs EffectiveDate/Period/MonthlyPremiumAmount) — ✅ Analizado y resuelto, se dejan como están (decisión del responsable, documentado en §1.11)
