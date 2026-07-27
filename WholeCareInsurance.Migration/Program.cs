@@ -31,6 +31,13 @@ namespace WholeCareInsurance.Migration
             await using var db = new AppDbContext(dbOptions);
             await db.Database.OpenConnectionAsync();
 
+            if (options.ReassignAgents)
+            {
+                var reassignReport = await AgentReassignmentRunner.RunAsync(options.SourceDir, db, options.Commit);
+                reassignReport.Print(options.Commit);
+                return 0;
+            }
+
             // §15.2: importa agentes ANTES que pólizas, para que si algún día se corren
             // juntos en el mismo --commit, EntityMatcher.ResolveAgentAsync ya encuentre los
             // agentes reales por Nombre en vez de caer al fallback Admin en esa misma corrida.

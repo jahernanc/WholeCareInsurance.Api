@@ -117,6 +117,32 @@ namespace WholeCareInsurance.Migration.Matching
 
         // Resultado del match de Customer: Id resuelto + si fue creado o matcheado,
         // para que el importer alimente las métricas del reporte.
+        // §15.3: variante de solo lectura para la reasignación de AgentId — NUNCA crea un
+        // Customer nuevo (a diferencia de ResolveCustomerAsync). Todas las personas de los
+        // 4 archivos ya deberían existir de la migración original; si una fila no matchea
+        // acá, se reporta como no evaluable en vez de crear un Customer fantasma.
+        public int? TryFindExistingCustomerId(CustomerSourceData data)
+        {
+            var ssn = NormalizeSsn(data.SocialSecurityNumber);
+            if (ssn != null && _customerBySsn.TryGetValue(ssn, out var idBySsn))
+                return idBySsn;
+
+            var nameDobKey = NameDobKey(data.FirstName, data.LastName, data.DateOfBirth);
+            if (_customerByNameDob.TryGetValue(nameDobKey, out var candidates) && candidates.Count > 0)
+                return candidates[0];
+
+            return null;
+        }
+
+        // §15.3: variante de solo lectura para Agente — a diferencia de ResolveAgentAsync,
+        // NUNCA cae a un fallback: devuelve null si el nombre no matchea ningún User real.
+        public int? TryFindExistingAgentId(string? rawAgentName)
+        {
+            var name = rawAgentName?.Trim();
+            if (string.IsNullOrEmpty(name)) return null;
+            return _agentByName.TryGetValue(name, out var id) ? id : null;
+        }
+
         public async Task<CustomerMatchResult> ResolveCustomerAsync(CustomerSourceData data)
         {
             var ssn = NormalizeSsn(data.SocialSecurityNumber);
