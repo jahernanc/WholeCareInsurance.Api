@@ -22,6 +22,7 @@ builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<IPolicyService, PolicyService>();
 builder.Services.AddScoped<IPolicyHistoryService, PolicyHistoryService>();
 builder.Services.AddScoped<IInsuranceCompanyService, InsuranceCompanyService>();
+builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddSingleton<IPolicyDocumentStorage, PolicyDocumentStorage>();
 
 // Sin Brevo:ApiKey configurado (dev local sin cuenta real) cae a un servicio que

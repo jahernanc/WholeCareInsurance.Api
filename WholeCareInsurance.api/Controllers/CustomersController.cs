@@ -62,6 +62,7 @@ namespace WholeCareInsurance.api.Controllers
                     Status = p.Status,
                     Period = p.Period,
                     NumberOfApplicants = p.NumberOfApplicants,
+                    UpdatedAt = p.UpdatedAt,
                     CustomerId = p.CustomerId,
                     PlanType = p.PlanType,
                     InsurancePlan = p.InsurancePlan,

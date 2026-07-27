@@ -25,6 +25,11 @@ namespace WholeCareInsurance.api.Models
 
         public int? NumberOfApplicants { get; set; }
 
+        // Fuente de verdad para "última actualización" (Dashboard §9.6) — se setea en
+        // Create y en cada Update de PoliciesController. PolicyHistory.ChangedAt NO sirve
+        // para esto: solo trackea cambios de Status (§13), no cualquier campo.
+        public DateTime UpdatedAt { get; set; }
+
         // Campos confirmados por el análisis del archivo real de migración (Health/Obamacare).
         // Metal tier de ACA — DISTINTO de Type (Obama Care/Medicare/Auto/Otro), ambos coexisten.
         public string? PlanType { get; set; }

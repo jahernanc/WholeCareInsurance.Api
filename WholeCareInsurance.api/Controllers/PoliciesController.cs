@@ -88,6 +88,7 @@ namespace WholeCareInsurance.api.Controllers
                 Status = dto.Status,
                 Period = dto.Period,
                 NumberOfApplicants = dto.NumberOfApplicants,
+                UpdatedAt = DateTime.UtcNow,
                 CustomerId = dto.CustomerId,
                 PlanType = dto.PlanType,
                 InsurancePlan = dto.InsurancePlan,
@@ -169,6 +170,7 @@ namespace WholeCareInsurance.api.Controllers
             existing.Status = dto.Status;
             existing.Period = dto.Period;
             existing.NumberOfApplicants = dto.NumberOfApplicants;
+            existing.UpdatedAt = DateTime.UtcNow;
             existing.PlanType = dto.PlanType;
             existing.InsurancePlan = dto.InsurancePlan;
             existing.EffectiveDate = dto.EffectiveDate;
@@ -448,6 +450,7 @@ namespace WholeCareInsurance.api.Controllers
             Status = p.Status,
             Period = p.Period,
             NumberOfApplicants = p.NumberOfApplicants,
+            UpdatedAt = p.UpdatedAt,
             CustomerId = p.CustomerId,
             PlanType = p.PlanType,
             InsurancePlan = p.InsurancePlan,

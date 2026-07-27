@@ -13,6 +13,7 @@ namespace WholeCareInsurance.api.DTOs.Policies
         public string Status { get; set; } = default!;
         public int Period { get; set; }
         public int? NumberOfApplicants { get; set; }
+        public DateTime UpdatedAt { get; set; }
         public int CustomerId { get; set; }
 
         public string? PlanType { get; set; }
