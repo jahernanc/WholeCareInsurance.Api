@@ -167,7 +167,7 @@ Como contraparte de §5.3 (que estandarizó los errores 400 esperados): si algo 
 ## 6. Dashboard y UX general
 
 ### 6.1 Dashboard — ver §9
-Placeholder, bloqueado hasta tener la data migrada (§7).
+✅ Hecho — ver §9.
 
 ### 6.2 Selector de idioma (Español/Inglés) en el Header — ✅ Hecho, confirmado
 `react-i18next` con diccionarios por namespace. `translateEnum()` desacopla el valor guardado en la DB (español) del texto mostrado. `User.PreferredLanguage` (default `"en"`) persistido vía `PUT /users/me/language`. Sin cambios desde la última revisión — sigue sin nada pendiente en este punto.
@@ -269,37 +269,40 @@ Primera vez que se levantó el `docker-compose.yml` con Docker de verdad (§8.1 
 
 ---
 
-## 9. Dashboard — ⏸ Bloqueado hasta tener la data migrada
+## 9. Dashboard — ✅ Hecho (2026-07-27)
 
-No implementar hasta que la migración de datos del sistema anterior (§7) esté completa.
+Las 3 decisiones abiertas de §9.4 (filtros combinables por fecha y agente, Reminders afuera de alcance, sin rol intermedio) quedaron confirmadas por el responsable y son la base del diseño final.
 
-### 9.1 Paleta de colores general (aplica a toda la app, no solo Dashboard)
-- Colores a resaltar: verde, blanco y azul.
-- Botones semánticos: Submit/Guardar → verde, Eliminar → rojo, Editar → amarillo.
+**Hallazgo importante durante el diseño**: no existía ningún scoping por agente en ningún listado de la API (`CustomersController.GetAll()`/`PoliciesController.Search()` devuelven todo sin filtrar por rol — el único uso de `Rol`/`AgentId` hasta este punto era validar qué agente puede asignarse a sí mismo al crear/editar, no filtrar qué puede ver). El Dashboard es el primer lugar del sistema que filtra datos por agente — no había ningún patrón previo que reusar, se diseñó desde cero.
 
-### 9.2 Referencia visual del Dashboard
-Fila de tarjetas KPI: Agencias, Agentes, Pólizas (+ miembros), Recordatorios.
-Fila de tarjetas por estado de póliza (cantidad + miembros por cada una): `Draft`, `Pendiente`, `Cancelado`, `Por procesar`, `En proceso`, `Actualizado`, `Procesado`, `Cambio de agente` — actualizado según el enum final de §1.10 (corregido tras el análisis del archivo real: "Actualizado" sí es el 8vo valor real, reemplaza a "En corrección").
-✅ Enum de Status ya resuelto (§1.10) — este punto ya no está bloqueado por eso, solo sigue bloqueado por la migración de datos (§7, ver encabezado de §9).
-Gráficos: torta "Pólizas por Tipo" (campo `Type`, ya existe), torta "Pólizas por Status".
+### 9.1 Paleta de colores general — ✅ Hecho
+Botones semánticos aplicados en toda la app (no solo Dashboard): Submit/Guardar → verde (`#16a34a`, mismo valor que ya usaban los botones de crear dependiente/beneficiario en `Policies.jsx` antes de esta sesión — se generalizó ese valor en vez de inventar uno nuevo), Editar → amarillo (`#eab308` con texto oscuro `#1f2937` para contraste), Eliminar → rojo (`#dc2626`, ya lo usaba `Customers.jsx`, sin cambios). Aplicado en los formularios de Customers/Agentes/InsuranceCompanies/Policies, los botones de editar de esas mismas 3 páginas, y los 4 submits de las pantallas de auth (Login/ForgotPassword/ResetPassword/ChangePasswordForced) que no tenían color propio. Los botones de icono (🔍✏️🗑 en la tabla de Policies) quedaron sin cambios — son emoji con color fijo, no hay fondo que recolorear.
 
-### 9.3 Estadísticas adicionales solicitadas
-Cantidad de pólizas/clientes por Compañía aseguradora (ya existe, §1.5), por Cliente, por Miembros (dependientes + titulares), por Condado, por Ciudad.
-⚠️ Condado y Ciudad ya existen en `Customer` (§3.1) — este punto ya no está bloqueado por falta del campo, pero sigue bloqueado por falta de datos migrados (§7).
+### 9.2 Referencia visual del Dashboard — ✅ Hecho
+KPIs, tarjetas por status y los 2 gráficos de torta (Tipo/Status) implementados. "Recordatorios" se sacó por completo de la fila de KPIs (decisión confirmada: fuera de alcance, sin placeholder).
 
-### 9.4 Pendiente de definir antes de implementar
-- ¿Filtros por rango de fechas o por agente, o siempre total general?
-- ¿"Reminders" es un concepto ya existente o una funcionalidad nueva a definir aparte? (auditado: no existe ningún modelo/tabla de recordatorios hoy en el backend)
-- ¿Existe algún rol intermedio (ej. supervisor de agencia)? Hoy el sistema solo maneja `Admin`/`Agente` (`User.Rol`, sin otros valores en uso).
+### 9.3 Estadísticas adicionales — ✅ Hecho (sin "por Cliente")
+Por Compañía aseguradora, por Condado, por Ciudad — como listas rankeadas top 10 (condado/ciudad tienen 40-80 valores distintos en los datos reales). "Por Cliente" se sacó del alcance (decisión confirmada, ambiguo y no prioritario).
 
-### 9.5 Alcance de datos según rol
-Admin ve todo; Agente ve solo lo propio (mismo criterio de scoping que ya usa el resto de la API vía `AgentId`). Los endpoints de estadísticas deben aplicar el mismo filtro — no exponer un endpoint que devuelva el total global sin control de acceso.
+### 9.4 Decisiones (ya no pendientes)
+- Filtros: por rango de fechas (`from`/`to` contra `EffectiveDate`, fuente de verdad de §1.11) **y** por agente, combinables entre sí.
+- "Reminders": afuera del alcance, sin implementar ni dejar placeholder.
+- Roles: confirmado que solo existen `Admin`/`Agente`, sin rol intermedio — el modelo de permisos de §9.5 se diseñó asumiendo únicamente estos dos.
 
-### 9.6 Widget "Últimas pólizas" (Latest policies)
-Últimas 10 pólizas por fecha de actualización. Columnas: Cliente (link), teléfono/email, Status (badge), fecha/hora de última actualización. Mismo scoping por rol (§9.5).
+### 9.5 Alcance de datos según rol — ✅ Hecho
+6 endpoints nuevos bajo `api/dashboard/*` (`summary`, `by-status`, `by-type`, `stats`, `latest-policies`, `upcoming-65`). Un único helper (`DashboardController.ResolveEffectiveAgentId`) centraliza el scoping: Admin puede pasar `agentId` (o ninguno = vista global) para "pararse en los zapatos" de un agente puntual; Agente **siempre** recibe su propio `CurrentUserId()`, ignorando cualquier `agentId` que mande en el query string — no se confía en el frontend para esto.
+- KPIs "Agencias"/"Agentes" (`DashboardSummaryDto.AgenciesCount`/`AgentsCount`) son `null` en cualquier vista scopeada a un agente (no tienen sentido escalados a una sola persona) — el frontend los oculta cuando vienen en `null`.
+- **Verificado el scoping con 2 agentes reales de §15.3** (Ana Ayala Marin #3013 con 386 pólizas/798 miembros, SANDRA AGUILAR #3041 con 133/242, números confirmados por SQL directo independiente del código): un Agente logueado pasando `agentId` de otro agente real, del Admin, o inexistente en la URL a mano siempre recibe sus propios números en los 6 endpoints — el intento de fuga de datos se ignora en el 100% de los casos probados. Admin "parado en los zapatos" de un agente puntual reproduce exactamente los mismos números que ese agente ve logueado directamente.
 
-### 9.7 Widget "Próximos/recientes a cumplir 65 años" (elegibilidad Medicare)
-Ventana: 4 meses antes/después del cumpleaños 65. Columnas: nombre (link), fecha de nacimiento, edad. Sin job ni campo persistido — calculado al vuelo desde `DateOfBirth` en la query. Mismo scoping por rol (§9.5).
+### 9.6 Widget "Últimas pólizas" — ✅ Hecho
+`Policy.UpdatedAt` (`DateTime`, no nullable) nuevo — migración `AddPolicyUpdatedAt` con backfill (`COALESCE(EffectiveDate, GETUTCDATE())` para las 1211 pólizas ya migradas, ninguna quedó en el default de EF). Se setea en `Create` **y** en cada `Update` de `PoliciesController` (no solo en `Update` — una póliza recién creada tiene que aparecer arriba en el widget, no quedar con el default hasta la primera edición). **No se usó `PolicyHistory.ChangedAt`** (solo trackea cambios de `Status`, §13) ni orden por `Id` — `UpdatedAt` es la única fuente de verdad real para "última actualización".
+
+### 9.7 Widget "Próximos/recientes a cumplir 65 años" — ✅ Hecho
+Ventana ±4 meses del cumpleaños 65, calculada al vuelo desde `Customer.DateOfBirth` (pre-filtro angosto por año de nacimiento en SQL, chequeo exacto de la ventana en memoria — `AddYears`/`AddMonths` no traduce de forma confiable a SQL vía EF Core). Mismo scoping por rol que el resto (§9.5).
+
+**Verificado**: `dotnet build`/`npm run build`/`npm run lint` limpios (mismos warnings/errores preexistentes de siempre, ninguno nuevo salvo el mismo patrón ya roto de `react-hooks/set-state-in-effect` que ya tenían `Policies.jsx`/`InsuranceCompanies.jsx`). Backend probado extensivamente con curl/node (funcionalidad + los 6 endpoints con el intento de fuga de datos descripto en §9.5). Frontend revisado en el navegador por el responsable directamente (sin extensión de Chrome conectada en esta sesión para captura automática) — confirmado "perfecto" para los 4 escenarios: Admin vista global, Agente logueado, Admin parado en los zapatos de un agente, y filtros de fecha + agente combinados.
+
+**Fuera de alcance, decisión explícita durante el diseño**: el filtro de fecha del Dashboard es independiente del selector global de "Período" del Header (no se integraron) — no estaba pedido explícitamente, se puede sumar después si se necesita.
 
 ---
 
@@ -589,7 +592,7 @@ Nuevo modo `--reassign-agents` en `WholeCareInsurance.Migration`, combinable con
 23. ~~Mensajes de error del backend no llegaban al usuario~~ ✅ Hecho (§5.3, encontrado verificando InsuranceCompanies en el navegador)
 24. ~~Middleware global de excepciones no controladas~~ ✅ Hecho (§5.4)
 25. ~~AdminUserSeeder generalizado (admin real por ambiente vía env vars)~~ ✅ Hecho (§10.5)
-26. Dashboard — bloqueado hasta tener la data migrada (§9)
+26. ~~Dashboard~~ ✅ Hecho (§9, ver también el ítem 40 de esta misma lista)
 27. ~~Relevamiento de campos específicos por Tipo de Póliza (Life/Medicare/Supplemental)~~ ✅ Documentado (§12) e ✅ implementado en su totalidad: Medicare (§12.10), Life Insurance (§12.3/§12.6) y Supplemental Plans (§12.9) — decisión del responsable de adelantarlos pese al bajo volumen relevado
 28. ~~Bug de arranque en frío con Docker real (Error 4060) — healthcheck de SQL Server + orden de migración/seed~~ ✅ Hecho (§8.1.1)
 29. ~~Hallazgos de auditoría del feature de Agentes (validación cruzada server-side, búsqueda en `/users`, rate limiting)~~ ✅ Resuelto 3/3, ver §11.1
@@ -603,3 +606,4 @@ Nuevo modo `--reassign-agents` en `WholeCareInsurance.Migration`, combinable con
 37. ~~Reasignación de agentes en pólizas ya migradas~~ ✅ Hecho (§15.3), 1178/1179 (99.92%)
 38. Cierre del gap de seguridad de §10.1 (MustChangePassword solo de frontend) — ✅ Hecho, middleware de backend agregado
 39. Reconciliación de campos §1.11 (StartDate/EndDate/Premium vs EffectiveDate/Period/MonthlyPremiumAmount) — ✅ Analizado y resuelto, se dejan como están (decisión del responsable, documentado en §1.11)
+40. ~~Dashboard (KPIs, gráficos por Tipo/Status, estadísticas, últimas pólizas, próximos a cumplir 65, scoping por rol)~~ ✅ Hecho (§9), incluye `Policy.UpdatedAt` nuevo (§9.6) y paleta de colores semántica en toda la app (§9.1)
