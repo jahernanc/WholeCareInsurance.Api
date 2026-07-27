@@ -12,6 +12,7 @@ namespace WholeCareInsurance.api.Models
         public int InsuranceCompanyId { get; set; }
         public InsuranceCompany InsuranceCompany { get; set; } = default!;
 
+        // Redundantes con EffectiveDate/Period/MonthlyPremiumAmount en datos migrados — ver §1.11 en PENDIENTE.md.
         public DateTime StartDate { get; set; }
 
         public DateTime EndDate { get; set; }
