@@ -1,0 +1,50 @@
+{
+    "title": "Dashboard",
+    "loading": "Cargando...",
+    "filters": {
+        "from": "Desde",
+        "to": "Hasta",
+        "agent": "Agente",
+        "allAgents": "Todos (vista global)"
+    },
+    "summary": {
+        "agencies": "Agencias",
+        "agents": "Agentes",
+        "policies": "Pólizas",
+        "members": "Miembros"
+    },
+    "byStatus": {
+        "title": "Pólizas por Status",
+        "members": "{{count}} miembros"
+    },
+    "byType": {
+        "title": "Pólizas por Tipo"
+    },
+    "stats": {
+        "title": "Estadísticas adicionales",
+        "byInsuranceCompany": "Por Compañía aseguradora",
+        "byCounty": "Por Condado",
+        "byCity": "Por Ciudad",
+        "andMore": "y {{count}} más",
+        "unspecified": "Sin especificar"
+    },
+    "latestPolicies": {
+        "title": "Últimas pólizas",
+        "empty": "Todavía no hay pólizas",
+        "columns": {
+            "customer": "Cliente",
+            "contact": "Contacto",
+            "status": "Status",
+            "updatedAt": "Última actualización"
+        }
+    },
+    "upcoming65": {
+        "title": "Próximos/recientes a cumplir 65 años",
+        "empty": "Nadie en la ventana de ±4 meses",
+        "columns": {
+            "name": "Nombre",
+            "dateOfBirth": "Fecha de nacimiento",
+            "age": "Edad"
+        }
+    }
+}

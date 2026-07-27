@@ -1,0 +1,50 @@
+{
+    "title": "Dashboard",
+    "loading": "Loading...",
+    "filters": {
+        "from": "From",
+        "to": "To",
+        "agent": "Agent",
+        "allAgents": "All (global view)"
+    },
+    "summary": {
+        "agencies": "Agencies",
+        "agents": "Agents",
+        "policies": "Policies",
+        "members": "Members"
+    },
+    "byStatus": {
+        "title": "Policies by Status",
+        "members": "{{count}} members"
+    },
+    "byType": {
+        "title": "Policies by Type"
+    },
+    "stats": {
+        "title": "Additional statistics",
+        "byInsuranceCompany": "By Insurance Company",
+        "byCounty": "By County",
+        "byCity": "By City",
+        "andMore": "and {{count}} more",
+        "unspecified": "Unspecified"
+    },
+    "latestPolicies": {
+        "title": "Latest policies",
+        "empty": "No policies yet",
+        "columns": {
+            "customer": "Customer",
+            "contact": "Contact",
+            "status": "Status",
+            "updatedAt": "Last updated"
+        }
+    },
+    "upcoming65": {
+        "title": "Upcoming/recent 65th birthdays",
+        "empty": "Nobody in the ±4 month window",
+        "columns": {
+            "name": "Name",
+            "dateOfBirth": "Date of birth",
+            "age": "Age"
+        }
+    }
+}

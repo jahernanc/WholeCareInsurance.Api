@@ -1,21 +1,16 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { useTranslation } from "react-i18next";
 import Login from "./Login";
 import ChangePasswordForced from "./ChangePasswordForced";
 import ForgotPassword from "./ForgotPassword";
 import ResetPassword from "./ResetPassword";
 import AppLayout from "./layout/AppLayout";
+import Dashboard from "./pages/Dashboard";
 import Customers from "./pages/Customers";
 import Policies from "./pages/Policies";
 import Agentes from "./pages/Agentes";
 import InsuranceCompanies from "./pages/InsuranceCompanies";
 import Profile from "./pages/Profile";
 import { isAdmin } from "./api";
-
-function Dashboard() {
-    const { t } = useTranslation("common");
-    return <h1>{t("dashboard.title")} ✅</h1>;
-}
 
 function App() {
     return (
