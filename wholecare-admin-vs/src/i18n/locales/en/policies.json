@@ -124,6 +124,12 @@
         "insuranceCompany": "Insurance Company",
         "all": "All"
     },
+    "pagination": {
+        "previous": "Previous",
+        "next": "Next",
+        "pageInfo": "Page {{page}} of {{totalPages}}",
+        "showing": "Showing {{from}}-{{to}} of {{total}}"
+    },
     "table": {
         "policy": "Policy",
         "type": "Type",

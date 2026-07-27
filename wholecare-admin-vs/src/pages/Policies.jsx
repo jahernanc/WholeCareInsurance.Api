@@ -37,6 +37,9 @@ function Policies() {
     const { t } = useTranslation(["policies", "common"]);
     const { period } = useOutletContext();
     const [policies, setPolicies] = useState([]);
+    const [page, setPage] = useState(1);
+    const [totalCount, setTotalCount] = useState(0);
+    const [totalPages, setTotalPages] = useState(1);
     const [customers, setCustomers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
@@ -282,7 +285,7 @@ function Policies() {
         }
     };
 
-    const loadData = async (filterOverrides = {}) => {
+    const loadData = async (filterOverrides = {}, pageOverride = page) => {
         const filters = {
             policyNumber: filterPolicyNumber,
             firstName: filterFirstName,
@@ -298,13 +301,14 @@ function Policies() {
         Object.entries(filters).forEach(([key, value]) => {
             if (value) params.set(key, value);
         });
+        params.set("page", String(pageOverride));
         const query = params.toString();
 
         try {
             setLoading(true);
 
             const [policiesRes, customersRes] = await Promise.all([
-                apiFetch(`/api/policies${query ? `?${query}` : ""}`),
+                apiFetch(`/api/policies?${query}`),
                 apiFetch("/api/customers"),
             ]);
 
@@ -319,7 +323,10 @@ function Policies() {
             const policiesData = await policiesRes.json();
             const customersData = await customersRes.json();
 
-            setPolicies(policiesData);
+            setPolicies(policiesData.items);
+            setTotalCount(policiesData.totalCount);
+            setTotalPages(policiesData.totalPages);
+            setPage(policiesData.page);
             setCustomers(customersData);
         } catch (error) {
             console.error("ERROR loading policies data:", error);
@@ -328,7 +335,7 @@ function Policies() {
         }
     };
 
-    const handleSearch = () => loadData();
+    const handleSearch = () => loadData({}, 1);
 
     const handleClearFilters = () => {
         setFilterPolicyNumber("");
@@ -337,7 +344,12 @@ function Policies() {
         setFilterStatus("");
         setFilterType("");
         setFilterInsuranceCompanyId("");
-        loadData({ policyNumber: "", firstName: "", lastName: "", status: "", type: "", insuranceCompanyId: "" });
+        loadData({ policyNumber: "", firstName: "", lastName: "", status: "", type: "", insuranceCompanyId: "" }, 1);
+    };
+
+    const handlePageChange = (newPage) => {
+        if (newPage < 1 || newPage > totalPages) return;
+        loadData({}, newPage);
     };
     const loadDependents = async (policyId) => {
         try {
@@ -732,7 +744,7 @@ function Policies() {
     useEffect(() => {
         if (!localStorage.getItem("accessToken")) return;
         // Re-carga cuando cambia el Período activo del header (filtra la lista).
-        loadData();
+        loadData({}, 1);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [period]);
 
@@ -2120,6 +2132,35 @@ function Policies() {
                                 ))}
                             </tbody>
                         </table>
+
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, fontSize: 14 }}>
+                            <span>
+                                {t("pagination.showing", {
+                                    from: (page - 1) * 20 + 1,
+                                    to: Math.min(page * 20, totalCount),
+                                    total: totalCount,
+                                })}
+                            </span>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <button
+                                    type="button"
+                                    onClick={() => handlePageChange(page - 1)}
+                                    disabled={page <= 1}
+                                    style={{ padding: "6px 10px", cursor: page <= 1 ? "default" : "pointer" }}
+                                >
+                                    {t("pagination.previous")}
+                                </button>
+                                <span>{t("pagination.pageInfo", { page, totalPages })}</span>
+                                <button
+                                    type="button"
+                                    onClick={() => handlePageChange(page + 1)}
+                                    disabled={page >= totalPages}
+                                    style={{ padding: "6px 10px", cursor: page >= totalPages ? "default" : "pointer" }}
+                                >
+                                    {t("pagination.next")}
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 )
             }

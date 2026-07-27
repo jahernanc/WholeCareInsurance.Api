@@ -124,6 +124,12 @@
         "insuranceCompany": "Compañía aseguradora",
         "all": "Todos"
     },
+    "pagination": {
+        "previous": "Anterior",
+        "next": "Siguiente",
+        "pageInfo": "Página {{page}} de {{totalPages}}",
+        "showing": "Mostrando {{from}}-{{to}} de {{total}}"
+    },
     "table": {
         "policy": "Póliza",
         "type": "Tipo",

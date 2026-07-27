@@ -18,7 +18,7 @@ namespace WholeCareInsurance.api.Services
         public async Task<IEnumerable<Policy>> GetAll()
             => await _context.Policies.Include(p => p.Customer).Include(p => p.InsuranceCompany).ToListAsync();
 
-        public async Task<List<Policy>> Search(int? customerId, string? firstName, string? lastName, string? policyNumber, string? status, string? type, int? insuranceCompanyId, int? period)
+        public async Task<(List<Policy> Items, int TotalCount)> Search(int? customerId, string? firstName, string? lastName, string? policyNumber, string? status, string? type, int? insuranceCompanyId, int? period, int page, int pageSize)
         {
             var query = _context.Policies.Include(p => p.Customer).Include(p => p.InsuranceCompany).AsQueryable();
 
@@ -46,7 +46,18 @@ namespace WholeCareInsurance.api.Services
             if (period.HasValue)
                 query = query.Where(p => p.Period == period.Value);
 
-            return await query.ToListAsync();
+            var totalCount = await query.CountAsync();
+
+            pageSize = Math.Clamp(pageSize, 1, 100);
+            if (page < 1) page = 1;
+
+            var items = await query
+                .OrderByDescending(p => p.Id)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return (items, totalCount);
         }
 
         public async Task<Policy?> GetById(int id)

@@ -20,6 +20,7 @@ namespace WholeCareInsurance.api.Controllers
         private readonly IPolicyDocumentStorage _documentStorage;
         private readonly IPolicyHistoryService _policyHistory;
         private static readonly FileExtensionContentTypeProvider ContentTypeProvider = new();
+        private const int DefaultPageSize = 20;
 
         public PoliciesController(IPolicyService policies, ICustomerService customers, IInsuranceCompanyService insuranceCompanies, IPolicyDocumentStorage documentStorage, IPolicyHistoryService policyHistory)
         {
@@ -42,10 +43,19 @@ namespace WholeCareInsurance.api.Controllers
             [FromQuery] string? status = null,
             [FromQuery] string? type = null,
             [FromQuery] int? insuranceCompanyId = null,
-            [FromQuery] int? period = null)
+            [FromQuery] int? period = null,
+            [FromQuery] int page = 1)
         {
-            var found = await _policies.Search(customerId, firstName, lastName, policyNumber, status, type, insuranceCompanyId, period);
-            return Ok(found.Select(ToResponse));
+            if (page < 1) page = 1;
+            var (found, totalCount) = await _policies.Search(customerId, firstName, lastName, policyNumber, status, type, insuranceCompanyId, period, page, DefaultPageSize);
+            return Ok(new PagedResponseDto<PolicyResponseDto>
+            {
+                Items = found.Select(ToResponse).ToList(),
+                TotalCount = totalCount,
+                Page = page,
+                PageSize = DefaultPageSize,
+                TotalPages = (int)Math.Ceiling(totalCount / (double)DefaultPageSize),
+            });
         }
 
         [HttpGet("{id:int}")]
