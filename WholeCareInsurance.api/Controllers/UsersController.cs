@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using WholeCareInsurance.api.DTOs.Policies;
 using WholeCareInsurance.api.DTOs.Users;
 using WholeCareInsurance.api.Models;
 using WholeCareInsurance.api.Services;
@@ -19,23 +20,44 @@ namespace WholeCareInsurance.api.Controllers
             _usersService = usersService;
         }
 
+        private const int DefaultPageSize = 10;
+
+        // "page" es opcional a propósito, mismo criterio que CustomersController.GetAll:
+        // sin él devuelve el array plano de siempre (lo consumen dropdowns que necesitan
+        // la lista completa, ej. selector de Agente en Customers/Policies/Dashboard); con
+        // él, la pantalla de administración de Agentes pide una página paginada (§17,
+        // actualiza la decisión de §11.1 que había descartado paginar por bajo volumen).
         [HttpGet]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> GetAll([FromQuery] string? role = null, [FromQuery] string? search = null)
+        public async Task<IActionResult> GetAll([FromQuery] string? role = null, [FromQuery] string? search = null, [FromQuery] int? page = null)
         {
             var users = await _usersService.GetAll();
 
             if (!string.IsNullOrWhiteSpace(role))
                 users = users.Where(u => u.Rol == role);
 
-            // Filtra en memoria (GetAll ya materializa la lista completa) por nombre o email —
-            // sin paginar, acorde al volumen actual de agentes (ver PENDIENTE.md §11.1).
+            // Filtra en memoria (GetAll ya materializa la lista completa) por nombre o email.
             if (!string.IsNullOrWhiteSpace(search))
                 users = users.Where(u =>
                     u.Nombre.Contains(search, StringComparison.OrdinalIgnoreCase) ||
                     u.Email.Contains(search, StringComparison.OrdinalIgnoreCase));
 
-            return Ok(users.Select(ToResponse));
+            if (!page.HasValue)
+                return Ok(users.Select(ToResponse));
+
+            var ordered = users.OrderByDescending(u => u.Id).ToList();
+            var effectivePage = page.Value < 1 ? 1 : page.Value;
+            var totalCount = ordered.Count;
+            var pageItems = ordered.Skip((effectivePage - 1) * DefaultPageSize).Take(DefaultPageSize);
+
+            return Ok(new PagedResponseDto<UserResponseDto>
+            {
+                Items = pageItems.Select(ToResponse).ToList(),
+                TotalCount = totalCount,
+                Page = effectivePage,
+                PageSize = DefaultPageSize,
+                TotalPages = (int)Math.Ceiling(totalCount / (double)DefaultPageSize),
+            });
         }
 
         [HttpGet("{id}")]
@@ -86,6 +108,7 @@ namespace WholeCareInsurance.api.Controllers
             existing.Email = dto.Email;
             existing.Rol = dto.Rol;
             existing.IsEncargado = dto.IsEncargado;
+            existing.IsActive = dto.IsActive;
 
             existing.MiddleName = dto.MiddleName;
             existing.Gender = dto.Gender;
@@ -126,6 +149,7 @@ namespace WholeCareInsurance.api.Controllers
             Email = u.Email,
             Rol = u.Rol,
             IsEncargado = u.IsEncargado,
+            IsActive = u.IsActive,
             PreferredLanguage = u.PreferredLanguage,
             MiddleName = u.MiddleName,
             Gender = u.Gender,

@@ -46,15 +46,61 @@
     },
     "loading": "Loading agents...",
     "empty": "No agents registered.",
+    "activateConfirm": "Activate this agent?",
+    "deactivateConfirm": "Deactivate this agent?",
+    "toggleActiveError": "Error changing the agent's status",
+    "pagination": {
+        "previous": "Previous",
+        "next": "Next",
+        "pageInfo": "Page {{page}} of {{totalPages}}",
+        "showing": "Showing {{from}}-{{to}} of {{total}}"
+    },
+    "table": {
+        "fullName": "Full name",
+        "email": "Email",
+        "agency": "Agency",
+        "companyName": "Company",
+        "licenseNumber": "License #",
+        "actions": "Actions"
+    },
+    "actionTitles": {
+        "edit": "Edit agent",
+        "viewDetails": "View details",
+        "activate": "Activate agent",
+        "deactivate": "Deactivate agent"
+    },
+    "detail": {
+        "contactSection": "Contact",
+        "addressSection": "Address",
+        "licenseSection": "License and NPN",
+        "contractSection": "Agency and contract",
+        "otherSection": "Other"
+    },
     "card": {
         "email": "Email",
         "role": "Role",
         "isEncargado": "Manager",
+        "isActive": "Status",
+        "active": "Active",
+        "inactive": "Inactive",
         "agency": "Agency",
         "location": "State/City/County",
         "licensed": "Licensed",
+        "licenseNumber": "License Number",
         "npnNumber": "NPN Number",
+        "npnOverride": "NPN Override",
         "hasCompanyContract": "Company Contract",
+        "contractNumber": "Contract Number",
+        "companyName": "Company Name",
+        "contractsWanted": "Contracts Wanted",
+        "additionalInformation": "Additional Information",
+        "termsAccepted": "Terms Accepted",
+        "address1": "Address # 1",
+        "address2": "Address # 2",
+        "city": "City",
+        "zipCode": "Zip Code",
+        "county": "County",
+        "state": "State",
         "yes": "Yes",
         "no": "No"
     }

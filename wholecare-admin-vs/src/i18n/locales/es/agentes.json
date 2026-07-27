@@ -46,15 +46,61 @@
     },
     "loading": "Cargando agentes...",
     "empty": "No hay agentes registrados.",
+    "activateConfirm": "¿Activar este agente?",
+    "deactivateConfirm": "¿Desactivar este agente?",
+    "toggleActiveError": "Error al cambiar el estado del agente",
+    "pagination": {
+        "previous": "Anterior",
+        "next": "Siguiente",
+        "pageInfo": "Página {{page}} de {{totalPages}}",
+        "showing": "Mostrando {{from}}-{{to}} de {{total}}"
+    },
+    "table": {
+        "fullName": "Nombre completo",
+        "email": "Email",
+        "agency": "Agencia",
+        "companyName": "Compañía",
+        "licenseNumber": "Nro de licencia",
+        "actions": "Acciones"
+    },
+    "actionTitles": {
+        "edit": "Editar agente",
+        "viewDetails": "Ver detalle",
+        "activate": "Activar agente",
+        "deactivate": "Desactivar agente"
+    },
+    "detail": {
+        "contactSection": "Contacto",
+        "addressSection": "Dirección",
+        "licenseSection": "Licencia y NPN",
+        "contractSection": "Agencia y contrato",
+        "otherSection": "Otros"
+    },
     "card": {
         "email": "Email",
         "role": "Rol",
         "isEncargado": "Encargado",
+        "isActive": "Estado",
+        "active": "Activo",
+        "inactive": "Inactivo",
         "agency": "Agencia",
         "location": "Estado/Ciudad/Condado",
         "licensed": "Licenciado",
+        "licenseNumber": "Número de licencia",
         "npnNumber": "Número NPN",
+        "npnOverride": "NPN Override",
         "hasCompanyContract": "Contrato con compañía",
+        "contractNumber": "Número de contrato",
+        "companyName": "Nombre de la compañía",
+        "contractsWanted": "Contratos deseados",
+        "additionalInformation": "Información adicional",
+        "termsAccepted": "Términos aceptados",
+        "address1": "Dirección # 1",
+        "address2": "Dirección # 2",
+        "city": "Ciudad",
+        "zipCode": "Código postal",
+        "county": "Condado",
+        "state": "Estado",
         "yes": "Sí",
         "no": "No"
     }

@@ -37,6 +37,9 @@ namespace WholeCareInsurance.api.Data.Configurations
             entity.Property(u => u.IsEncargado)
                   .IsRequired();
 
+            entity.Property(u => u.IsActive)
+                  .IsRequired();
+
             entity.Property(u => u.PreferredLanguage)
                   .IsRequired()
                   .HasMaxLength(5);

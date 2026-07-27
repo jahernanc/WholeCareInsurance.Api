@@ -20,7 +20,7 @@ namespace WholeCareInsurance.api.Controllers
         private readonly IPolicyDocumentStorage _documentStorage;
         private readonly IPolicyHistoryService _policyHistory;
         private static readonly FileExtensionContentTypeProvider ContentTypeProvider = new();
-        private const int DefaultPageSize = 20;
+        private const int DefaultPageSize = 10;
 
         public PoliciesController(IPolicyService policies, ICustomerService customers, IInsuranceCompanyService insuranceCompanies, IPolicyDocumentStorage documentStorage, IPolicyHistoryService policyHistory)
         {

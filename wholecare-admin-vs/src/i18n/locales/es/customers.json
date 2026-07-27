@@ -62,6 +62,34 @@
     "deleteError": "Error al eliminar el cliente",
     "loading": "Cargando clientes...",
     "empty": "No hay clientes registrados.",
+    "table": {
+        "fullName": "Nombre completo",
+        "migrationStatus": "Tipo de residencia",
+        "phone": "Teléfono",
+        "email": "Email",
+        "actions": "Acciones"
+    },
+    "actionTitles": {
+        "edit": "Editar cliente",
+        "viewDetails": "Ver detalle",
+        "chatWhatsapp": "Chatear por WhatsApp",
+        "delete": "Eliminar cliente"
+    },
+    "whatsappMessage": "Hola, te contactamos desde WholeCare Insurance.",
+    "pagination": {
+        "previous": "Anterior",
+        "next": "Siguiente",
+        "pageInfo": "Página {{page}} de {{totalPages}}",
+        "showing": "Mostrando {{from}}-{{to}} de {{total}}"
+    },
+    "detail": {
+        "personalSection": "Datos personales",
+        "contactSection": "Contacto y dirección",
+        "employmentSection": "Datos laborales",
+        "otherSection": "Otros",
+        "agentsSection": "Agentes",
+        "policiesSection": "Pólizas"
+    },
     "card": {
         "ssn": "SSN",
         "birth": "Nacimiento",

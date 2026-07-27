@@ -6,6 +6,9 @@ import Modal from "../components/Modal";
 import CustomerFormFields from "../components/CustomerFormFields";
 import MaskedText from "../components/MaskedText";
 import { emptyCustomerForm } from "../data/customerFormOptions";
+import { detailSectionHeaderStyle, detailRowStyle } from "../utils/detailModalStyles";
+import { tableHeaderRowStyle, tableCellStyle, actionsCellStyle, actionButtonStyle, actionLinkStyle } from "../utils/tableStyles";
+import { buildWhatsAppUrl } from "../utils/whatsapp";
 
 const API = "/api/customers";
 
@@ -19,20 +22,34 @@ function Customers() {
     const [editingId, setEditingId] = useState(null);
     const [formError, setFormError] = useState("");
     const [submitting, setSubmitting] = useState(false);
+    const [viewingCustomer, setViewingCustomer] = useState(null);
+    const [page, setPage] = useState(1);
+    const [totalCount, setTotalCount] = useState(0);
+    const [totalPages, setTotalPages] = useState(1);
 
     const userIsAdmin = isAdmin();
 
-    const loadCustomers = async () => {
+    const loadCustomers = async (pageOverride) => {
+        const effectivePage = pageOverride ?? page;
         try {
             setLoading(true);
-            const res = await apiFetch(API);
+            const res = await apiFetch(`${API}?page=${effectivePage}`);
             if (!res.ok) throw new Error();
-            setCustomers(await res.json());
+            const data = await res.json();
+            setCustomers(data.items);
+            setTotalCount(data.totalCount);
+            setTotalPages(data.totalPages);
+            setPage(data.page);
         } catch {
             console.error("No se pudieron cargar los clientes");
         } finally {
             setLoading(false);
         }
+    };
+
+    const handlePageChange = (newPage) => {
+        if (newPage < 1 || newPage > totalPages) return;
+        loadCustomers(newPage);
     };
 
     const loadAgents = async () => {
@@ -142,6 +159,9 @@ function Customers() {
         }
     };
 
+    const openDetail = (c) => setViewingCustomer(c);
+    const closeDetail = () => setViewingCustomer(null);
+
     const handleDelete = async (id) => {
         if (!confirm(t("deleteConfirm"))) return;
         try {
@@ -190,49 +210,132 @@ function Customers() {
             ) : customers.length === 0 ? (
                 <p>{t("empty")}</p>
             ) : (
-                <div style={{ display: "grid", gap: 12 }}>
-                    {customers.map((c) => (
-                        <div key={c.id} style={{ border: "1px solid #ddd", borderRadius: 10, padding: 16, background: "white" }}>
-                            <div style={{ fontWeight: "bold", fontSize: 16, marginBottom: 6 }}>
-                                {c.firstName} {c.lastName}
-                            </div>
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 20px", fontSize: 14, color: "#444" }}>
-                                <span>{t("card.ssn")}: <MaskedText value={c.socialSecurityNumber} /></span>
-                                <span>{t("card.birth")}: {c.dateOfBirth?.substring(0, 10)}</span>
-                                <span>{t("card.email")}: {c.email}</span>
-                                <span>{t("card.phone")}: {c.phone}</span>
-                                <span style={{ gridColumn: "1 / -1" }}>{t("card.address")}: {[c.address1, c.address2].filter(Boolean).join(", ")}</span>
-                                <span>{t("card.status")}: {translateEnum("migrationStatus", c.migrationStatus)}</span>
-                                <span>{t("card.relacionConPrincipal")}: {translateEnum("relacionConPrincipal", c.relacionConPrincipal)}</span>
-                                <span>{t("card.zipCode")}: {c.zipCode || "-"}</span>
-                                <span>{t("card.locationLabel")}: {[c.city, c.county, c.state].filter(Boolean).join(", ") || "-"}</span>
-                                <span>{t("card.maritalStatus")}: {translateEnum("maritalStatus", c.maritalStatus) || "-"}</span>
-                                <span>{t("card.occupation")}: {c.occupation || "-"}</span>
-                                <span>{t("card.middleName")}: {c.middleName || "-"}</span>
-                                <span>{t("card.gender")}: {translateEnum("gender", c.gender) || "-"}</span>
-                                <span>{t("card.greenCard")}: {c.greenCard || "-"}</span>
-                                <span>{t("card.workPermit")}: {c.workPermit || "-"}</span>
-                                <span>{t("card.employerName")}: {c.employerName || "-"}</span>
-                                <span>{t("card.companyPhone")}: {c.companyPhone || "-"}</span>
-                                <span>{t("card.annualIncome")}: {c.annualIncome}</span>
-                                <span>{t("card.tags")}: {c.tags || "-"}</span>
-                                <span>{t("card.contactLanguage")}: {translateEnum("contactLanguage", c.contactLanguage) || "-"}</span>
-                                <span>{t("card.agent")}: {c.agentName || "-"}</span>
-                                {userIsAdmin && <span>{t("card.assistantAgent")}: {c.assistantAgentName || "-"}</span>}
-                                {userIsAdmin && <span>{t("card.recordAgent")}: {c.recordAgentName || "-"}</span>}
-                                <span>{t("card.policiesCount")}: {c.policiesCount}</span>
-                            </div>
-                            <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
-                                <button onClick={() => handleEdit(c)} style={{ background: "#eab308", color: "#1f2937", border: "none", padding: "5px 12px", borderRadius: 5, cursor: "pointer" }}>
-                                    {t("common:actions.edit")}
-                                </button>
-                                <button onClick={() => handleDelete(c.id)} style={{ background: "#dc2626", color: "white", border: "none", padding: "5px 12px", borderRadius: 5, cursor: "pointer" }}>
-                                    {t("common:actions.delete")}
-                                </button>
-                            </div>
+                <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                        <thead>
+                            <tr style={tableHeaderRowStyle}>
+                                <th style={tableCellStyle}>{t("table.fullName")}</th>
+                                <th style={tableCellStyle}>{t("table.migrationStatus")}</th>
+                                <th style={tableCellStyle}>{t("table.phone")}</th>
+                                <th style={tableCellStyle}>{t("table.email")}</th>
+                                <th style={tableCellStyle}>{t("table.actions")}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {customers.map((c) => (
+                                <tr key={c.id}>
+                                    <td style={tableCellStyle}>{c.firstName} {c.lastName}</td>
+                                    <td style={tableCellStyle}>{translateEnum("migrationStatus", c.migrationStatus)}</td>
+                                    <td style={tableCellStyle}>{c.phone}</td>
+                                    <td style={tableCellStyle}>{c.email}</td>
+                                    <td style={tableCellStyle}>
+                                        <div style={actionsCellStyle}>
+                                            <button onClick={() => handleEdit(c)} title={t("actionTitles.edit")} style={actionButtonStyle}>
+                                                ✏️
+                                            </button>
+                                            <button onClick={() => openDetail(c)} title={t("actionTitles.viewDetails")} style={actionButtonStyle}>
+                                                🔍
+                                            </button>
+                                            {c.phone && (
+                                                <a
+                                                    href={buildWhatsAppUrl(c.phone, t("whatsappMessage"))}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    title={t("actionTitles.chatWhatsapp")}
+                                                    style={actionLinkStyle}
+                                                >
+                                                    💬
+                                                </a>
+                                            )}
+                                            <button onClick={() => handleDelete(c.id)} title={t("actionTitles.delete")} style={actionButtonStyle}>
+                                                🗑
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, fontSize: 14 }}>
+                        <span>
+                            {t("pagination.showing", {
+                                from: (page - 1) * 10 + 1,
+                                to: Math.min(page * 10, totalCount),
+                                total: totalCount,
+                            })}
+                        </span>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <button
+                                type="button"
+                                onClick={() => handlePageChange(page - 1)}
+                                disabled={page <= 1}
+                                style={{ padding: "6px 10px", cursor: page <= 1 ? "default" : "pointer" }}
+                            >
+                                {t("pagination.previous")}
+                            </button>
+                            <span>{t("pagination.pageInfo", { page, totalPages })}</span>
+                            <button
+                                type="button"
+                                onClick={() => handlePageChange(page + 1)}
+                                disabled={page >= totalPages}
+                                style={{ padding: "6px 10px", cursor: page >= totalPages ? "default" : "pointer" }}
+                            >
+                                {t("pagination.next")}
+                            </button>
                         </div>
-                    ))}
+                    </div>
                 </div>
+            )}
+
+            {viewingCustomer && (
+                <Modal open={true} onClose={closeDetail} maxWidth={500}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, paddingBottom: 12, borderBottom: "1px solid #e5e7eb" }}>
+                        <h3 style={{ margin: 0 }}>{viewingCustomer.firstName} {viewingCustomer.lastName}</h3>
+                        <button
+                            onClick={closeDetail}
+                            style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 18, color: "#6b7280" }}
+                        >
+                            ✕
+                        </button>
+                    </div>
+
+                    <h4 style={detailSectionHeaderStyle}>{t("detail.personalSection")}</h4>
+                    <p style={detailRowStyle}>{t("card.ssn")}: <MaskedText value={viewingCustomer.socialSecurityNumber} /></p>
+                    <p style={detailRowStyle}>{t("card.birth")}: {viewingCustomer.dateOfBirth?.substring(0, 10)}</p>
+                    <p style={detailRowStyle}>{t("card.middleName")}: {viewingCustomer.middleName || "-"}</p>
+                    <p style={detailRowStyle}>{t("card.gender")}: {translateEnum("gender", viewingCustomer.gender) || "-"}</p>
+                    <p style={detailRowStyle}>{t("card.status")}: {translateEnum("migrationStatus", viewingCustomer.migrationStatus)}</p>
+                    <p style={detailRowStyle}>{t("card.greenCard")}: {viewingCustomer.greenCard || "-"}</p>
+                    <p style={detailRowStyle}>{t("card.workPermit")}: {viewingCustomer.workPermit || "-"}</p>
+                    <p style={detailRowStyle}>{t("card.maritalStatus")}: {translateEnum("maritalStatus", viewingCustomer.maritalStatus) || "-"}</p>
+                    <p style={detailRowStyle}>{t("card.occupation")}: {viewingCustomer.occupation || "-"}</p>
+
+                    <h4 style={detailSectionHeaderStyle}>{t("detail.contactSection")}</h4>
+                    <p style={detailRowStyle}>{t("card.email")}: {viewingCustomer.email}</p>
+                    <p style={detailRowStyle}>{t("card.phone")}: {viewingCustomer.phone}</p>
+                    <p style={detailRowStyle}>{t("card.address")}: {[viewingCustomer.address1, viewingCustomer.address2].filter(Boolean).join(", ")}</p>
+                    <p style={detailRowStyle}>{t("card.zipCode")}: {viewingCustomer.zipCode || "-"}</p>
+                    <p style={detailRowStyle}>{t("card.locationLabel")}: {[viewingCustomer.city, viewingCustomer.county, viewingCustomer.state].filter(Boolean).join(", ") || "-"}</p>
+
+                    <h4 style={detailSectionHeaderStyle}>{t("detail.employmentSection")}</h4>
+                    <p style={detailRowStyle}>{t("card.employerName")}: {viewingCustomer.employerName || "-"}</p>
+                    <p style={detailRowStyle}>{t("card.companyPhone")}: {viewingCustomer.companyPhone || "-"}</p>
+                    <p style={detailRowStyle}>{t("card.annualIncome")}: {viewingCustomer.annualIncome}</p>
+
+                    <h4 style={detailSectionHeaderStyle}>{t("detail.otherSection")}</h4>
+                    <p style={detailRowStyle}>{t("card.relacionConPrincipal")}: {translateEnum("relacionConPrincipal", viewingCustomer.relacionConPrincipal)}</p>
+                    <p style={detailRowStyle}>{t("card.tags")}: {viewingCustomer.tags || "-"}</p>
+                    <p style={detailRowStyle}>{t("card.contactLanguage")}: {translateEnum("contactLanguage", viewingCustomer.contactLanguage) || "-"}</p>
+
+                    <h4 style={detailSectionHeaderStyle}>{t("detail.agentsSection")}</h4>
+                    <p style={detailRowStyle}>{t("card.agent")}: {viewingCustomer.agentName || "-"}</p>
+                    {userIsAdmin && <p style={detailRowStyle}>{t("card.assistantAgent")}: {viewingCustomer.assistantAgentName || "-"}</p>}
+                    {userIsAdmin && <p style={detailRowStyle}>{t("card.recordAgent")}: {viewingCustomer.recordAgentName || "-"}</p>}
+
+                    <h4 style={detailSectionHeaderStyle}>{t("detail.policiesSection")}</h4>
+                    <p style={detailRowStyle}>{t("card.policiesCount")}: {viewingCustomer.policiesCount}</p>
+                </Modal>
             )}
         </div>
     );

@@ -7,6 +7,8 @@ import { US_STATES } from "../data/usStates";
 import US_COUNTIES from "../data/usCounties.json";
 import { GENDERS } from "../data/customerFormOptions";
 import { CONTRACT_INTERESTS, AGENCIES, emptyAgentForm } from "../data/agentFormOptions";
+import { detailSectionHeaderStyle, detailRowStyle } from "../utils/detailModalStyles";
+import { tableHeaderRowStyle, tableCellStyle, actionsCellStyle, actionButtonStyle } from "../utils/tableStyles";
 
 const ROLES = ["Admin", "Agente"];
 
@@ -20,19 +22,29 @@ function Agentes() {
     const [formError, setFormError] = useState("");
     const [submitting, setSubmitting] = useState(false);
     const [search, setSearch] = useState("");
+    const [viewingUser, setViewingUser] = useState(null);
+    const [togglingId, setTogglingId] = useState(null);
+    const [page, setPage] = useState(1);
+    const [totalCount, setTotalCount] = useState(0);
+    const [totalPages, setTotalPages] = useState(1);
 
     const countiesForState = form.state ? (US_COUNTIES[form.state] ?? []) : [];
 
-    const loadUsers = async (searchOverride) => {
+    const loadUsers = async (searchOverride, pageOverride) => {
         try {
             setLoading(true);
-            const params = new URLSearchParams();
             const effectiveSearch = searchOverride !== undefined ? searchOverride : search;
+            const effectivePage = pageOverride ?? page;
+            const params = new URLSearchParams();
             if (effectiveSearch) params.set("search", effectiveSearch);
-            const query = params.toString();
-            const res = await apiFetch(`/users${query ? `?${query}` : ""}`);
+            params.set("page", String(effectivePage));
+            const res = await apiFetch(`/users?${params.toString()}`);
             if (!res.ok) throw new Error();
-            setUsers(await res.json());
+            const data = await res.json();
+            setUsers(data.items);
+            setTotalCount(data.totalCount);
+            setTotalPages(data.totalPages);
+            setPage(data.page);
         } catch {
             console.error("No se pudieron cargar los agentes");
         } finally {
@@ -42,10 +54,14 @@ function Agentes() {
 
     useEffect(() => { loadUsers(); }, []);
 
-    const handleSearch = () => loadUsers();
+    const handleSearch = () => loadUsers(undefined, 1);
     const handleClearSearch = () => {
         setSearch("");
-        loadUsers("");
+        loadUsers("", 1);
+    };
+    const handlePageChange = (newPage) => {
+        if (newPage < 1 || newPage > totalPages) return;
+        loadUsers(undefined, newPage);
     };
 
     const handleField = (e) => {
@@ -87,6 +103,7 @@ function Agentes() {
             password: "",
             rol: u.rol,
             isEncargado: u.isEncargado,
+            isActive: u.isActive ?? true,
             middleName: u.middleName ?? "",
             gender: u.gender ?? "",
             agency: u.agency ?? "",
@@ -123,6 +140,7 @@ function Agentes() {
                 email: form.email,
                 rol: form.rol,
                 isEncargado: form.isEncargado,
+                isActive: form.isActive,
                 middleName: form.middleName,
                 gender: form.gender,
                 agency: form.agency,
@@ -167,6 +185,55 @@ function Agentes() {
             setFormError(t("form.saveError"));
         } finally {
             setSubmitting(false);
+        }
+    };
+
+    const openDetail = (u) => setViewingUser(u);
+    const closeDetail = () => setViewingUser(null);
+
+    // Baja lógica (§17) — reenvía el objeto completo con isActive invertido,
+    // igual criterio que handleSubmit (UserUpdateDto no admite parcial).
+    const handleToggleActive = async (u) => {
+        const confirmMessage = u.isActive ? t("deactivateConfirm") : t("activateConfirm");
+        if (!confirm(confirmMessage)) return;
+
+        try {
+            setTogglingId(u.id);
+            const res = await apiFetch(`/users/${u.id}`, {
+                method: "PUT",
+                body: JSON.stringify({
+                    nombre: u.nombre,
+                    email: u.email,
+                    rol: u.rol,
+                    isEncargado: u.isEncargado,
+                    isActive: !u.isActive,
+                    middleName: u.middleName,
+                    gender: u.gender,
+                    agency: u.agency,
+                    address1: u.address1,
+                    address2: u.address2,
+                    city: u.city,
+                    zipCode: u.zipCode,
+                    state: u.state,
+                    county: u.county,
+                    licensed: u.licensed,
+                    licenseNumber: u.licenseNumber,
+                    npnNumber: u.npnNumber,
+                    npnOverride: u.npnOverride,
+                    hasCompanyContract: u.hasCompanyContract,
+                    contractNumber: u.contractNumber,
+                    companyName: u.companyName,
+                    contractsWanted: u.contractsWanted,
+                    additionalInformation: u.additionalInformation,
+                    termsAccepted: u.termsAccepted,
+                }),
+            });
+            if (!res.ok) throw new Error();
+            await loadUsers();
+        } catch {
+            alert(t("toggleActiveError"));
+        } finally {
+            setTogglingId(null);
         }
     };
 
@@ -412,30 +479,139 @@ function Agentes() {
             ) : users.length === 0 ? (
                 <p>{t("empty")}</p>
             ) : (
-                <div style={{ display: "grid", gap: 12 }}>
-                    {users.map((u) => (
-                        <div key={u.id} style={{ border: "1px solid #ddd", borderRadius: 10, padding: 16, background: "white" }}>
-                            <div style={{ fontWeight: "bold", fontSize: 16, marginBottom: 6 }}>
-                                {u.nombre}
-                            </div>
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 20px", fontSize: 14, color: "#444" }}>
-                                <span>{t("card.email")}: {u.email}</span>
-                                <span>{t("card.role")}: {translateEnum("userRol", u.rol)}</span>
-                                <span>{t("card.isEncargado")}: {u.isEncargado ? t("card.yes") : t("card.no")}</span>
-                                <span>{t("card.agency")}: {u.agency ? translateEnum("agency", u.agency) : "-"}</span>
-                                <span>{t("card.location")}: {[u.city, u.county, u.state].filter(Boolean).join(", ") || "-"}</span>
-                                <span>{t("card.licensed")}: {u.licensed ? `${t("card.yes")} (${u.licenseNumber || "-"})` : t("card.no")}</span>
-                                <span>{t("card.npnNumber")}: {u.npnNumber || "-"}</span>
-                                <span>{t("card.hasCompanyContract")}: {u.hasCompanyContract ? t("card.yes") : t("card.no")}</span>
-                            </div>
-                            <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
-                                <button onClick={() => handleEdit(u)} style={{ background: "#eab308", color: "#1f2937", border: "none", padding: "5px 12px", borderRadius: 5, cursor: "pointer" }}>
-                                    {t("common:actions.edit")}
-                                </button>
-                            </div>
+                <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                        <thead>
+                            <tr style={tableHeaderRowStyle}>
+                                <th style={tableCellStyle}>{t("table.fullName")}</th>
+                                <th style={tableCellStyle}>{t("table.email")}</th>
+                                <th style={tableCellStyle}>{t("table.agency")}</th>
+                                <th style={tableCellStyle}>{t("table.companyName")}</th>
+                                <th style={tableCellStyle}>{t("table.licenseNumber")}</th>
+                                <th style={tableCellStyle}>{t("table.actions")}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {users.map((u) => (
+                                <tr key={u.id}>
+                                    <td style={tableCellStyle}>
+                                        {u.nombre}{" "}
+                                        <span
+                                            style={{
+                                                marginLeft: 6,
+                                                fontSize: 11,
+                                                padding: "2px 8px",
+                                                borderRadius: 999,
+                                                background: u.isActive ? "#dcfce7" : "#f3f4f6",
+                                                color: u.isActive ? "#166534" : "#6b7280",
+                                            }}
+                                        >
+                                            {u.isActive ? t("card.active") : t("card.inactive")}
+                                        </span>
+                                    </td>
+                                    <td style={tableCellStyle}>{u.email}</td>
+                                    <td style={tableCellStyle}>{u.agency ? translateEnum("agency", u.agency) : "-"}</td>
+                                    <td style={tableCellStyle}>{u.companyName || "-"}</td>
+                                    <td style={tableCellStyle}>{u.licenseNumber || "-"}</td>
+                                    <td style={tableCellStyle}>
+                                        <div style={actionsCellStyle}>
+                                            <button onClick={() => handleEdit(u)} title={t("actionTitles.edit")} style={actionButtonStyle}>
+                                                ✏️
+                                            </button>
+                                            <button onClick={() => openDetail(u)} title={t("actionTitles.viewDetails")} style={actionButtonStyle}>
+                                                🔍
+                                            </button>
+                                            <button
+                                                onClick={() => handleToggleActive(u)}
+                                                disabled={togglingId === u.id}
+                                                title={u.isActive ? t("actionTitles.deactivate") : t("actionTitles.activate")}
+                                                style={actionButtonStyle}
+                                            >
+                                                {u.isActive ? "🗑" : "♻️"}
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, fontSize: 14 }}>
+                        <span>
+                            {t("pagination.showing", {
+                                from: (page - 1) * 10 + 1,
+                                to: Math.min(page * 10, totalCount),
+                                total: totalCount,
+                            })}
+                        </span>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <button
+                                type="button"
+                                onClick={() => handlePageChange(page - 1)}
+                                disabled={page <= 1}
+                                style={{ padding: "6px 10px", cursor: page <= 1 ? "default" : "pointer" }}
+                            >
+                                {t("pagination.previous")}
+                            </button>
+                            <span>{t("pagination.pageInfo", { page, totalPages })}</span>
+                            <button
+                                type="button"
+                                onClick={() => handlePageChange(page + 1)}
+                                disabled={page >= totalPages}
+                                style={{ padding: "6px 10px", cursor: page >= totalPages ? "default" : "pointer" }}
+                            >
+                                {t("pagination.next")}
+                            </button>
                         </div>
-                    ))}
+                    </div>
                 </div>
+            )}
+
+            {viewingUser && (
+                <Modal open={true} onClose={closeDetail} maxWidth={500}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, paddingBottom: 12, borderBottom: "1px solid #e5e7eb" }}>
+                        <h3 style={{ margin: 0 }}>{viewingUser.nombre}</h3>
+                        <button
+                            onClick={closeDetail}
+                            style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 18, color: "#6b7280" }}
+                        >
+                            ✕
+                        </button>
+                    </div>
+
+                    <h4 style={detailSectionHeaderStyle}>{t("detail.contactSection")}</h4>
+                    <p style={detailRowStyle}>{t("card.email")}: {viewingUser.email}</p>
+                    <p style={detailRowStyle}>{t("card.role")}: {translateEnum("userRol", viewingUser.rol)}</p>
+                    <p style={detailRowStyle}>{t("card.isEncargado")}: {viewingUser.isEncargado ? t("card.yes") : t("card.no")}</p>
+                    <p style={detailRowStyle}>{t("card.isActive")}: {viewingUser.isActive ? t("card.active") : t("card.inactive")}</p>
+
+                    <h4 style={detailSectionHeaderStyle}>{t("detail.addressSection")}</h4>
+                    <p style={detailRowStyle}>{t("card.address1")}: {viewingUser.address1 || "-"}</p>
+                    <p style={detailRowStyle}>{t("card.address2")}: {viewingUser.address2 || "-"}</p>
+                    <p style={detailRowStyle}>{t("card.location")}: {[viewingUser.city, viewingUser.county, viewingUser.state].filter(Boolean).join(", ") || "-"}</p>
+                    <p style={detailRowStyle}>{t("card.zipCode")}: {viewingUser.zipCode || "-"}</p>
+
+                    <h4 style={detailSectionHeaderStyle}>{t("detail.licenseSection")}</h4>
+                    <p style={detailRowStyle}>{t("card.licensed")}: {viewingUser.licensed ? t("card.yes") : t("card.no")}</p>
+                    <p style={detailRowStyle}>{t("card.licenseNumber")}: {viewingUser.licenseNumber || "-"}</p>
+                    <p style={detailRowStyle}>{t("card.npnNumber")}: {viewingUser.npnNumber || "-"}</p>
+                    <p style={detailRowStyle}>{t("card.npnOverride")}: {viewingUser.npnOverride ? t("card.yes") : t("card.no")}</p>
+
+                    <h4 style={detailSectionHeaderStyle}>{t("detail.contractSection")}</h4>
+                    <p style={detailRowStyle}>{t("card.agency")}: {viewingUser.agency ? translateEnum("agency", viewingUser.agency) : "-"}</p>
+                    <p style={detailRowStyle}>{t("card.hasCompanyContract")}: {viewingUser.hasCompanyContract ? t("card.yes") : t("card.no")}</p>
+                    <p style={detailRowStyle}>{t("card.contractNumber")}: {viewingUser.contractNumber || "-"}</p>
+                    <p style={detailRowStyle}>{t("card.companyName")}: {viewingUser.companyName || "-"}</p>
+                    <p style={detailRowStyle}>
+                        {t("card.contractsWanted")}: {viewingUser.contractsWanted
+                            ? viewingUser.contractsWanted.split(",").filter(Boolean).map((i) => translateEnum("contractInterest", i)).join(", ")
+                            : "-"}
+                    </p>
+
+                    <h4 style={detailSectionHeaderStyle}>{t("detail.otherSection")}</h4>
+                    <p style={detailRowStyle}>{t("card.additionalInformation")}: {viewingUser.additionalInformation || "-"}</p>
+                    <p style={detailRowStyle}>{t("card.termsAccepted")}: {viewingUser.termsAccepted ? t("card.yes") : t("card.no")}</p>
+                </Modal>
             )}
         </div>
     );

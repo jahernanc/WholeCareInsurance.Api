@@ -8,6 +8,10 @@
         public string PasswordHash { get; set; } = default!;
         public string Rol { get; set; } = default!;
         public bool IsEncargado { get; set; }
+        // Baja lógica del agente (§17) — mismo criterio que InsuranceCompany.IsActive:
+        // no se borra en duro (FKs Restrict desde Customer/PolicyHistory lo impedirían
+        // en la práctica), solo deja de estar disponible para asignación nueva.
+        public bool IsActive { get; set; } = true;
         public string PreferredLanguage { get; set; } = "en";
 
         // Datos de perfil del Agente (§11) — EE.UU.-only, mismo criterio que Customer.

@@ -2,7 +2,7 @@
 
 > Auditado contra código real el 2026-07-13 (modelos, DTOs, migraciones aplicadas y componentes de frontend). Donde el pedido del responsable no coincidía con lo implementado, se priorizó lo verificado en código — ver notas "⚠️ Discrepancia" en los puntos afectados.
 >
-> Re-auditado el 2026-07-27: paginado en Policies (§14), cierre del gap de seguridad de MustChangePassword (§10.1), reconciliación de campos de Policy (§1.11) y agentes reales del sistema anterior (§15, completo) — ver detalle en cada sección.
+> Re-auditado el 2026-07-27: paginado en Policies (§14), cierre del gap de seguridad de MustChangePassword (§10.1), reconciliación de campos de Policy (§1.11), agentes reales del sistema anterior (§15, completo), Dashboard (§9), Modal/Dialog reutilizable (§16) y unificación de listados de Customers/Agentes + paginado en los 3 (§17) — ver detalle en cada sección.
 
 ---
 
@@ -627,7 +627,52 @@ Verificado: `dotnet build` (0 warnings/0 errors) + `npm run build` + `npm run li
 
 ---
 
-## 17. Orden sugerido de trabajo
+## 17. Unificación de listados (Customers/Agentes) al estilo tabla de Policies + paginado en los 3 — ✅ Hecho (2026-07-27)
+
+Con el Modal compartido ya migrado (§16), el responsable pidió unificar el estilo visual de Customers.jsx/Agentes.jsx (tarjetas con 8-20 campos apilados) al de Policies.jsx (tabla con columnas fijas, acciones en íconos).
+
+### 17.1 Aclaraciones previas a implementar
+
+- **El ícono 💬 de Policies es WhatsApp click-to-chat** (§4.2 ya documentado) — patrón genérico, extendido a Customers.
+- **"Compañía asociada" en Agentes eran 2 campos distintos** (`Agency`, agencia interna de 2 valores fijos; `CompanyName`, contrato externo condicional a `HasCompanyContract`) — se muestran como 2 columnas separadas, decisión del responsable.
+- **`User` no tenía campo `Phone`** — se descartó agregarlo por ahora, columna de Teléfono fuera del alcance en Agentes.
+- **Agentes.jsx solo tenía "Editar"** — no había "Eliminar" (sin endpoint `DELETE` en el backend) ni "Detalle". El responsable pidió agregar las 3 acciones.
+- **Hallazgo de diseño clave**: `User` tiene 3 FKs `Restrict` apuntando a él (`Customer.AgentId`/`AssistantAgentId`/`RecordAgentId`) más `PolicyHistory.ChangedByUserId` — un `DELETE` real fallaría siempre contra agentes reales (todos con `PolicyHistory`/`Customer` asociado). Se implementó **baja lógica** (`User.IsActive`, mismo patrón que `InsuranceCompany.IsActive`, §1.5) en vez de `DELETE`.
+
+### 17.2 Backend — `User.IsActive`
+
+`User.IsActive` (bool, default `true`) + migración `AddUserIsActive` (`defaultValue: true`, ajustado a mano porque EF Core lo generó en `false` por defecto — hubiera desactivado a los 41 agentes reales ya migrados). Persistido vía el `PUT /users/{id}` existente (`UserUpdateDto`/`UserResponseDto` con `IsActive`) — sin endpoint nuevo. **Detalle no obvio**: `Agentes.jsx` ahora envía `isActive` explícito en cada `PUT` de edición (antes no lo mandaba) — si no se manda, `UserUpdateDto.IsActive` cae a su default `true` y reactivaría por accidente a un agente desactivado con cualquier edición no relacionada.
+
+### 17.3 Backend — paginado en Customers/Users, `pageSize=10` en los 3
+
+**Problema de diseño**: a diferencia de `GET /api/policies` (§14, un solo consumidor), `GET /api/customers` y `GET /users` tienen múltiples consumidores — las pantallas de administración (que ahora quieren paginado) y varios dropdowns que necesitan la lista completa sin paginar (selector de dependientes/titular en Policies.jsx, selector de Agente en Customers.jsx/Policies.jsx/Dashboard.jsx). Cambiar la forma de la respuesta sin condición habría roto esos dropdowns.
+
+**Solución**: `page` query param **opcional** en ambos endpoints — sin `page` (comportamiento de siempre) devuelven el array plano completo; con `page`, devuelven `PagedResponseDto<T>` (reusado de `DTOs/Policies/`, es genérico pese al namespace). `ICustomerService.Search(page, pageSize)` nuevo (`GetAll()` intacto). `UsersController.GetAll` pagina en memoria sobre la lista ya filtrada por `role`/`search` (mismo criterio que ya tenía el filtro de búsqueda de §11.4) — actualiza la decisión de §11.1/§11.4 que había descartado paginar por bajo volumen, ahora el responsable lo pidió explícitamente. Orden en ambos: `Id` descendente (más reciente primero, sin campo `CreatedAt` en ninguna de las dos entidades).
+
+`PoliciesController.DefaultPageSize` bajó de `20` a `10` (pedido explícito: "últimas 10" en los 3 listados).
+
+Verificado con curl: `GET /api/customers?page=1`/`GET /users?page=1` devuelven `PagedResponseDto` con `pageSize:10`; `GET /api/customers`/`GET /users?role=Agente` sin `page` siguen devolviendo array plano (confirmado que los dropdowns no se rompieron); paginado combinado con el buscador existente de Agentes; página 2 trae los siguientes 10 registros sin solapar.
+
+### 17.4 Frontend — Customers.jsx
+
+Tabla: Nombre completo, Tipo de residencia (`migrationStatus`), Teléfono, Email. Acciones en una línea: ✏️ Editar, 🔍 Detalle (modal nuevo con **todos** los campos que antes estaban en la tarjeta, agrupados en secciones: Datos personales, Contacto y dirección, Datos laborales, Otros, Agentes, Pólizas), 💬 WhatsApp (directo, sin búsqueda — a diferencia de Policies no hace falta resolver el teléfono vía otra entidad), 🗑 Eliminar (ya existía). Paginado con los mismos controles Anterior/Siguiente/Página P de N que Policies (§14), `pageSize=10`.
+
+### 17.5 Frontend — Agentes.jsx
+
+Tabla: Nombre completo (+ badge Activo/Inactivo, mismo estilo de pill que `InsuranceCompanies`), Email, Agencia, Compañía, Nro de licencia. Acciones: ✏️ Editar, 🔍 Detalle (modal nuevo con todos los campos, agrupado en secciones: Contacto, Dirección, Licencia y NPN, Agencia y contrato, Otros), 🗑/♻️ Activar-Desactivar (toggle de `isActive` vía el `PUT` existente, con confirmación — reenvía el objeto completo del agente con el flag invertido, mismo criterio que el resto de los `PUT` de este proyecto que no admiten parcial). Paginado combinable con el buscador ya existente (reset a página 1 en buscar/limpiar, mismo criterio que los filtros de Policies).
+
+### 17.6 Compartido entre las 3 pantallas
+
+Estilos extraídos a `src/utils/` para que las 3 pantallas usen exactamente los mismos valores (antes solo vivían inline en `Policies.jsx`):
+- `detailModalStyles.js` — `detailSectionHeaderStyle`/`detailRowStyle` (headers de sección uppercase con borde, filas con más aire), ya usado en el modal de detalle de Policies desde §16.7.
+- `tableStyles.js` — `tableHeaderRowStyle`/`tableCellStyle`/`actionsCellStyle` (el fix del wrap de acciones: contenedor flex `nowrap`, antes los botones solo tenían `marginRight`/`marginLeft` sueltos y se envolvían en 2 líneas)/`actionButtonStyle`/`actionLinkStyle`.
+- `whatsapp.js` — `buildWhatsAppUrl(phone, message)`, extraído de Policies.jsx para reusarlo en Customers.jsx.
+
+Verificado por el responsable en navegador: las 3 pantallas con tabla consistente, acciones en una sola línea sin wrap (incluido el fix retroactivo en Policies), modales de detalle nuevos en Customers/Agentes, WhatsApp en Customers, toggle activo/inactivo en Agentes. `dotnet build` (0 warnings/0 errors) + `npm run build` + `npm run lint` (mismos 6 problemas preexistentes) limpios en cada paso.
+
+---
+
+## 18. Orden sugerido de trabajo
 
 1. ~~Tipo en Policy~~ ✅ Hecho
 2. ~~Dependientes (vínculo con Customers existentes)~~ ✅ Hecho
@@ -670,3 +715,4 @@ Verificado: `dotnet build` (0 warnings/0 errors) + `npm run build` + `npm run li
 39. Reconciliación de campos §1.11 (StartDate/EndDate/Premium vs EffectiveDate/Period/MonthlyPremiumAmount) — ✅ Analizado y resuelto, se dejan como están (decisión del responsable, documentado en §1.11)
 40. ~~Dashboard (KPIs, gráficos por Tipo/Status, estadísticas, últimas pólizas, próximos a cumplir 65, scoping por rol)~~ ✅ Hecho (§9), incluye `Policy.UpdatedAt` nuevo (§9.6) y paleta de colores semántica en toda la app (§9.1)
 41. ~~Modal/Dialog reutilizable para crear/editar (Policies/Customers/Agentes/InsuranceCompanies)~~ ✅ Hecho (§16), incluye 2 bugs encontrados/corregidos en el camino (foco del Modal, falso required por Premium=0) y ajuste visual del modal de detalle
+42. ~~Unificación de listados de Customers/Agentes al estilo tabla de Policies + paginado en los 3 (pageSize=10)~~ ✅ Hecho (§17), incluye `User.IsActive` nuevo (baja lógica de agentes, reemplaza el DELETE que hubiera fallado siempre por FKs Restrict) y 2 modales de detalle nuevos

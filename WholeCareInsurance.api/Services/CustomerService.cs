@@ -21,6 +21,33 @@ namespace WholeCareInsurance.api.Services
                 .Include(c => c.RecordAgent)
                 .ToListAsync();
 
+        // Paginado del listado de Customers (§17) — usado solo por la pantalla de
+        // administración; GetAll() sigue devolviendo la lista completa sin paginar
+        // porque otras pantallas la usan como fuente para dropdowns/typeahead
+        // (ej. selector de dependientes/titular en Policies.jsx).
+        public async Task<(List<Customer> Items, int TotalCount)> Search(int page, int pageSize)
+        {
+            var query = _context.Customers
+                .Include(c => c.Policies)
+                .Include(c => c.Agent)
+                .Include(c => c.AssistantAgent)
+                .Include(c => c.RecordAgent)
+                .AsQueryable();
+
+            var totalCount = await query.CountAsync();
+
+            pageSize = Math.Clamp(pageSize, 1, 100);
+            if (page < 1) page = 1;
+
+            var items = await query
+                .OrderByDescending(c => c.Id)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return (items, totalCount);
+        }
+
         public async Task<Customer?> GetById(int id)
             => await _context.Customers
                 .Include(c => c.Policies)

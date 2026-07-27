@@ -9,6 +9,9 @@ import LifeInsuranceFields from "../components/LifeInsuranceFields";
 import MaskedInput from "../components/MaskedInput";
 import MaskedText from "../components/MaskedText";
 import { maskValue } from "../utils/maskValue";
+import { detailSectionHeaderStyle, detailRowStyle } from "../utils/detailModalStyles";
+import { buildWhatsAppUrl } from "../utils/whatsapp";
+import { tableHeaderRowStyle, tableCellStyle, actionsCellStyle, actionButtonStyle, actionLinkStyle } from "../utils/tableStyles";
 import { emptyCustomerForm } from "../data/customerFormOptions";
 
 const POLICY_TYPES = ["Health Insurance (ACA)", "Medicare", "Life Insurance", "Supplemental Plans", "Auto", "Otro"];
@@ -18,22 +21,6 @@ const POLICY_STATUSES = ["Draft", "Pendiente", "Cancelado", "Por procesar", "En 
 const PLAN_TYPES = ["Catastrophic", "Bronze", "Silver", "Gold", "Platinum"];
 const ALLOWED_DOCUMENT_EXTENSIONS = [".pdf", ".docx", ".jpg", ".jpeg"];
 const MAX_DOCUMENT_SIZE_BYTES = 5 * 1024 * 1024;
-
-// Estilos del modal de detalle de póliza (§16.6) — encabezados de sección con
-// más jerarquía visual (uppercase, borde inferior) y filas con más aire entre
-// líneas, a pedido del responsable tras probar el refactor a Modal compartido.
-const sectionHeaderStyle = {
-    marginTop: 20,
-    marginBottom: 10,
-    paddingBottom: 6,
-    borderBottom: "1px solid #e5e7eb",
-    fontSize: 13,
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.05em",
-    color: "#6b7280",
-};
-const detailRowStyle = { margin: "7px 0", lineHeight: 1.5 };
 
 const formatFileSize = (bytes) => `${(bytes / 1024).toFixed(2)} KB`;
 
@@ -194,12 +181,6 @@ function Policies() {
     const getCustomerPhone = (id) => {
         const customer = customers.find((c) => c.id === Number(id));
         return customer ? customer.phone : null;
-    };
-
-    const buildWhatsAppUrl = (phone) => {
-        const digits = phone.replace(/\D/g, "");
-        const message = encodeURIComponent(t("whatsappMessage"));
-        return `https://wa.me/${digits}?text=${message}`;
     };
 
     // Precarga los campos de Life Insurance del titular seleccionado cada vez que
@@ -2056,87 +2037,68 @@ function Policies() {
                         <table style={{ width: "100%", borderCollapse: "collapse" }}>
 
                             <thead>
-                                <tr style={{ background: "#f3f4f6", textAlign: "left" }}>
-                                    <th style={{ padding: 10 }}>{t("table.policy")}</th>
-                                    <th style={{ padding: 10 }}>{t("table.type")}</th>
-                                    <th style={{ padding: 10 }}>{t("table.insuranceCompany")}</th>
-                                    <th style={{ padding: 10 }}>{t("table.status")}</th>
-                                    <th style={{ padding: 10 }}>{t("table.period")}</th>
-                                    <th style={{ padding: 10 }}>{t("table.premium")}</th>
-                                    <th style={{ padding: 10 }}>{t("table.customer")}</th>
-                                    <th style={{ padding: 10 }}>{t("table.actions")}</th>
+                                <tr style={tableHeaderRowStyle}>
+                                    <th style={tableCellStyle}>{t("table.policy")}</th>
+                                    <th style={tableCellStyle}>{t("table.type")}</th>
+                                    <th style={tableCellStyle}>{t("table.insuranceCompany")}</th>
+                                    <th style={tableCellStyle}>{t("table.status")}</th>
+                                    <th style={tableCellStyle}>{t("table.period")}</th>
+                                    <th style={tableCellStyle}>{t("table.premium")}</th>
+                                    <th style={tableCellStyle}>{t("table.customer")}</th>
+                                    <th style={tableCellStyle}>{t("table.actions")}</th>
                                 </tr>
                             </thead>
 
                             <tbody>
                                 {policies.map((p) => (
                                     <tr key={p.id}>
-                                        <td style={{ padding: 10 }}>{p.policyNumber}</td>
-                                        <td style={{ padding: 10 }}>{translateEnum("policyType", p.type)}</td>
-                                        <td style={{ padding: 10 }}>{p.insuranceCompanyName}</td>
-                                        <td style={{ padding: 10 }}>{translateEnum("policyStatus", p.status)}</td>
-                                        <td style={{ padding: 10 }}>{p.period}</td>
-                                        <td style={{ padding: 10 }}>{p.premium}</td>
-                                        <td style={{ padding: 10 }}>
+                                        <td style={tableCellStyle}>{p.policyNumber}</td>
+                                        <td style={tableCellStyle}>{translateEnum("policyType", p.type)}</td>
+                                        <td style={tableCellStyle}>{p.insuranceCompanyName}</td>
+                                        <td style={tableCellStyle}>{translateEnum("policyStatus", p.status)}</td>
+                                        <td style={tableCellStyle}>{p.period}</td>
+                                        <td style={tableCellStyle}>{p.premium}</td>
+                                        <td style={tableCellStyle}>
                                             {getCustomerName(p.customerId)}
                                         </td>
-                                        <td style={{ padding: 10 }}>
-
-                                            <button
-                                                onClick={() => openDetail(p)}
-                                                title={t("actionTitles.viewDetails")}
-                                                style={{
-                                                    marginRight: 8,
-                                                    background: "transparent",
-                                                    border: "none",
-                                                    cursor: "pointer",
-                                                    fontSize: 16
-                                                }}
-                                            >
-                                                🔍
-                                            </button>
-
-                                            <button
-                                                onClick={() => handleEdit(p)}
-                                                title={t("actionTitles.editPolicy")}
-                                                style={{
-                                                    marginRight: 8,
-                                                    background: "transparent",
-                                                    border: "none",
-                                                    cursor: "pointer",
-                                                    fontSize: 16
-                                                }}
-                                            >
-                                                ✏️
-                                            </button>
-
-
-
-                                            <button
-                                                onClick={() => handleDelete(p.id)}
-                                                title={t("actionTitles.deletePolicy")}
-                                                style={{
-                                                    background: "transparent",
-                                                    border: "none",
-                                                    cursor: "pointer",
-                                                    fontSize: 16
-                                                }}
-                                            >
-                                                🗑
-                                            </button>
-
-                                            {getCustomerPhone(p.customerId) && (
-                                                <a
-                                                    href={buildWhatsAppUrl(getCustomerPhone(p.customerId))}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    title={t("actionTitles.chatWhatsapp")}
-                                                    style={{ marginLeft: 8, fontSize: 16, textDecoration: "none" }}
+                                        <td style={tableCellStyle}>
+                                            <div style={actionsCellStyle}>
+                                                <button
+                                                    onClick={() => openDetail(p)}
+                                                    title={t("actionTitles.viewDetails")}
+                                                    style={actionButtonStyle}
                                                 >
-                                                    💬
-                                                </a>
-                                            )}
+                                                    🔍
+                                                </button>
 
+                                                <button
+                                                    onClick={() => handleEdit(p)}
+                                                    title={t("actionTitles.editPolicy")}
+                                                    style={actionButtonStyle}
+                                                >
+                                                    ✏️
+                                                </button>
+
+                                                <button
+                                                    onClick={() => handleDelete(p.id)}
+                                                    title={t("actionTitles.deletePolicy")}
+                                                    style={actionButtonStyle}
+                                                >
+                                                    🗑
+                                                </button>
+
+                                                {getCustomerPhone(p.customerId) && (
+                                                    <a
+                                                        href={buildWhatsAppUrl(getCustomerPhone(p.customerId), t("whatsappMessage"))}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        title={t("actionTitles.chatWhatsapp")}
+                                                        style={actionLinkStyle}
+                                                    >
+                                                        💬
+                                                    </a>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
@@ -2146,8 +2108,8 @@ function Policies() {
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, fontSize: 14 }}>
                             <span>
                                 {t("pagination.showing", {
-                                    from: (page - 1) * 20 + 1,
-                                    to: Math.min(page * 20, totalCount),
+                                    from: (page - 1) * 10 + 1,
+                                    to: Math.min(page * 10, totalCount),
                                     total: totalCount,
                                 })}
                             </span>
@@ -2188,7 +2150,7 @@ function Policies() {
                             </button>
                         </div>
 
-                        <h4 style={sectionHeaderStyle}>{t("detail.policySection")}</h4>
+                        <h4 style={detailSectionHeaderStyle}>{t("detail.policySection")}</h4>
                         <p style={detailRowStyle}>{t("detail.type")}: {translateEnum("policyType", viewingPolicy.type)}</p>
                         <p style={detailRowStyle}>{t("detail.insuranceCompany")}: {viewingPolicy.insuranceCompanyName}</p>
                         <p style={detailRowStyle}>{t("detail.status")}: {translateEnum("policyStatus", viewingPolicy.status)}</p>
@@ -2204,7 +2166,7 @@ function Policies() {
 
                         {viewingPolicy.type === "Medicare" && (
                             <>
-                                <h4 style={sectionHeaderStyle}>{t("detail.medicareSection")}</h4>
+                                <h4 style={detailSectionHeaderStyle}>{t("detail.medicareSection")}</h4>
                                 <p style={detailRowStyle}>
                                     {t("detail.hasMedicaid")}: {viewingPolicy.hasMedicaid === null || viewingPolicy.hasMedicaid === undefined ? "-" : (viewingPolicy.hasMedicaid ? t("yes") : t("no"))}
                                 </p>
@@ -2218,7 +2180,7 @@ function Policies() {
 
                         {viewingPolicy.type === "Life Insurance" && (
                             <>
-                                <h4 style={sectionHeaderStyle}>{t("detail.lifeInsuranceSection")}</h4>
+                                <h4 style={detailSectionHeaderStyle}>{t("detail.lifeInsuranceSection")}</h4>
                                 <p style={detailRowStyle}>
                                     {t("detail.additionalOrAlternatePolicy")}: {viewingPolicy.additionalOrAlternatePolicy === null || viewingPolicy.additionalOrAlternatePolicy === undefined ? "-" : (viewingPolicy.additionalOrAlternatePolicy ? t("yes") : t("no"))}
                                     {viewingPolicy.additionalOrAlternatePolicy && viewingPolicy.additionalOrAlternatePolicyDetail ? ` (${viewingPolicy.additionalOrAlternatePolicyDetail})` : ""}
@@ -2254,7 +2216,7 @@ function Policies() {
 
                         {viewingPolicy.type === "Supplemental Plans" && (
                             <>
-                                <h4 style={sectionHeaderStyle}>{t("detail.supplementalSection")}</h4>
+                                <h4 style={detailSectionHeaderStyle}>{t("detail.supplementalSection")}</h4>
                                 <p style={detailRowStyle}>
                                     {t("detail.hasExistingDentalCoverage")}: {viewingPolicy.hasExistingDentalCoverage === null || viewingPolicy.hasExistingDentalCoverage === undefined ? "-" : (viewingPolicy.hasExistingDentalCoverage ? t("yes") : t("no"))}
                                 </p>
@@ -2285,7 +2247,7 @@ function Policies() {
                             </>
                         )}
 
-                        <h4 style={sectionHeaderStyle}>{t("detail.titularSection")}</h4>
+                        <h4 style={detailSectionHeaderStyle}>{t("detail.titularSection")}</h4>
                         {(() => {
                             const titular = getCustomer(viewingPolicy.customerId);
                             if (!titular) return <p>{t("detail.unknown")}</p>;
@@ -2301,7 +2263,7 @@ function Policies() {
                             );
                         })()}
 
-                        <h4 style={sectionHeaderStyle}>{t("detail.dependentsSection")}</h4>
+                        <h4 style={detailSectionHeaderStyle}>{t("detail.dependentsSection")}</h4>
                         <p style={detailRowStyle}>{t("detail.numberOfApplicants")}: {viewingPolicy.numberOfApplicants ?? "-"}</p>
                         {detailDependents.length === 0 ? (
                             <p style={{ color: "#666" }}>{t("detail.noDependents")}</p>
@@ -2317,7 +2279,7 @@ function Policies() {
 
                         {viewingPolicy.type === "Life Insurance" && (
                             <>
-                                <h4 style={sectionHeaderStyle}>{t("detail.beneficiariesSection")}</h4>
+                                <h4 style={detailSectionHeaderStyle}>{t("detail.beneficiariesSection")}</h4>
                                 {detailBeneficiaries.length === 0 ? (
                                     <p style={{ color: "#666" }}>{t("detail.noBeneficiaries")}</p>
                                 ) : (
@@ -2332,7 +2294,7 @@ function Policies() {
                             </>
                         )}
 
-                        <h4 style={sectionHeaderStyle}>{t("detail.historySection")}</h4>
+                        <h4 style={detailSectionHeaderStyle}>{t("detail.historySection")}</h4>
                         {detailHistory.length === 0 ? (
                             <p style={{ color: "#666" }}>{t("detail.noHistory")}</p>
                         ) : (

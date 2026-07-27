@@ -16,6 +16,7 @@ namespace WholeCareInsurance.api.Controllers
         private readonly ICustomerService _customers;
         private readonly IPolicyService _policies;
         private readonly IUsersService _users;
+        private const int DefaultPageSize = 10;
 
         public CustomersController(ICustomerService customers, IPolicyService policies, IUsersService users)
         {
@@ -24,11 +25,29 @@ namespace WholeCareInsurance.api.Controllers
             _users = users;
         }
 
+        // "page" es opcional a propósito: sin él devuelve el array plano de siempre
+        // (lo consumen dropdowns/typeahead que necesitan la lista completa, ej. el
+        // selector de dependientes/titular en Policies.jsx); con él, la pantalla de
+        // administración de Customers pide una página paginada (§17).
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetAll([FromQuery] int? page = null)
         {
-            var list = (await _customers.GetAll()).Select(ToResponse);
-            return Ok(list);
+            if (!page.HasValue)
+            {
+                var list = (await _customers.GetAll()).Select(ToResponse);
+                return Ok(list);
+            }
+
+            var effectivePage = page.Value < 1 ? 1 : page.Value;
+            var (found, totalCount) = await _customers.Search(effectivePage, DefaultPageSize);
+            return Ok(new PagedResponseDto<CustomerResponseDto>
+            {
+                Items = found.Select(ToResponse).ToList(),
+                TotalCount = totalCount,
+                Page = effectivePage,
+                PageSize = DefaultPageSize,
+                TotalPages = (int)Math.Ceiling(totalCount / (double)DefaultPageSize),
+            });
         }
 
         [HttpGet("{id:int}")]

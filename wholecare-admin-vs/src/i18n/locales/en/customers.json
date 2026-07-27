@@ -62,6 +62,34 @@
     "deleteError": "Error deleting customer",
     "loading": "Loading customers...",
     "empty": "No customers registered.",
+    "table": {
+        "fullName": "Full name",
+        "migrationStatus": "Residency type",
+        "phone": "Phone",
+        "email": "Email",
+        "actions": "Actions"
+    },
+    "actionTitles": {
+        "edit": "Edit customer",
+        "viewDetails": "View details",
+        "chatWhatsapp": "Chat on WhatsApp",
+        "delete": "Delete customer"
+    },
+    "whatsappMessage": "Hi, this is WholeCare Insurance reaching out.",
+    "pagination": {
+        "previous": "Previous",
+        "next": "Next",
+        "pageInfo": "Page {{page}} of {{totalPages}}",
+        "showing": "Showing {{from}}-{{to}} of {{total}}"
+    },
+    "detail": {
+        "personalSection": "Personal data",
+        "contactSection": "Contact and address",
+        "employmentSection": "Employment data",
+        "otherSection": "Other",
+        "agentsSection": "Agents",
+        "policiesSection": "Policies"
+    },
     "card": {
         "ssn": "SSN",
         "birth": "Birth",

@@ -9,6 +9,7 @@ export const emptyAgentForm = {
     password: "",
     rol: "Agente",
     isEncargado: false,
+    isActive: true,
     middleName: "",
     gender: "",
     agency: "",
