@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useOutletContext } from "react-router-dom";
 import { apiFetch, isAdmin } from "../api";
 import { translateEnum } from "../i18n/translateEnum";
+import Modal from "../components/Modal";
 import CustomerFormFields from "../components/CustomerFormFields";
 import LifeInsuranceFields from "../components/LifeInsuranceFields";
 import MaskedInput from "../components/MaskedInput";
@@ -17,6 +18,22 @@ const POLICY_STATUSES = ["Draft", "Pendiente", "Cancelado", "Por procesar", "En 
 const PLAN_TYPES = ["Catastrophic", "Bronze", "Silver", "Gold", "Platinum"];
 const ALLOWED_DOCUMENT_EXTENSIONS = [".pdf", ".docx", ".jpg", ".jpeg"];
 const MAX_DOCUMENT_SIZE_BYTES = 5 * 1024 * 1024;
+
+// Estilos del modal de detalle de póliza (§16.6) — encabezados de sección con
+// más jerarquía visual (uppercase, borde inferior) y filas con más aire entre
+// líneas, a pedido del responsable tras probar el refactor a Modal compartido.
+const sectionHeaderStyle = {
+    marginTop: 20,
+    marginBottom: 10,
+    paddingBottom: 6,
+    borderBottom: "1px solid #e5e7eb",
+    fontSize: 13,
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: "0.05em",
+    color: "#6b7280",
+};
+const detailRowStyle = { margin: "7px 0", lineHeight: 1.5 };
 
 const formatFileSize = (bytes) => `${(bytes / 1024).toFixed(2)} KB`;
 
@@ -789,7 +806,9 @@ function Policies() {
             !insuranceCompanyId ||
             !startDate ||
             !endDate ||
-            !premium ||
+            premium === "" ||
+            premium === null ||
+            premium === undefined ||
             !status.trim() ||
             !customerId
         ) {
@@ -992,18 +1011,7 @@ function Policies() {
             </button>
 
             {/* ✅ FORMULARIO CONDICIONAL */}
-            {
-                showForm && (
-                    <div
-                        style={{
-                            border: "1px solid #ddd",
-                            borderRadius: 10,
-                            padding: 20,
-                            marginBottom: 30,
-                            background: "#fafafa",
-                            maxWidth: 600,
-                        }}
-                    >
+            <Modal open={showForm} onClose={() => setShowForm(false)} maxWidth={600}>
                         <h3 style={{ marginTop: 0 }}>{editingId ? t("form.titleEdit") : t("form.title")}</h3>
 
                         <form onSubmit={handleSubmit}>
@@ -1921,9 +1929,7 @@ function Policies() {
                                 )}
                             </div>
                         )}
-                    </div>
-                )
-            }
+            </Modal>
 
             <div
                 style={{
@@ -2170,102 +2176,77 @@ function Policies() {
             }
 
             {viewingPolicy && (
-                <div
-                    style={{
-                        position: "fixed",
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        background: "rgba(0,0,0,0.5)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        zIndex: 1000,
-                    }}
-                    onClick={closeDetail}
-                >
-                    <div
-                        onClick={(e) => { e.stopPropagation(); setOpenDocMenuId(null); }}
-                        style={{
-                            background: "white",
-                            borderRadius: 10,
-                            padding: 24,
-                            width: "90%",
-                            maxWidth: 500,
-                            maxHeight: "85vh",
-                            overflowY: "auto",
-                        }}
-                    >
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <Modal open={true} onClose={closeDetail} maxWidth={500}>
+                    <div onClick={() => setOpenDocMenuId(null)}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, paddingBottom: 12, borderBottom: "1px solid #e5e7eb" }}>
                             <h3 style={{ margin: 0 }}>{t("detail.policyTitle", { number: viewingPolicy.policyNumber })}</h3>
                             <button
                                 onClick={closeDetail}
-                                style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 18 }}
+                                style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 18, color: "#6b7280" }}
                             >
                                 ✕
                             </button>
                         </div>
 
-                        <h4 style={{ marginBottom: 6 }}>{t("detail.policySection")}</h4>
-                        <p style={{ margin: "2px 0" }}>{t("detail.type")}: {translateEnum("policyType", viewingPolicy.type)}</p>
-                        <p style={{ margin: "2px 0" }}>{t("detail.insuranceCompany")}: {viewingPolicy.insuranceCompanyName}</p>
-                        <p style={{ margin: "2px 0" }}>{t("detail.status")}: {translateEnum("policyStatus", viewingPolicy.status)}</p>
-                        <p style={{ margin: "2px 0" }}>{t("detail.period")}: {viewingPolicy.period}</p>
-                        <p style={{ margin: "2px 0" }}>{t("detail.planType")}: {viewingPolicy.planType ? translateEnum("planType", viewingPolicy.planType) : "-"}</p>
-                        <p style={{ margin: "2px 0" }}>{t("detail.insurancePlan")}: {viewingPolicy.insurancePlan ?? "-"}</p>
-                        <p style={{ margin: "2px 0" }}>{t("detail.startDate")}: {viewingPolicy.startDate?.slice(0, 10)}</p>
-                        <p style={{ margin: "2px 0" }}>{t("detail.endDate")}: {viewingPolicy.endDate?.slice(0, 10)}</p>
-                        <p style={{ margin: "2px 0" }}>{t("detail.effectiveDate")}: {viewingPolicy.effectiveDate ? viewingPolicy.effectiveDate.slice(0, 10) : "-"}</p>
-                        <p style={{ margin: "2px 0" }}>{t("detail.premium")}: {viewingPolicy.premium}</p>
-                        <p style={{ margin: "2px 0" }}>{t("detail.monthlyPremiumAmount")}: {viewingPolicy.monthlyPremiumAmount ?? "-"}</p>
-                        <p style={{ margin: "2px 0" }}>{t("detail.taxCreditSubsidy")}: {viewingPolicy.taxCreditSubsidy ?? "-"}</p>
+                        <h4 style={sectionHeaderStyle}>{t("detail.policySection")}</h4>
+                        <p style={detailRowStyle}>{t("detail.type")}: {translateEnum("policyType", viewingPolicy.type)}</p>
+                        <p style={detailRowStyle}>{t("detail.insuranceCompany")}: {viewingPolicy.insuranceCompanyName}</p>
+                        <p style={detailRowStyle}>{t("detail.status")}: {translateEnum("policyStatus", viewingPolicy.status)}</p>
+                        <p style={detailRowStyle}>{t("detail.period")}: {viewingPolicy.period}</p>
+                        <p style={detailRowStyle}>{t("detail.planType")}: {viewingPolicy.planType ? translateEnum("planType", viewingPolicy.planType) : "-"}</p>
+                        <p style={detailRowStyle}>{t("detail.insurancePlan")}: {viewingPolicy.insurancePlan ?? "-"}</p>
+                        <p style={detailRowStyle}>{t("detail.startDate")}: {viewingPolicy.startDate?.slice(0, 10)}</p>
+                        <p style={detailRowStyle}>{t("detail.endDate")}: {viewingPolicy.endDate?.slice(0, 10)}</p>
+                        <p style={detailRowStyle}>{t("detail.effectiveDate")}: {viewingPolicy.effectiveDate ? viewingPolicy.effectiveDate.slice(0, 10) : "-"}</p>
+                        <p style={detailRowStyle}>{t("detail.premium")}: {viewingPolicy.premium}</p>
+                        <p style={detailRowStyle}>{t("detail.monthlyPremiumAmount")}: {viewingPolicy.monthlyPremiumAmount ?? "-"}</p>
+                        <p style={detailRowStyle}>{t("detail.taxCreditSubsidy")}: {viewingPolicy.taxCreditSubsidy ?? "-"}</p>
 
                         {viewingPolicy.type === "Medicare" && (
                             <>
-                                <h4 style={{ marginTop: 16, marginBottom: 6 }}>{t("detail.medicareSection")}</h4>
-                                <p style={{ margin: "2px 0" }}>
+                                <h4 style={sectionHeaderStyle}>{t("detail.medicareSection")}</h4>
+                                <p style={detailRowStyle}>
                                     {t("detail.hasMedicaid")}: {viewingPolicy.hasMedicaid === null || viewingPolicy.hasMedicaid === undefined ? "-" : (viewingPolicy.hasMedicaid ? t("yes") : t("no"))}
                                 </p>
-                                <p style={{ margin: "2px 0" }}>{t("detail.medicaidLevel")}: {viewingPolicy.medicaidLevel ?? "-"}</p>
-                                <p style={{ margin: "2px 0" }}>
+                                <p style={detailRowStyle}>{t("detail.medicaidLevel")}: {viewingPolicy.medicaidLevel ?? "-"}</p>
+                                <p style={detailRowStyle}>
                                     {t("detail.referredToMedicalCorporation")}: {viewingPolicy.referredToMedicalCorporation === null || viewingPolicy.referredToMedicalCorporation === undefined ? "-" : (viewingPolicy.referredToMedicalCorporation ? t("yes") : t("no"))}
                                 </p>
-                                <p style={{ margin: "2px 0" }}>{t("detail.medicalCorporation")}: {viewingPolicy.medicalCorporation ?? "-"}</p>
+                                <p style={detailRowStyle}>{t("detail.medicalCorporation")}: {viewingPolicy.medicalCorporation ?? "-"}</p>
                             </>
                         )}
 
                         {viewingPolicy.type === "Life Insurance" && (
                             <>
-                                <h4 style={{ marginTop: 16, marginBottom: 6 }}>{t("detail.lifeInsuranceSection")}</h4>
-                                <p style={{ margin: "2px 0" }}>
+                                <h4 style={sectionHeaderStyle}>{t("detail.lifeInsuranceSection")}</h4>
+                                <p style={detailRowStyle}>
                                     {t("detail.additionalOrAlternatePolicy")}: {viewingPolicy.additionalOrAlternatePolicy === null || viewingPolicy.additionalOrAlternatePolicy === undefined ? "-" : (viewingPolicy.additionalOrAlternatePolicy ? t("yes") : t("no"))}
                                     {viewingPolicy.additionalOrAlternatePolicy && viewingPolicy.additionalOrAlternatePolicyDetail ? ` (${viewingPolicy.additionalOrAlternatePolicyDetail})` : ""}
                                 </p>
-                                <p style={{ margin: "2px 0" }}>{t("detail.underwritingRequirements")}: {viewingPolicy.underwritingRequirements ?? "-"}</p>
-                                <p style={{ margin: "2px 0" }}>
+                                <p style={detailRowStyle}>{t("detail.underwritingRequirements")}: {viewingPolicy.underwritingRequirements ?? "-"}</p>
+                                <p style={detailRowStyle}>
                                     {t("detail.needsMedicalRequirements")}: {viewingPolicy.needsMedicalRequirements === null || viewingPolicy.needsMedicalRequirements === undefined ? "-" : (viewingPolicy.needsMedicalRequirements ? t("yes") : t("no"))}
                                 </p>
-                                <p style={{ margin: "2px 0" }}>{t("detail.billingType")}: {viewingPolicy.billingType ?? "-"}</p>
-                                <p style={{ margin: "2px 0" }}>{t("detail.premiumFrequency")}: {viewingPolicy.premiumFrequency ?? "-"}</p>
-                                <p style={{ margin: "2px 0" }}>{t("detail.plannedPeriodicModalPremium")}: {viewingPolicy.plannedPeriodicModalPremium ?? "-"}</p>
-                                <p style={{ margin: "2px 0" }}>{t("detail.sourceOfFunds")}: {viewingPolicy.sourceOfFunds ?? "-"}</p>
-                                <p style={{ margin: "2px 0" }}>
+                                <p style={detailRowStyle}>{t("detail.billingType")}: {viewingPolicy.billingType ?? "-"}</p>
+                                <p style={detailRowStyle}>{t("detail.premiumFrequency")}: {viewingPolicy.premiumFrequency ?? "-"}</p>
+                                <p style={detailRowStyle}>{t("detail.plannedPeriodicModalPremium")}: {viewingPolicy.plannedPeriodicModalPremium ?? "-"}</p>
+                                <p style={detailRowStyle}>{t("detail.sourceOfFunds")}: {viewingPolicy.sourceOfFunds ?? "-"}</p>
+                                <p style={detailRowStyle}>
                                     {t("detail.hasExistingLifeInsurance")}: {viewingPolicy.hasExistingLifeInsurance === null || viewingPolicy.hasExistingLifeInsurance === undefined ? "-" : (viewingPolicy.hasExistingLifeInsurance ? t("yes") : t("no"))}
                                 </p>
-                                <p style={{ margin: "2px 0" }}>
+                                <p style={detailRowStyle}>
                                     {t("detail.isReplacingExistingPolicy")}: {viewingPolicy.isReplacingExistingPolicy === null || viewingPolicy.isReplacingExistingPolicy === undefined ? "-" : (viewingPolicy.isReplacingExistingPolicy ? t("yes") : t("no"))}
                                 </p>
-                                <p style={{ margin: "2px 0" }}>
+                                <p style={detailRowStyle}>
                                     {t("detail.usingFundsFromInforcePolicy")}: {viewingPolicy.usingFundsFromInforcePolicy === null || viewingPolicy.usingFundsFromInforcePolicy === undefined ? "-" : (viewingPolicy.usingFundsFromInforcePolicy ? t("yes") : t("no"))}
                                 </p>
-                                <p style={{ margin: "2px 0" }}>
+                                <p style={detailRowStyle}>
                                     {t("detail.provideComparativeInfoForm")}: {viewingPolicy.provideComparativeInfoForm === null || viewingPolicy.provideComparativeInfoForm === undefined ? "-" : (viewingPolicy.provideComparativeInfoForm ? t("yes") : t("no"))}
                                 </p>
-                                <p style={{ margin: "2px 0" }}>{t("detail.physicianName")}: {viewingPolicy.physicianName ?? "-"}</p>
-                                <p style={{ margin: "2px 0" }}>{t("detail.physicianAddress")}: {viewingPolicy.physicianAddress ?? "-"}</p>
-                                <p style={{ margin: "2px 0" }}>{t("detail.additionalInformation")}: {viewingPolicy.additionalInformation ?? "-"}</p>
-                                <p style={{ margin: "2px 0" }}>
+                                <p style={detailRowStyle}>{t("detail.physicianName")}: {viewingPolicy.physicianName ?? "-"}</p>
+                                <p style={detailRowStyle}>{t("detail.physicianAddress")}: {viewingPolicy.physicianAddress ?? "-"}</p>
+                                <p style={detailRowStyle}>{t("detail.additionalInformation")}: {viewingPolicy.additionalInformation ?? "-"}</p>
+                                <p style={detailRowStyle}>
                                     {t("detail.consentSigned")}: {viewingPolicy.consentSigned === null || viewingPolicy.consentSigned === undefined ? "-" : (viewingPolicy.consentSigned ? t("yes") : t("no"))}
                                 </p>
                             </>
@@ -2273,55 +2254,55 @@ function Policies() {
 
                         {viewingPolicy.type === "Supplemental Plans" && (
                             <>
-                                <h4 style={{ marginTop: 16, marginBottom: 6 }}>{t("detail.supplementalSection")}</h4>
-                                <p style={{ margin: "2px 0" }}>
+                                <h4 style={sectionHeaderStyle}>{t("detail.supplementalSection")}</h4>
+                                <p style={detailRowStyle}>
                                     {t("detail.hasExistingDentalCoverage")}: {viewingPolicy.hasExistingDentalCoverage === null || viewingPolicy.hasExistingDentalCoverage === undefined ? "-" : (viewingPolicy.hasExistingDentalCoverage ? t("yes") : t("no"))}
                                 </p>
-                                <p style={{ margin: "2px 0" }}>
+                                <p style={detailRowStyle}>
                                     {t("detail.eligibleForMedicare")}: {viewingPolicy.eligibleForMedicare === null || viewingPolicy.eligibleForMedicare === undefined ? "-" : (viewingPolicy.eligibleForMedicare ? t("yes") : t("no"))}
                                 </p>
-                                <p style={{ margin: "2px 0" }}>
+                                <p style={detailRowStyle}>
                                     {t("detail.isReplacingDentalCoverage")}: {viewingPolicy.isReplacingDentalCoverage === null || viewingPolicy.isReplacingDentalCoverage === undefined ? "-" : (viewingPolicy.isReplacingDentalCoverage ? t("yes") : t("no"))}
                                 </p>
-                                <p style={{ margin: "2px 0" }}>
+                                <p style={detailRowStyle}>
                                     {t("detail.insuredPaysThePremium")}: {viewingPolicy.insuredPaysThePremium === null || viewingPolicy.insuredPaysThePremium === undefined ? "-" : (viewingPolicy.insuredPaysThePremium ? t("yes") : t("no"))}
                                 </p>
-                                <p style={{ margin: "2px 0" }}>{t("detail.bankAccountType")}: {viewingPolicy.bankAccountType ? translateEnum("bankAccountType", viewingPolicy.bankAccountType) : "-"}</p>
-                                <p style={{ margin: "2px 0" }}>{t("detail.routingNumber")}: <MaskedText value={viewingPolicy.routingNumber} /></p>
-                                <p style={{ margin: "2px 0" }}>{t("detail.accountNumber")}: <MaskedText value={viewingPolicy.accountNumber} /></p>
-                                <p style={{ margin: "2px 0" }}>
+                                <p style={detailRowStyle}>{t("detail.bankAccountType")}: {viewingPolicy.bankAccountType ? translateEnum("bankAccountType", viewingPolicy.bankAccountType) : "-"}</p>
+                                <p style={detailRowStyle}>{t("detail.routingNumber")}: <MaskedText value={viewingPolicy.routingNumber} /></p>
+                                <p style={detailRowStyle}>{t("detail.accountNumber")}: <MaskedText value={viewingPolicy.accountNumber} /></p>
+                                <p style={detailRowStyle}>
                                     {t("detail.insuredIsAccountHolder")}: {viewingPolicy.insuredIsAccountHolder === null || viewingPolicy.insuredIsAccountHolder === undefined ? "-" : (viewingPolicy.insuredIsAccountHolder ? t("yes") : t("no"))}
                                 </p>
-                                <p style={{ margin: "2px 0" }}>
+                                <p style={detailRowStyle}>
                                     {t("detail.authorizedAutomaticPayment")}: {viewingPolicy.authorizedAutomaticPayment === null || viewingPolicy.authorizedAutomaticPayment === undefined ? "-" : (viewingPolicy.authorizedAutomaticPayment ? t("yes") : t("no"))}
                                 </p>
-                                <p style={{ margin: "2px 0" }}>{t("detail.autoPaymentDay")}: {viewingPolicy.autoPaymentDay ?? "-"}</p>
-                                <p style={{ margin: "2px 0" }}>
+                                <p style={detailRowStyle}>{t("detail.autoPaymentDay")}: {viewingPolicy.autoPaymentDay ?? "-"}</p>
+                                <p style={detailRowStyle}>
                                     {t("detail.authorizeMarketingInfo")}: {viewingPolicy.authorizeMarketingInfo === null || viewingPolicy.authorizeMarketingInfo === undefined ? "-" : (viewingPolicy.authorizeMarketingInfo ? t("yes") : t("no"))}
                                 </p>
-                                <p style={{ margin: "2px 0" }}>{t("detail.representativeName")}: {viewingPolicy.representativeName ?? "-"}</p>
-                                <p style={{ margin: "2px 0" }}>{t("detail.representativeRelationship")}: {viewingPolicy.representativeRelationship ?? "-"}</p>
+                                <p style={detailRowStyle}>{t("detail.representativeName")}: {viewingPolicy.representativeName ?? "-"}</p>
+                                <p style={detailRowStyle}>{t("detail.representativeRelationship")}: {viewingPolicy.representativeRelationship ?? "-"}</p>
                             </>
                         )}
 
-                        <h4 style={{ marginTop: 16, marginBottom: 6 }}>{t("detail.titularSection")}</h4>
+                        <h4 style={sectionHeaderStyle}>{t("detail.titularSection")}</h4>
                         {(() => {
                             const titular = getCustomer(viewingPolicy.customerId);
                             if (!titular) return <p>{t("detail.unknown")}</p>;
                             return (
                                 <>
-                                    <p style={{ margin: "2px 0" }}>{titular.firstName} {titular.lastName}</p>
-                                    <p style={{ margin: "2px 0" }}>{t("detail.ssn")}: <MaskedText value={titular.socialSecurityNumber} /></p>
-                                    <p style={{ margin: "2px 0" }}>{t("detail.email")}: {titular.email}</p>
-                                    <p style={{ margin: "2px 0" }}>{t("detail.phone")}: {titular.phone}</p>
-                                    <p style={{ margin: "2px 0" }}>{t("detail.address1")}: {titular.address1}</p>
-                                    <p style={{ margin: "2px 0" }}>{t("detail.migrationStatus")}: {translateEnum("migrationStatus", titular.migrationStatus)}</p>
+                                    <p style={detailRowStyle}>{titular.firstName} {titular.lastName}</p>
+                                    <p style={detailRowStyle}>{t("detail.ssn")}: <MaskedText value={titular.socialSecurityNumber} /></p>
+                                    <p style={detailRowStyle}>{t("detail.email")}: {titular.email}</p>
+                                    <p style={detailRowStyle}>{t("detail.phone")}: {titular.phone}</p>
+                                    <p style={detailRowStyle}>{t("detail.address1")}: {titular.address1}</p>
+                                    <p style={detailRowStyle}>{t("detail.migrationStatus")}: {translateEnum("migrationStatus", titular.migrationStatus)}</p>
                                 </>
                             );
                         })()}
 
-                        <h4 style={{ marginTop: 16, marginBottom: 6 }}>{t("detail.dependentsSection")}</h4>
-                        <p style={{ margin: "2px 0" }}>{t("detail.numberOfApplicants")}: {viewingPolicy.numberOfApplicants ?? "-"}</p>
+                        <h4 style={sectionHeaderStyle}>{t("detail.dependentsSection")}</h4>
+                        <p style={detailRowStyle}>{t("detail.numberOfApplicants")}: {viewingPolicy.numberOfApplicants ?? "-"}</p>
                         {detailDependents.length === 0 ? (
                             <p style={{ color: "#666" }}>{t("detail.noDependents")}</p>
                         ) : (
@@ -2336,7 +2317,7 @@ function Policies() {
 
                         {viewingPolicy.type === "Life Insurance" && (
                             <>
-                                <h4 style={{ marginTop: 16, marginBottom: 6 }}>{t("detail.beneficiariesSection")}</h4>
+                                <h4 style={sectionHeaderStyle}>{t("detail.beneficiariesSection")}</h4>
                                 {detailBeneficiaries.length === 0 ? (
                                     <p style={{ color: "#666" }}>{t("detail.noBeneficiaries")}</p>
                                 ) : (
@@ -2351,7 +2332,7 @@ function Policies() {
                             </>
                         )}
 
-                        <h4 style={{ marginTop: 16, marginBottom: 6 }}>{t("detail.historySection")}</h4>
+                        <h4 style={sectionHeaderStyle}>{t("detail.historySection")}</h4>
                         {detailHistory.length === 0 ? (
                             <p style={{ color: "#666" }}>{t("detail.noHistory")}</p>
                         ) : (
@@ -2508,7 +2489,7 @@ function Policies() {
                             )}
                         </div>
                     </div>
-                </div>
+            </Modal>
             )}
         </div >
     );

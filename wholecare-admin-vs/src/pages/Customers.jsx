@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { apiFetch, isAdmin } from "../api";
 import { translateEnum } from "../i18n/translateEnum";
+import Modal from "../components/Modal";
 import CustomerFormFields from "../components/CustomerFormFields";
 import MaskedText from "../components/MaskedText";
 import { emptyCustomerForm } from "../data/customerFormOptions";
@@ -164,27 +165,25 @@ function Customers() {
                 {showForm ? t("closeFormButton") : t("newButton")}
             </button>
 
-            {showForm && (
-                <div style={{ border: "1px solid #ddd", borderRadius: 10, padding: 24, marginBottom: 30, background: "#fafafa", maxWidth: 560 }}>
-                    <h3 style={{ marginTop: 0 }}>{editingId ? t("form.titleEdit") : t("form.titleCreate")}</h3>
+            <Modal open={showForm} onClose={() => setShowForm(false)} maxWidth={560}>
+                <h3 style={{ marginTop: 0 }}>{editingId ? t("form.titleEdit") : t("form.titleCreate")}</h3>
 
-                    <form onSubmit={handleSubmit}>
-                        <CustomerFormFields form={form} onFieldChange={handleField} agents={agents} userIsAdmin={userIsAdmin} />
+                <form onSubmit={handleSubmit}>
+                    <CustomerFormFields form={form} onFieldChange={handleField} agents={agents} userIsAdmin={userIsAdmin} />
 
-                        {formError && <p style={{ color: "red", marginTop: 12 }}>{formError}</p>}
+                    {formError && <p style={{ color: "red", marginTop: 12 }}>{formError}</p>}
 
-                        <button
-                            type="submit"
-                            disabled={submitting}
-                            style={{ marginTop: 16, background: "#16a34a", color: "white", padding: "9px 20px", border: "none", borderRadius: 6, cursor: "pointer" }}
-                        >
-                            {editingId
-                                ? (submitting ? t("common:actions.saving") : t("form.submitEdit"))
-                                : (submitting ? t("common:actions.creating") : t("form.submitCreate"))}
-                        </button>
-                    </form>
-                </div>
-            )}
+                    <button
+                        type="submit"
+                        disabled={submitting}
+                        style={{ marginTop: 16, background: "#16a34a", color: "white", padding: "9px 20px", border: "none", borderRadius: 6, cursor: "pointer" }}
+                    >
+                        {editingId
+                            ? (submitting ? t("common:actions.saving") : t("form.submitEdit"))
+                            : (submitting ? t("common:actions.creating") : t("form.submitCreate"))}
+                    </button>
+                </form>
+            </Modal>
 
             {loading ? (
                 <p>{t("loading")}</p>

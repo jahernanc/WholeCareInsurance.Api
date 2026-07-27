@@ -565,7 +565,7 @@ Nuevo modo `--reassign-agents` en `WholeCareInsurance.Migration`, combinable con
 
 ---
 
-## 16. Modal/Dialog reutilizable para crear/editar — 🔲 Pendiente, plan ya diseñado
+## 16. Modal/Dialog reutilizable para crear/editar — ✅ Hecho (2026-07-27)
 
 ### 16.1 Problema reportado
 
@@ -611,6 +611,20 @@ Crear `src/components/Modal.jsx` genérico, basado en el estilo visual del modal
 
 Probar **crear y editar** en cada pantalla recién migrada antes de pasar a la siguiente (no migrar las 4 y probar todo junto al final). Al terminar las 6, correr `dotnet build` (si aplica) + `npm run build` + `npm run lint` una vez más antes de dar el trabajo por cerrado.
 
+### 16.7 Implementación — las 6 migraciones del plan, tal como se aprobaron
+
+`src/components/Modal.jsx` nuevo: backdrop `rgba(0,0,0,0.5)` fixed+centrado (mismo estilo que el modal de detalle viejo), click-outside, Escape, scroll lock del `body`, foco atrapado (Tab/Shift+Tab no se escapan del modal), foco inicial al primer elemento enfocable y restauración al elemento que abrió el modal al cerrar, `role="dialog"`/`aria-modal="true"`. API: `<Modal open onClose maxWidth>{children}</Modal>`.
+
+Las 6 migraciones se hicieron en el orden aprobado (§16.5), probando crear y editar en cada pantalla antes de pasar a la siguiente: `Policies.jsx` (form crear/editar), `Customers.jsx`, `Agentes.jsx`, `InsuranceCompanies.jsx`, y por último el modal de detalle de `Policies.jsx` (🔍) refactorizado para usar el mismo `Modal` compartido en vez de su implementación duplicada — verificado por el responsable en las 5 pantallas.
+
+**Dos bugs encontrados y corregidos en el camino (ninguno bloqueó el plan, pero valen como hallazgo):**
+- **Bug propio del `Modal`, encontrado antes de reportar terminado**: `onClose` se pasa como arrow function inline (`() => setShowForm(false)`), con identidad nueva en cada render del padre. Estaba en el array de dependencias del `useEffect` de foco, así que ese efecto se re-ejecutaba en cada tecleo dentro del formulario — robando el foco de vuelta al primer campo del modal en cada cambio de estado. Fix: `onClose` se guarda en un `ref` (actualizado en un `useEffect` sin deps, no durante el render, para no violar la regla de lint de no mutar refs en render) y el efecto de foco pasa a depender solo de `[open]`.
+- **Bug preexistente, no relacionado al Modal, encontrado por el responsable al probar la edición**: `handleSubmit` de `Policies.jsx` validaba campos requeridos con `!premium`, que es `true` cuando `Premium` vale `0` — un valor legítimo y frecuente en pólizas migradas (281 pólizas reales con `Premium=0`, documentado en §1.11). Cualquier edición de esas pólizas disparaba un falso "todos los campos son obligatorios" sin importar qué campo se cambiara. Fix: la validación pasó a comparar explícitamente contra `"" `/`null`/`undefined` en vez de usar falsy.
+
+**Ajuste visual pedido por el responsable tras probar el modal de detalle**: el contenido (lista de pares etiqueta:valor apilados) se sentía apretado y poco jerárquico a 500px de ancho. Se mantuvo el ancho (opción elegida explícitamente sobre la alternativa de grid a 2 columnas más ancho) y se sumó más aire entre líneas (`detailRowStyle`, `margin: "7px 0"`, antes `"2px 0"`) y encabezados de sección con más jerarquía visual (`sectionHeaderStyle`: uppercase, letter-spacing, borde inferior, color gris) — aplicado de forma mecánica con `replace_all` sobre los 51 `<p>` y 7 `<h4>` de sección del modal de detalle (patrones idénticos, únicos en ese bloque del archivo), sin tocar el formulario de crear/editar.
+
+Verificado: `dotnet build` (0 warnings/0 errors) + `npm run build` + `npm run lint` (mismos 6 problemas preexistentes de siempre — `react-hooks/set-state-in-effect` en `Policies/Customers/Agentes/InsuranceCompanies/Dashboard`, ninguno nuevo) tras cada paso. Probado en navegador por el responsable: crear/editar en las 4 pantallas, Escape/click-afuera/✕ en el modal de detalle, y el fix de `Premium=0` guardando cambios en una póliza real migrada con ese valor.
+
 ---
 
 ## 17. Orden sugerido de trabajo
@@ -655,4 +669,4 @@ Probar **crear y editar** en cada pantalla recién migrada antes de pasar a la s
 38. Cierre del gap de seguridad de §10.1 (MustChangePassword solo de frontend) — ✅ Hecho, middleware de backend agregado
 39. Reconciliación de campos §1.11 (StartDate/EndDate/Premium vs EffectiveDate/Period/MonthlyPremiumAmount) — ✅ Analizado y resuelto, se dejan como están (decisión del responsable, documentado en §1.11)
 40. ~~Dashboard (KPIs, gráficos por Tipo/Status, estadísticas, últimas pólizas, próximos a cumplir 65, scoping por rol)~~ ✅ Hecho (§9), incluye `Policy.UpdatedAt` nuevo (§9.6) y paleta de colores semántica en toda la app (§9.1)
-41. Modal/Dialog reutilizable para crear/editar (Policies/Customers/Agentes/InsuranceCompanies) — pendiente, plan ya diseñado (§16)
+41. ~~Modal/Dialog reutilizable para crear/editar (Policies/Customers/Agentes/InsuranceCompanies)~~ ✅ Hecho (§16), incluye 2 bugs encontrados/corregidos en el camino (foco del Modal, falso required por Premium=0) y ajuste visual del modal de detalle

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { apiFetch } from "../api";
 import { translateEnum } from "../i18n/translateEnum";
+import Modal from "../components/Modal";
 import { US_STATES } from "../data/usStates";
 import US_COUNTIES from "../data/usCounties.json";
 import { GENDERS } from "../data/customerFormOptions";
@@ -204,8 +205,7 @@ function Agentes() {
                 </button>
             </div>
 
-            {showForm && (
-                <div style={{ border: "1px solid #ddd", borderRadius: 10, padding: 24, marginBottom: 30, background: "#fafafa", maxWidth: 720 }}>
+            <Modal open={showForm} onClose={() => setShowForm(false)} maxWidth={720}>
                     <h3 style={{ marginTop: 0 }}>{editingId ? t("form.titleEdit") : t("form.titleCreate")}</h3>
 
                     <form onSubmit={handleSubmit}>
@@ -405,8 +405,7 @@ function Agentes() {
                                 : (submitting ? t("common:actions.creating") : t("form.submitCreate"))}
                         </button>
                     </form>
-                </div>
-            )}
+            </Modal>
 
             {loading ? (
                 <p>{t("loading")}</p>

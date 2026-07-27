@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { apiFetch } from "../api";
+import Modal from "../components/Modal";
 
 const emptyForm = {
     name: "",
@@ -99,8 +100,7 @@ function InsuranceCompanies() {
                 {showForm ? t("closeFormButton") : t("newButton")}
             </button>
 
-            {showForm && (
-                <div style={{ border: "1px solid #ddd", borderRadius: 10, padding: 24, marginBottom: 30, background: "#fafafa", maxWidth: 420 }}>
+            <Modal open={showForm} onClose={() => setShowForm(false)} maxWidth={420}>
                     <h3 style={{ marginTop: 0 }}>{editingId ? t("form.titleEdit") : t("form.titleCreate")}</h3>
 
                     <form onSubmit={handleSubmit}>
@@ -132,8 +132,7 @@ function InsuranceCompanies() {
                                 : (submitting ? t("common:actions.creating") : t("form.submitCreate"))}
                         </button>
                     </form>
-                </div>
-            )}
+            </Modal>
 
             {loading ? (
                 <p>{t("loading")}</p>
