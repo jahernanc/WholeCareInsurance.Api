@@ -719,7 +719,26 @@ Effective date y Registration date se muestran ambas como `dd/mm/aaaa`, sin hora
 
 ---
 
-## 19. Orden sugerido de trabajo
+## 20. Deuda técnica — 5 errores reales de ESLint (`react-hooks/set-state-in-effect`) — ⏸ Pendiente, sesión dedicada
+
+Encontrados por el responsable en el Error List de Visual Studio (`Dashboard.jsx:189`, marcado como "Error", no "Warning") — se pidió confirmar el diagnóstico antes de tocar nada.
+
+**Confirmado, no es un problema de configuración distinta entre el editor y la terminal — es el mismo error real en ambos lados:**
+- `npm run lint` (`eslint .`) reporta **5 errores reales** de la regla `react-hooks/set-state-in-effect` (más 1 warning aparte, sin relación) — `✖ 6 problems (5 errors, 1 warning)`, exit code `1`. `eslint.config.js` no define severidad propia para esta regla, hereda el preset `reactHooks.configs.flat.recommended` del plugin (`eslint-plugin-react-hooks@7.1.1`) tal cual viene — confirmado programáticamente que ese preset trae la regla en `"error"`, no `"warning"`. VS lee el mismo `eslint.config.js`, por eso coincide exacto con la terminal.
+- **`npm run build` (`vite build`) nunca se ve afectado** — es un script totalmente independiente de `lint` en `package.json`, no ejecuta ESLint en ningún paso. Por eso el build siempre compiló limpio pese a estos errores.
+- **Los 5 archivos y líneas afectadas** (mismo patrón en los 5: `useEffect(() => { loadXxx(); }, [])` llama a una función que hace `setState` de forma síncrona en el cuerpo del efecto):
+  - `Dashboard.jsx:189`
+  - `Customers.jsx:66`
+  - `Agentes.jsx:76`
+  - `InsuranceCompanies.jsx:34`
+  - `Policies.jsx:191`
+- **Origen: preexistente desde `390c3e0`** ("feat: frontend del Dashboard (§9)", 2026-07-27) — confirmado con `git blame` sobre `Dashboard.jsx:189` y con `git show --stat` de los commits de esta sesión (ninguno tocó `Dashboard.jsx`). No es deuda introducida en las sesiones de Agentes/Phone-CreatedAt/rediseño de tabla — ya estaba ahí desde el Dashboard original y se viene arrastrando (y reportando como "mismos problemas preexistentes, sin regresiones") desde entonces.
+
+**No se corrige en esta sesión** — toca 5 archivos, conviene una sesión dedicada en vez de mezclarlo con trabajo de features. El fix conceptual (según la propia regla, ver `https://react.dev/learn/you-might-not-need-an-effect`) sería mover la carga inicial fuera del cuerpo síncrono del efecto (ej. inicializar el estado directo con una función lazy, o separar la función async y no depender de la regla `exhaustive-deps` deshabilitada a mano como está hoy en los 5 casos) — a evaluar caso por caso cuando se retome, no todos los 5 necesariamente se resuelven igual.
+
+---
+
+## 21. Orden sugerido de trabajo
 
 1. ~~Tipo en Policy~~ ✅ Hecho
 2. ~~Dependientes (vínculo con Customers existentes)~~ ✅ Hecho
@@ -764,3 +783,4 @@ Effective date y Registration date se muestran ambas como `dd/mm/aaaa`, sin hora
 41. ~~Modal/Dialog reutilizable para crear/editar (Policies/Customers/Agentes/InsuranceCompanies)~~ ✅ Hecho (§16), incluye 2 bugs encontrados/corregidos en el camino (foco del Modal, falso required por Premium=0) y ajuste visual del modal de detalle
 42. ~~Unificación de listados de Customers/Agentes al estilo tabla de Policies + paginado en los 3 (pageSize=10)~~ ✅ Hecho (§17), incluye `User.IsActive` nuevo (baja lógica de agentes, reemplaza el DELETE que hubiera fallado siempre por FKs Restrict) y 2 modales de detalle nuevos
 43. Rediseño de la tabla de Policies (12 columnas nuevas, scroll horizontal, `Policy.CreatedAt`/`Policy.RenewalStatus` nuevos) — plan completo documentado y aprobado, implementación pendiente (§18)
+44. Deuda técnica — 5 errores reales de ESLint `react-hooks/set-state-in-effect` (Dashboard/Customers/Agentes/InsuranceCompanies/Policies, preexistentes desde `390c3e0`) — diagnóstico confirmado, corrección pendiente para una sesión dedicada (§20)
