@@ -672,7 +672,54 @@ Verificado por el responsable en navegador: las 3 pantallas con tabla consistent
 
 ---
 
-## 18. Orden sugerido de trabajo
+## 18. Rediseño de la tabla de Policies — nuevas columnas + scroll horizontal — ⏸ Pendiente de implementar (plan aprobado, análisis completo)
+
+Pedido: acercar la tabla de `Policies.jsx` a una referencia visual (3 capturas del responsable — **no llegaron a esta sesión**, el plan se documentó solo a partir de la lista de columnas en texto). Antes de implementar, se auditó contra el código real qué campos ya existen y cuáles hacen falta agregar.
+
+### 18.1 Columnas objetivo, en orden, y estado real de cada una
+
+| # | Columna | Fuente | Estado |
+|---|---|---|---|
+| 1 | Customer | `Customer.FirstName`/`LastName` | ✅ Existe. **Sin avatar/iniciales, sin subtítulo de fecha** (decisión confirmada — se descartó la idea inicial de mostrar una fecha de creación del Customer debajo del nombre; no se agrega `Customer.CreatedAt`). |
+| 2 | Contact | `Customer.Email` + `Customer.Phone` | ✅ Existen, ya vienen en `CustomerResponseDto` — `Policies.jsx` ya carga el listado completo de customers (`/api/customers`), no hace falta ningún endpoint nuevo. Mismo estilo visual que Contact ya usa en otras pantallas. |
+| 3 | Plan | `Policy.InsurancePlan` | ✅ Existe en `Policy`/`PolicyResponseDto` (§1.11), pero **hoy no se muestra en la tabla** (la tabla actual muestra `Type`, no `Plan`). Columna nueva en el listado. |
+| 4 | Type | `Policy.Type` | ✅ Ya se muestra hoy. **Se mantiene junto a Plan** — decisión confirmada, no se reemplaza una por otra, van las dos. |
+| 5 | Applicants | `Policy.NumberOfApplicants` | ✅ Existe (§1.9), no se muestra en la tabla hoy. Columna nueva. |
+| 6 | Status (badge) | `Policy.Status` | ⚠️ El campo existe, pero **hoy se renderiza como texto plano** (`Policies.jsx:2058`, `{translateEnum("policyStatus", p.status)}`), no como badge. `Dashboard.jsx` ya tiene un array `POLICY_STATUSES` (8 valores) + `CATEGORICAL_COLORS` para los gráficos de torta — se puede extraer a un util compartido y reusar como badge de tabla (mismo criterio que se hizo con `agencyStyle.js` para el badge de Agency en Agentes, §17). Cambio de frontend únicamente. |
+| 7 | Effective date | `Policy.EffectiveDate` | ✅ Existe (nullable), sin mostrar en tabla hoy. Sin hora. |
+| 8 | Agency (badge) | `Customer.Agent.Agency` (`User.Agency`) | ❌ No existe como campo propio de `Policy` ni `Customer`. **Decisión confirmada: derivar en vivo**, no agregar campo nuevo — sumar `AgentAgency` a `CustomerResponseDto` (mapeo directo desde `Customer.Agent.Agency` en el controller, mismo patrón que ya tiene `AgentName`). Sin migración. **Trade-off aceptado explícitamente**: esto refleja la agencia ACTUAL del agente, no la agencia que tenía al momento de escribir esa póliza puntual (que sí existe sin usar en el xlsx de origen, columna `"Agency"` presente en los 4 archivos de pólizas — se descarta usarla). Mismo estilo de badge que ya usamos en Agentes (`src/utils/agencyStyle.js`, reusable tal cual). |
+| 9 | Agent (solo texto) | `CustomerResponseDto.AgentName` | ✅ Ya resuelto server-side, sin avatar — mismo criterio ya aplicado en Agentes (§17.5). |
+| 10 | State/Province | `Customer.State` | ✅ Existe, ya en `CustomerResponseDto`. Confirmado que la columna real del xlsx de origen se llama literalmente `"State / Province"` en los 4 archivos de pólizas (`CommonFieldsExtractor.cs:38`). |
+| 11 | Registration date | `Policy.CreatedAt` (**nuevo**) | ❌ No existe (`Policy` solo tiene `UpdatedAt`, §9.6). La columna `"Registration date"` del xlsx de origen **ya se lee hoy** (`CommonFieldsExtractor.cs:58`) pero solo se usa para setear el `ChangedAt` de la primera fila de `PolicyHistory` de cada póliza — tanto para las migradas como para las creadas en vivo (`PoliciesController.Create` siempre inserta un `PolicyHistory` inicial vía `RecordStatusChange`). **Backfill limpio, sin re-leer ningún xlsx**: `UPDATE Policies SET CreatedAt = (SELECT MIN(ChangedAt) FROM PolicyHistory WHERE PolicyId = Policies.Id)`. Sin hora. |
+| 12 | Renewal status | `Policy.RenewalStatus` (**nuevo**) | ❌ No existe. La columna `"Renewal status"` existe **solo en el xlsx de Health/Obamacare** (1258 de ~1283 filas migradas) — Medicare/Life/Supplemental no tienen esta columna en absoluto, quedarán siempre en `null` para esos tipos (esperado, no es un bug). Backfill parcial: re-leer el xlsx de Health y matchear contra `Policy.PolicyNumber` (que sí tiene índice único en la base — `PolicyConfiguration.cs:18`). **Riesgo, a diferencia de los backfills anteriores** (User/Email tenía clave única confiable al 100%): `PolicyNumberRaw` es nullable por fila en el origen, puede haber huecos de match. **Obligatorio correr `--dry-run` primero y revisar cuántas pólizas matchean vs. quedan sin match antes de aplicar `--commit`.** |
+
+### 18.2 Explícitamente fuera de alcance por ahora: Tags
+
+`Customer.Tags` ya existe de punta a punta (modelo, DTOs, formulario de alta/edición de Customer, §3.2) — no hace falta ningún cambio de schema para mostrarlo. Pero nunca se hizo backfill histórico: la columna `"Tags"` del xlsx de origen existe **solo en el archivo de Health** (1258 filas) y el importer nunca la lee — hoy prácticamente todos los customers migrados tienen `Tags = null`; solo tendrían valor los que alguien cargó/editó a mano después de la migración. **Se descartó agregar esta columna en esta ronda** — queda para revisar después si hace falta.
+
+### 18.3 Mantener sin cambios
+
+Íconos/botones/estilos actuales de acciones (🔍 lupa, ✏️ lápiz, 🗑 tacho, 💬 WhatsApp) — no se reemplazan por otro estilo aunque la referencia visual muestre algo distinto.
+
+### 18.4 Layout: scroll horizontal, no "todo sin scroll"
+
+A diferencia de Agentes (§17.5 — 6 columnas, se logró eliminar el scroll achicando avatares/fecha), acá con 12 columnas de datos + acciones se decidió que **sí** va a haber scroll horizontal dentro de la tabla (mismo contenedor `overflowX:auto` que ya usamos), igual que muestra la referencia. El fix del bug de `#root` en `index.css` (encontrado y corregido durante el rediseño de Agentes, §17) es lo que permite que ese scroll funcione bien — antes de ese fix, el contenido se desbordaba sin generar una barra de scroll usable.
+
+### 18.5 Fechas sin hora
+
+Effective date y Registration date se muestran ambas como `dd/mm/aaaa`, sin hora — mismo criterio que ya se aplicó a Registration date en Agentes (§17).
+
+### 18.6 Orden de implementación sugerido cuando se retome
+
+1. **`Policy.CreatedAt`** — migración + backfill vía `MIN(PolicyHistory.ChangedAt)`. Bajo riesgo, dato ya disponible en la base, sin re-leer ningún xlsx.
+2. **`Policy.RenewalStatus`** — migración + backfill parcial vía `PolicyNumber` contra el xlsx de Health/Obamacare. **`--dry-run` obligatorio antes de `--commit`**, revisar cobertura real (cuántas matchean vs. quedan `null`) antes de aplicar en serio.
+3. **`CustomerResponseDto.AgentAgency`** — una línea de mapeo en el controller, sin migración.
+4. **Frontend**: las 12 columnas en el orden definido, Status como badge (extrayendo la paleta de `Dashboard.jsx`), Agency/Agent sin avatar (mismo criterio que Agentes), scroll horizontal, fechas sin hora.
+5. Build + lint + verificación en navegador (mismo checklist que las sesiones anteriores), antes de dar el trabajo por cerrado.
+
+---
+
+## 19. Orden sugerido de trabajo
 
 1. ~~Tipo en Policy~~ ✅ Hecho
 2. ~~Dependientes (vínculo con Customers existentes)~~ ✅ Hecho
@@ -716,3 +763,4 @@ Verificado por el responsable en navegador: las 3 pantallas con tabla consistent
 40. ~~Dashboard (KPIs, gráficos por Tipo/Status, estadísticas, últimas pólizas, próximos a cumplir 65, scoping por rol)~~ ✅ Hecho (§9), incluye `Policy.UpdatedAt` nuevo (§9.6) y paleta de colores semántica en toda la app (§9.1)
 41. ~~Modal/Dialog reutilizable para crear/editar (Policies/Customers/Agentes/InsuranceCompanies)~~ ✅ Hecho (§16), incluye 2 bugs encontrados/corregidos en el camino (foco del Modal, falso required por Premium=0) y ajuste visual del modal de detalle
 42. ~~Unificación de listados de Customers/Agentes al estilo tabla de Policies + paginado en los 3 (pageSize=10)~~ ✅ Hecho (§17), incluye `User.IsActive` nuevo (baja lógica de agentes, reemplaza el DELETE que hubiera fallado siempre por FKs Restrict) y 2 modales de detalle nuevos
+43. Rediseño de la tabla de Policies (12 columnas nuevas, scroll horizontal, `Policy.CreatedAt`/`Policy.RenewalStatus` nuevos) — plan completo documentado y aprobado, implementación pendiente (§18)
