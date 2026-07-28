@@ -29,7 +29,12 @@ namespace WholeCareInsurance.api.Controllers
         // actualiza la decisión de §11.1 que había descartado paginar por bajo volumen).
         [HttpGet]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> GetAll([FromQuery] string? role = null, [FromQuery] string? search = null, [FromQuery] int? page = null)
+        public async Task<IActionResult> GetAll(
+            [FromQuery] string? role = null,
+            [FromQuery] string? search = null,
+            [FromQuery] int? page = null,
+            [FromQuery] string? sortBy = null,
+            [FromQuery] string? sortDir = null)
         {
             var users = await _usersService.GetAll();
 
@@ -45,7 +50,9 @@ namespace WholeCareInsurance.api.Controllers
             if (!page.HasValue)
                 return Ok(users.Select(ToResponse));
 
-            var ordered = users.OrderByDescending(u => u.Id).ToList();
+            // Ordena sobre el dataset COMPLETO ya filtrado, antes de paginar (§17.2) —
+            // así "ordenar por nombre" no depende de en qué página se está parado.
+            var ordered = ApplySort(users, sortBy, sortDir).ToList();
             var effectivePage = page.Value < 1 ? 1 : page.Value;
             var totalCount = ordered.Count;
             var pageItems = ordered.Skip((effectivePage - 1) * DefaultPageSize).Take(DefaultPageSize);
@@ -58,6 +65,24 @@ namespace WholeCareInsurance.api.Controllers
                 PageSize = DefaultPageSize,
                 TotalPages = (int)Math.Ceiling(totalCount / (double)DefaultPageSize),
             });
+        }
+
+        // Default sin sortBy: Id desc (mismo criterio de siempre, "más nuevo primero").
+        private static IEnumerable<User> ApplySort(IEnumerable<User> users, string? sortBy, string? sortDir)
+        {
+            var descending = string.Equals(sortDir, "desc", StringComparison.OrdinalIgnoreCase);
+
+            IOrderedEnumerable<User> Order<TKey>(Func<User, TKey> keySelector) =>
+                descending ? users.OrderByDescending(keySelector) : users.OrderBy(keySelector);
+
+            return sortBy?.ToLowerInvariant() switch
+            {
+                "nombre" => Order(u => u.Nombre),
+                "email" => Order(u => u.Email),
+                "phone" => Order(u => u.Phone ?? ""),
+                "createdat" => Order(u => u.CreatedAt),
+                _ => users.OrderByDescending(u => u.Id),
+            };
         }
 
         [HttpGet("{id}")]

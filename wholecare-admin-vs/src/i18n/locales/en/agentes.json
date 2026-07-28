@@ -59,9 +59,9 @@
     "table": {
         "fullName": "Full name",
         "email": "Email",
+        "phone": "Phone",
+        "registrationDate": "Registration date",
         "agency": "Agency",
-        "companyName": "Company",
-        "licenseNumber": "License #",
         "actions": "Actions"
     },
     "actionTitles": {

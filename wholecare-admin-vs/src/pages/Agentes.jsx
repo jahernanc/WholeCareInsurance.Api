@@ -8,9 +8,19 @@ import US_COUNTIES from "../data/usCounties.json";
 import { GENDERS } from "../data/customerFormOptions";
 import { CONTRACT_INTERESTS, AGENCIES, emptyAgentForm } from "../data/agentFormOptions";
 import { detailSectionHeaderStyle, detailRowStyle } from "../utils/detailModalStyles";
-import { tableHeaderRowStyle, tableCellStyle, actionsCellStyle, actionButtonStyle } from "../utils/tableStyles";
+import { tableHeaderRowStyle, tableCellStyle, sortableHeaderStyle, actionsCellStyle, actionButtonStyle } from "../utils/tableStyles";
+import { agencyStyle } from "../utils/agencyStyle";
+import { formatPhoneDisplay } from "../utils/formatPhone";
 
 const ROLES = ["Admin", "Agente"];
+
+// dd/mm/aaaa, sin hora (§17.2) — independiente del locale del browser.
+const formatDateOnly = (isoString) => {
+    const d = new Date(isoString);
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    return `${dd}/${mm}/${d.getFullYear()}`;
+};
 
 function Agentes() {
     const { t } = useTranslation(["agentes", "common"]);
@@ -27,17 +37,26 @@ function Agentes() {
     const [page, setPage] = useState(1);
     const [totalCount, setTotalCount] = useState(0);
     const [totalPages, setTotalPages] = useState(1);
+    // null = sin ordenar explícitamente (el backend usa su default de Id desc).
+    const [sortBy, setSortBy] = useState(null);
+    const [sortDir, setSortDir] = useState("asc");
 
     const countiesForState = form.state ? (US_COUNTIES[form.state] ?? []) : [];
 
-    const loadUsers = async (searchOverride, pageOverride) => {
+    const loadUsers = async (searchOverride, pageOverride, sortByOverride, sortDirOverride) => {
         try {
             setLoading(true);
             const effectiveSearch = searchOverride !== undefined ? searchOverride : search;
             const effectivePage = pageOverride ?? page;
+            const effectiveSortBy = sortByOverride !== undefined ? sortByOverride : sortBy;
+            const effectiveSortDir = sortDirOverride !== undefined ? sortDirOverride : sortDir;
             const params = new URLSearchParams();
             if (effectiveSearch) params.set("search", effectiveSearch);
             params.set("page", String(effectivePage));
+            if (effectiveSortBy) {
+                params.set("sortBy", effectiveSortBy);
+                params.set("sortDir", effectiveSortDir);
+            }
             const res = await apiFetch(`/users?${params.toString()}`);
             if (!res.ok) throw new Error();
             const data = await res.json();
@@ -45,6 +64,8 @@ function Agentes() {
             setTotalCount(data.totalCount);
             setTotalPages(data.totalPages);
             setPage(data.page);
+            setSortBy(effectiveSortBy ?? null);
+            setSortDir(effectiveSortDir);
         } catch {
             console.error("No se pudieron cargar los agentes");
         } finally {
@@ -63,6 +84,13 @@ function Agentes() {
         if (newPage < 1 || newPage > totalPages) return;
         loadUsers(undefined, newPage);
     };
+    // Mismo header clickeado -> alterna asc/desc; header distinto -> arranca en asc.
+    // Vuelve a página 1 (mismo criterio que una búsqueda nueva).
+    const handleSort = (column) => {
+        const nextDir = sortBy === column && sortDir === "asc" ? "desc" : "asc";
+        loadUsers(undefined, 1, column, nextDir);
+    };
+    const sortIndicator = (column) => sortBy === column ? (sortDir === "asc" ? " ▲" : " ▼") : "";
 
     const handleField = (e) => {
         const { name, value, type, checked } = e.target;
@@ -491,16 +519,18 @@ function Agentes() {
                     <table style={{ width: "100%", borderCollapse: "collapse" }}>
                         <thead>
                             <tr style={tableHeaderRowStyle}>
-                                <th style={tableCellStyle}>{t("table.fullName")}</th>
-                                <th style={tableCellStyle}>{t("table.email")}</th>
+                                <th style={sortableHeaderStyle} onClick={() => handleSort("nombre")}>{t("table.fullName")}{sortIndicator("nombre")}</th>
+                                <th style={sortableHeaderStyle} onClick={() => handleSort("email")}>{t("table.email")}{sortIndicator("email")}</th>
+                                <th style={sortableHeaderStyle} onClick={() => handleSort("phone")}>{t("table.phone")}{sortIndicator("phone")}</th>
+                                <th style={sortableHeaderStyle} onClick={() => handleSort("createdAt")}>{t("table.registrationDate")}{sortIndicator("createdAt")}</th>
                                 <th style={tableCellStyle}>{t("table.agency")}</th>
-                                <th style={tableCellStyle}>{t("table.companyName")}</th>
-                                <th style={tableCellStyle}>{t("table.licenseNumber")}</th>
                                 <th style={tableCellStyle}>{t("table.actions")}</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {users.map((u) => (
+                            {users.map((u) => {
+                                const agStyle = agencyStyle(u.agency);
+                                return (
                                 <tr key={u.id}>
                                     <td style={tableCellStyle}>
                                         {u.nombre}{" "}
@@ -518,9 +548,25 @@ function Agentes() {
                                         </span>
                                     </td>
                                     <td style={tableCellStyle}>{u.email}</td>
-                                    <td style={tableCellStyle}>{u.agency ? translateEnum("agency", u.agency) : "-"}</td>
-                                    <td style={tableCellStyle}>{u.companyName || "-"}</td>
-                                    <td style={tableCellStyle}>{u.licenseNumber || "-"}</td>
+                                    <td style={{ ...tableCellStyle, whiteSpace: "nowrap" }}>{u.phone ? `📞 ${formatPhoneDisplay(u.phone)}` : "-"}</td>
+                                    <td style={{ ...tableCellStyle, whiteSpace: "nowrap" }}>{u.createdAt ? `📅 ${formatDateOnly(u.createdAt)}` : "-"}</td>
+                                    <td style={tableCellStyle}>
+                                        {u.agency ? (
+                                            <span
+                                                style={{
+                                                    background: agStyle.bg,
+                                                    color: agStyle.text,
+                                                    padding: "2px 8px",
+                                                    borderRadius: 999,
+                                                    fontSize: 12,
+                                                    fontWeight: 500,
+                                                    whiteSpace: "nowrap",
+                                                }}
+                                            >
+                                                🏢 {translateEnum("agency", u.agency)}
+                                            </span>
+                                        ) : "-"}
+                                    </td>
                                     <td style={tableCellStyle}>
                                         <div style={actionsCellStyle}>
                                             <button onClick={() => handleEdit(u)} title={t("actionTitles.edit")} style={actionButtonStyle}>
@@ -540,7 +586,8 @@ function Agentes() {
                                         </div>
                                     </td>
                                 </tr>
-                            ))}
+                                );
+                            })}
                         </tbody>
                     </table>
 
