@@ -30,6 +30,10 @@ namespace WholeCareInsurance.api.Services
 
         public async Task<User> Create(User user)
         {
+            // Centralizado acá (a diferencia de Policy.UpdatedAt, que se setea en el
+            // controller) porque User tiene dos puntos de alta real (AuthService.Register
+            // y AdminUserSeeder) — un único punto evita que alguno se olvide de setearlo.
+            user.CreatedAt = DateTime.UtcNow;
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
             return user;

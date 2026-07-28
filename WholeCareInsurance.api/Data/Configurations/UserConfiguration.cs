@@ -44,9 +44,13 @@ namespace WholeCareInsurance.api.Data.Configurations
                   .IsRequired()
                   .HasMaxLength(5);
 
+            entity.Property(u => u.CreatedAt).IsRequired();
+
             // Datos de perfil del Agente (§11)
             entity.Property(u => u.MiddleName).HasMaxLength(100);
             entity.Property(u => u.Gender).HasMaxLength(20);
+            // Mismo maxlength que Customer.Phone (§17.1), consistencia entre ambas entidades.
+            entity.Property(u => u.Phone).HasMaxLength(20);
             entity.Property(u => u.Agency).HasMaxLength(150);
             entity.Property(u => u.Address1).HasMaxLength(300);
             entity.Property(u => u.Address2).HasMaxLength(300);

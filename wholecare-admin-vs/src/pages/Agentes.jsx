@@ -106,6 +106,7 @@ function Agentes() {
             isActive: u.isActive ?? true,
             middleName: u.middleName ?? "",
             gender: u.gender ?? "",
+            phone: u.phone ?? "",
             agency: u.agency ?? "",
             address1: u.address1 ?? "",
             address2: u.address2 ?? "",
@@ -143,6 +144,7 @@ function Agentes() {
                 isActive: form.isActive,
                 middleName: form.middleName,
                 gender: form.gender,
+                phone: form.phone,
                 agency: form.agency,
                 address1: form.address1,
                 address2: form.address2,
@@ -209,6 +211,7 @@ function Agentes() {
                     isActive: !u.isActive,
                     middleName: u.middleName,
                     gender: u.gender,
+                    phone: u.phone,
                     agency: u.agency,
                     address1: u.address1,
                     address2: u.address2,
@@ -291,6 +294,11 @@ function Agentes() {
                             <div>
                                 <label style={labelStyle}>{t("form.fields.email")}</label>
                                 <input type="email" name="email" value={form.email} onChange={handleField} required style={inputStyle} />
+                            </div>
+
+                            <div>
+                                <label style={labelStyle}>{t("form.fields.phone")}</label>
+                                <input name="phone" value={form.phone} onChange={handleField} style={inputStyle} />
                             </div>
 
                             <div>
@@ -581,6 +589,7 @@ function Agentes() {
 
                     <h4 style={detailSectionHeaderStyle}>{t("detail.contactSection")}</h4>
                     <p style={detailRowStyle}>{t("card.email")}: {viewingUser.email}</p>
+                    <p style={detailRowStyle}>{t("card.phone")}: {viewingUser.phone || "-"}</p>
                     <p style={detailRowStyle}>{t("card.role")}: {translateEnum("userRol", viewingUser.rol)}</p>
                     <p style={detailRowStyle}>{t("card.isEncargado")}: {viewingUser.isEncargado ? t("card.yes") : t("card.no")}</p>
                     <p style={detailRowStyle}>{t("card.isActive")}: {viewingUser.isActive ? t("card.active") : t("card.inactive")}</p>

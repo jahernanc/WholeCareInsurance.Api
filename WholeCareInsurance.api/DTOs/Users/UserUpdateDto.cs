@@ -15,6 +15,7 @@ namespace WholeCareInsurance.api.DTOs.Users
 
         [MaxLength(100)] public string? MiddleName { get; set; }
         [MaxLength(20)] public string? Gender { get; set; }
+        [MaxLength(20)] public string? Phone { get; set; }
 
         [AllowedValues(null, "Whole Care Insurance Group llC", "Preventive Health Insurance", ErrorMessage = "Agencia inválida.")]
         [MaxLength(150)]

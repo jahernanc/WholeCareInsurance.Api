@@ -14,6 +14,7 @@
         "fields": {
             "name": "Nombre",
             "email": "Correo electrónico",
+            "phone": "Teléfono",
             "password": "Contraseña",
             "role": "Rol",
             "isEncargado": "Encargado",
@@ -78,6 +79,7 @@
     },
     "card": {
         "email": "Email",
+        "phone": "Teléfono",
         "role": "Rol",
         "isEncargado": "Encargado",
         "isActive": "Estado",

@@ -28,6 +28,7 @@ namespace WholeCareInsurance.api.DTOs.Auth
         // Sin [AllowedValues]: es opcional (AllowedValues rechaza null en vez de
         // tratarlo como "sin validar"), mismo criterio que Customer (§3.2).
         [MaxLength(20)] public string? Gender { get; set; }
+        [MaxLength(20)] public string? Phone { get; set; }
 
         // Agencia real del sistema anterior (§15.1) — a diferencia de Gender, sí se valida
         // contra los 2 valores confirmados (no se espera que crezca), incluyendo null

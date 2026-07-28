@@ -5,6 +5,7 @@ namespace WholeCareInsurance.Migration
         public bool Commit { get; private set; }
         public bool Confirmed { get; private set; }
         public bool ReassignAgents { get; private set; }
+        public bool BackfillAgentContact { get; private set; }
         public string SourceDir { get; private set; } = default!;
         public int HistoryWindowDays { get; private set; } = 200;
         public string? ConnectionString { get; private set; }
@@ -22,6 +23,7 @@ namespace WholeCareInsurance.Migration
                     case "--commit": options.Commit = true; break;
                     case "--confirm": options.Confirmed = true; break;
                     case "--reassign-agents": options.ReassignAgents = true; break;
+                    case "--backfill-agent-contact": options.BackfillAgentContact = true; break;
                     case "--source": options.SourceDir = args[++i]; break;
                     case "--history-window-days": options.HistoryWindowDays = int.Parse(args[++i]); break;
                     case "--connection": options.ConnectionString = args[++i]; break;
@@ -64,11 +66,16 @@ namespace WholeCareInsurance.Migration
                   WholeCareInsurance.Migration --commit --confirm [--source <dir>] [--history-window-days N] [--connection "<connstr>"]
                   WholeCareInsurance.Migration --reassign-agents --dry-run [--source <dir>] [--connection "<connstr>"]
                   WholeCareInsurance.Migration --reassign-agents --commit --confirm [--source <dir>] [--connection "<connstr>"]
+                  WholeCareInsurance.Migration --backfill-agent-contact --dry-run [--source <dir>] [--connection "<connstr>"]
+                  WholeCareInsurance.Migration --backfill-agent-contact --commit --confirm [--source <dir>] [--connection "<connstr>"]
 
                 --dry-run                 Simula todo el proceso, no escribe nada en la base, genera el reporte.
                 --commit --confirm        Ejecuta la migración real (requiere --confirm explícito).
                 --reassign-agents         (§15.3) En vez de migrar pólizas, reasigna Customer.AgentId de fallback
                                           Admin a los agentes reales — combinar con --dry-run o --commit --confirm.
+                --backfill-agent-contact  (§17.1) En vez de migrar pólizas, completa Phone/CreatedAt de los 41
+                                          agentes reales (§15.2) desde el xlsx de agentes — combinar con --dry-run
+                                          o --commit --confirm.
                 --source <dir>            Carpeta con los .xlsx (default: ../migration-source).
                 --history-window-days N   Ventana de consolidación de historial en días (default: 200).
                 --connection "<connstr>"  Connection string explícita (default: la de WholeCareInsurance.api/appsettings*.json).

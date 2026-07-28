@@ -9,9 +9,11 @@ namespace WholeCareInsurance.api.DTOs.Users
         public bool IsEncargado { get; set; }
         public bool IsActive { get; set; }
         public string PreferredLanguage { get; set; }
+        public DateTime CreatedAt { get; set; }
 
         public string? MiddleName { get; set; }
         public string? Gender { get; set; }
+        public string? Phone { get; set; }
         public string? Agency { get; set; }
         public string Address1 { get; set; }
         public string? Address2 { get; set; }

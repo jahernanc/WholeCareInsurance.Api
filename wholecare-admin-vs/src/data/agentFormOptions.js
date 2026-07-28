@@ -12,6 +12,7 @@ export const emptyAgentForm = {
     isActive: true,
     middleName: "",
     gender: "",
+    phone: "",
     agency: "",
     address1: "",
     address2: "",
