@@ -3,12 +3,12 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { apiFetch, isAdmin } from "../api";
 import { translateEnum } from "../i18n/translateEnum";
+import { POLICY_STATUSES } from "../utils/policyStatusStyle";
 
 // Paleta categórica validada (skill de dataviz) — orden fijo, nunca se reordena
 // según el ranking de la vista filtrada (una misma categoría conserva siempre
 // el mismo color, sea cual sea el filtro activo).
 const POLICY_TYPES = ["Health Insurance (ACA)", "Medicare", "Life Insurance", "Supplemental Plans", "Auto", "Otro"];
-const POLICY_STATUSES = ["Draft", "Pendiente", "Cancelado", "Por procesar", "En proceso", "Actualizado", "Procesado", "Cambio de agente"];
 const CATEGORICAL_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"];
 
 const typeColor = (type) => CATEGORICAL_COLORS[POLICY_TYPES.indexOf(type) % CATEGORICAL_COLORS.length] ?? "#898781";

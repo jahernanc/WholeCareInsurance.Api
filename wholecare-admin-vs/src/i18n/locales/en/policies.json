@@ -131,13 +131,18 @@
         "showing": "Showing {{from}}-{{to}} of {{total}}"
     },
     "table": {
-        "policy": "Policy",
-        "type": "Type",
-        "insuranceCompany": "Insurance Company",
-        "status": "Status",
-        "period": "Period",
-        "premium": "Premium",
         "customer": "Customer",
+        "contact": "Contact",
+        "plan": "Plan",
+        "type": "Type",
+        "applicants": "Applicants",
+        "status": "Status",
+        "effectiveDate": "Effective Date",
+        "agency": "Agency",
+        "agent": "Agent",
+        "stateProvince": "State / Province",
+        "registrationDate": "Registration Date",
+        "renewalStatus": "Renewal Status",
         "actions": "Actions"
     },
     "actionTitles": {

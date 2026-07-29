@@ -3,11 +3,12 @@ import { useTranslation } from "react-i18next";
 import { apiFetch, isAdmin } from "../api";
 import { translateEnum } from "../i18n/translateEnum";
 import Modal from "../components/Modal";
+import ActionsMenu from "../components/ActionsMenu";
 import CustomerFormFields from "../components/CustomerFormFields";
 import MaskedText from "../components/MaskedText";
 import { emptyCustomerForm } from "../data/customerFormOptions";
 import { detailSectionHeaderStyle, detailRowStyle } from "../utils/detailModalStyles";
-import { tableHeaderRowStyle, tableCellStyle, actionsCellStyle, actionButtonStyle, actionLinkStyle } from "../utils/tableStyles";
+import { tableHeaderRowStyle, tableCellStyle } from "../utils/tableStyles";
 import { buildWhatsAppUrl } from "../utils/whatsapp";
 
 const API = "/api/customers";
@@ -229,28 +230,16 @@ function Customers() {
                                     <td style={tableCellStyle}>{c.phone}</td>
                                     <td style={tableCellStyle}>{c.email}</td>
                                     <td style={tableCellStyle}>
-                                        <div style={actionsCellStyle}>
-                                            <button onClick={() => handleEdit(c)} title={t("actionTitles.edit")} style={actionButtonStyle}>
-                                                ✏️
-                                            </button>
-                                            <button onClick={() => openDetail(c)} title={t("actionTitles.viewDetails")} style={actionButtonStyle}>
-                                                🔍
-                                            </button>
-                                            {c.phone && (
-                                                <a
-                                                    href={buildWhatsAppUrl(c.phone, t("whatsappMessage"))}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    title={t("actionTitles.chatWhatsapp")}
-                                                    style={actionLinkStyle}
-                                                >
-                                                    💬
-                                                </a>
-                                            )}
-                                            <button onClick={() => handleDelete(c.id)} title={t("actionTitles.delete")} style={actionButtonStyle}>
-                                                🗑
-                                            </button>
-                                        </div>
+                                        <ActionsMenu
+                                            items={[
+                                                { icon: "✏️", label: t("actionTitles.edit"), onClick: () => handleEdit(c) },
+                                                { icon: "🔍", label: t("actionTitles.viewDetails"), onClick: () => openDetail(c) },
+                                                ...(c.phone
+                                                    ? [{ icon: "💬", label: t("actionTitles.chatWhatsapp"), href: buildWhatsAppUrl(c.phone, t("whatsappMessage")), external: true }]
+                                                    : []),
+                                                { icon: "🗑", label: t("actionTitles.delete"), onClick: () => handleDelete(c.id) },
+                                            ]}
+                                        />
                                     </td>
                                 </tr>
                             ))}

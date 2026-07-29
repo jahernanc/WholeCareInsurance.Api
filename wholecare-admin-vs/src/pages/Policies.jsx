@@ -4,6 +4,7 @@ import { useOutletContext } from "react-router-dom";
 import { apiFetch, isAdmin } from "../api";
 import { translateEnum } from "../i18n/translateEnum";
 import Modal from "../components/Modal";
+import ActionsMenu from "../components/ActionsMenu";
 import CustomerFormFields from "../components/CustomerFormFields";
 import LifeInsuranceFields from "../components/LifeInsuranceFields";
 import MaskedInput from "../components/MaskedInput";
@@ -11,13 +12,15 @@ import MaskedText from "../components/MaskedText";
 import { maskValue } from "../utils/maskValue";
 import { detailSectionHeaderStyle, detailRowStyle } from "../utils/detailModalStyles";
 import { buildWhatsAppUrl } from "../utils/whatsapp";
-import { tableHeaderRowStyle, tableCellStyle, actionsCellStyle, actionButtonStyle, actionLinkStyle } from "../utils/tableStyles";
+import { tableHeaderRowStyle, tableCellStyle } from "../utils/tableStyles";
 import { emptyCustomerForm } from "../data/customerFormOptions";
+import { agencyStyle } from "../utils/agencyStyle";
+import { POLICY_STATUSES, policyStatusStyle } from "../utils/policyStatusStyle";
+import { formatDateOnly } from "../utils/formatDate";
 
 const POLICY_TYPES = ["Health Insurance (ACA)", "Medicare", "Life Insurance", "Supplemental Plans", "Auto", "Otro"];
 const BANK_ACCOUNT_TYPES = ["Cheque", "Ahorros"];
 const AUTO_PAYMENT_DAYS = Array.from({ length: 28 }, (_, i) => i + 1);
-const POLICY_STATUSES = ["Draft", "Pendiente", "Cancelado", "Por procesar", "En proceso", "Actualizado", "Procesado", "Cambio de agente"];
 const PLAN_TYPES = ["Catastrophic", "Bronze", "Silver", "Gold", "Platinum"];
 const ALLOWED_DOCUMENT_EXTENSIONS = [".pdf", ".docx", ".jpg", ".jpeg"];
 const MAX_DOCUMENT_SIZE_BYTES = 5 * 1024 * 1024;
@@ -2038,70 +2041,89 @@ function Policies() {
 
                             <thead>
                                 <tr style={tableHeaderRowStyle}>
-                                    <th style={tableCellStyle}>{t("table.policy")}</th>
-                                    <th style={tableCellStyle}>{t("table.type")}</th>
-                                    <th style={tableCellStyle}>{t("table.insuranceCompany")}</th>
-                                    <th style={tableCellStyle}>{t("table.status")}</th>
-                                    <th style={tableCellStyle}>{t("table.period")}</th>
-                                    <th style={tableCellStyle}>{t("table.premium")}</th>
                                     <th style={tableCellStyle}>{t("table.customer")}</th>
+                                    <th style={tableCellStyle}>{t("table.contact")}</th>
+                                    <th style={tableCellStyle}>{t("table.plan")}</th>
+                                    <th style={tableCellStyle}>{t("table.type")}</th>
+                                    <th style={tableCellStyle}>{t("table.applicants")}</th>
+                                    <th style={tableCellStyle}>{t("table.status")}</th>
+                                    <th style={tableCellStyle}>{t("table.effectiveDate")}</th>
+                                    <th style={tableCellStyle}>{t("table.agency")}</th>
+                                    <th style={tableCellStyle}>{t("table.agent")}</th>
+                                    <th style={tableCellStyle}>{t("table.stateProvince")}</th>
+                                    <th style={tableCellStyle}>{t("table.registrationDate")}</th>
+                                    <th style={tableCellStyle}>{t("table.renewalStatus")}</th>
                                     <th style={tableCellStyle}>{t("table.actions")}</th>
                                 </tr>
                             </thead>
 
                             <tbody>
-                                {policies.map((p) => (
+                                {policies.map((p) => {
+                                    const customer = getCustomer(p.customerId);
+                                    const statStyle = policyStatusStyle(p.status);
+                                    const agStyle = agencyStyle(customer?.agentAgency);
+                                    return (
                                     <tr key={p.id}>
-                                        <td style={tableCellStyle}>{p.policyNumber}</td>
-                                        <td style={tableCellStyle}>{translateEnum("policyType", p.type)}</td>
-                                        <td style={tableCellStyle}>{p.insuranceCompanyName}</td>
-                                        <td style={tableCellStyle}>{translateEnum("policyStatus", p.status)}</td>
-                                        <td style={tableCellStyle}>{p.period}</td>
-                                        <td style={tableCellStyle}>{p.premium}</td>
+                                        <td style={tableCellStyle}>{getCustomerName(p.customerId)}</td>
                                         <td style={tableCellStyle}>
-                                            {getCustomerName(p.customerId)}
+                                            <div>{customer?.email || "-"}</div>
+                                            <div style={{ fontSize: 12, color: "#6b7280" }}>{customer?.phone || "-"}</div>
                                         </td>
+                                        <td style={tableCellStyle}>{p.insurancePlan || "-"}</td>
+                                        <td style={tableCellStyle}>{translateEnum("policyType", p.type)}</td>
+                                        <td style={tableCellStyle}>{p.numberOfApplicants ?? "-"}</td>
                                         <td style={tableCellStyle}>
-                                            <div style={actionsCellStyle}>
-                                                <button
-                                                    onClick={() => openDetail(p)}
-                                                    title={t("actionTitles.viewDetails")}
-                                                    style={actionButtonStyle}
+                                            <span
+                                                style={{
+                                                    background: statStyle.bg,
+                                                    color: statStyle.text,
+                                                    padding: "2px 8px",
+                                                    borderRadius: 999,
+                                                    fontSize: 12,
+                                                    fontWeight: 500,
+                                                    whiteSpace: "nowrap",
+                                                }}
+                                            >
+                                                {translateEnum("policyStatus", p.status)}
+                                            </span>
+                                        </td>
+                                        <td style={{ ...tableCellStyle, whiteSpace: "nowrap" }}>{p.effectiveDate ? `📅 ${formatDateOnly(p.effectiveDate)}` : "-"}</td>
+                                        <td style={tableCellStyle}>
+                                            {customer?.agentAgency ? (
+                                                <span
+                                                    style={{
+                                                        background: agStyle.bg,
+                                                        color: agStyle.text,
+                                                        padding: "2px 8px",
+                                                        borderRadius: 999,
+                                                        fontSize: 12,
+                                                        fontWeight: 500,
+                                                        whiteSpace: "nowrap",
+                                                    }}
                                                 >
-                                                    🔍
-                                                </button>
-
-                                                <button
-                                                    onClick={() => handleEdit(p)}
-                                                    title={t("actionTitles.editPolicy")}
-                                                    style={actionButtonStyle}
-                                                >
-                                                    ✏️
-                                                </button>
-
-                                                <button
-                                                    onClick={() => handleDelete(p.id)}
-                                                    title={t("actionTitles.deletePolicy")}
-                                                    style={actionButtonStyle}
-                                                >
-                                                    🗑
-                                                </button>
-
-                                                {getCustomerPhone(p.customerId) && (
-                                                    <a
-                                                        href={buildWhatsAppUrl(getCustomerPhone(p.customerId), t("whatsappMessage"))}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        title={t("actionTitles.chatWhatsapp")}
-                                                        style={actionLinkStyle}
-                                                    >
-                                                        💬
-                                                    </a>
-                                                )}
-                                            </div>
+                                                    🏢 {translateEnum("agency", customer.agentAgency)}
+                                                </span>
+                                            ) : "-"}
+                                        </td>
+                                        <td style={tableCellStyle}>{customer?.agentName || "-"}</td>
+                                        <td style={tableCellStyle}>{customer?.state || "-"}</td>
+                                        <td style={{ ...tableCellStyle, whiteSpace: "nowrap" }}>{p.createdAt ? `📅 ${formatDateOnly(p.createdAt)}` : "-"}</td>
+                                        <td style={tableCellStyle}>{p.renewalStatus ? translateEnum("policyRenewalStatus", p.renewalStatus) : "-"}</td>
+                                        <td style={tableCellStyle}>
+                                            <ActionsMenu
+                                                items={[
+                                                    { icon: "🔍", label: t("actionTitles.viewDetails"), onClick: () => openDetail(p) },
+                                                    { icon: "✏️", label: t("actionTitles.editPolicy"), onClick: () => handleEdit(p) },
+                                                    { icon: "🗑", label: t("actionTitles.deletePolicy"), onClick: () => handleDelete(p.id) },
+                                                    ...(getCustomerPhone(p.customerId)
+                                                        ? [{ icon: "💬", label: t("actionTitles.chatWhatsapp"), href: buildWhatsAppUrl(getCustomerPhone(p.customerId), t("whatsappMessage")), external: true }]
+                                                        : []),
+                                                ]}
+                                            />
                                         </td>
                                     </tr>
-                                ))}
+                                    );
+                                })}
                             </tbody>
                         </table>
 

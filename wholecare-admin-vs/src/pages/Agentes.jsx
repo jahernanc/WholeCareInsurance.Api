@@ -3,24 +3,18 @@ import { useTranslation } from "react-i18next";
 import { apiFetch } from "../api";
 import { translateEnum } from "../i18n/translateEnum";
 import Modal from "../components/Modal";
+import ActionsMenu from "../components/ActionsMenu";
 import { US_STATES } from "../data/usStates";
 import US_COUNTIES from "../data/usCounties.json";
 import { GENDERS } from "../data/customerFormOptions";
 import { CONTRACT_INTERESTS, AGENCIES, emptyAgentForm } from "../data/agentFormOptions";
 import { detailSectionHeaderStyle, detailRowStyle } from "../utils/detailModalStyles";
-import { tableHeaderRowStyle, tableCellStyle, sortableHeaderStyle, actionsCellStyle, actionButtonStyle } from "../utils/tableStyles";
+import { tableHeaderRowStyle, tableCellStyle, sortableHeaderStyle } from "../utils/tableStyles";
 import { agencyStyle } from "../utils/agencyStyle";
 import { formatPhoneDisplay } from "../utils/formatPhone";
+import { formatDateOnly } from "../utils/formatDate";
 
 const ROLES = ["Admin", "Agente"];
-
-// dd/mm/aaaa, sin hora (§17.2) — independiente del locale del browser.
-const formatDateOnly = (isoString) => {
-    const d = new Date(isoString);
-    const dd = String(d.getDate()).padStart(2, "0");
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    return `${dd}/${mm}/${d.getFullYear()}`;
-};
 
 function Agentes() {
     const { t } = useTranslation(["agentes", "common"]);
@@ -568,22 +562,18 @@ function Agentes() {
                                         ) : "-"}
                                     </td>
                                     <td style={tableCellStyle}>
-                                        <div style={actionsCellStyle}>
-                                            <button onClick={() => handleEdit(u)} title={t("actionTitles.edit")} style={actionButtonStyle}>
-                                                ✏️
-                                            </button>
-                                            <button onClick={() => openDetail(u)} title={t("actionTitles.viewDetails")} style={actionButtonStyle}>
-                                                🔍
-                                            </button>
-                                            <button
-                                                onClick={() => handleToggleActive(u)}
-                                                disabled={togglingId === u.id}
-                                                title={u.isActive ? t("actionTitles.deactivate") : t("actionTitles.activate")}
-                                                style={actionButtonStyle}
-                                            >
-                                                {u.isActive ? "🗑" : "♻️"}
-                                            </button>
-                                        </div>
+                                        <ActionsMenu
+                                            items={[
+                                                { icon: "✏️", label: t("actionTitles.edit"), onClick: () => handleEdit(u) },
+                                                { icon: "🔍", label: t("actionTitles.viewDetails"), onClick: () => openDetail(u) },
+                                                {
+                                                    icon: u.isActive ? "🗑" : "♻️",
+                                                    label: u.isActive ? t("actionTitles.deactivate") : t("actionTitles.activate"),
+                                                    onClick: () => handleToggleActive(u),
+                                                    disabled: togglingId === u.id,
+                                                },
+                                            ]}
+                                        />
                                     </td>
                                 </tr>
                                 );

@@ -60,7 +60,13 @@ function AppLayout() {
         <div style={{ display: "flex", height: "100vh" }}>
             <Sidebar />
 
-            <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+            {/* minWidth:0 (§18, fix post-rediseño de Policies): sin esto, un flex item
+                crece hasta el min-content de su contenido más ancho (acá, la tabla de 12
+                columnas de Policies) en vez de achicarse al espacio disponible — eso
+                arrastraba a todo el layout (Header incluido) más ancho que el viewport,
+                y el scroll horizontal terminaba corriendo la página entera en vez de
+                quedar contenido en el overflowX:auto local de la tabla. */}
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
                 <Header period={period} onPeriodChange={handlePeriodChange} />
 
                 <main style={{ padding: 20 }}>

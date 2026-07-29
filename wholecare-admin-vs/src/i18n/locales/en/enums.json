@@ -20,6 +20,10 @@
         "Procesado": "Processed",
         "Cambio de agente": "Agent change"
     },
+    "policyRenewalStatus": {
+        "Pending": "Pending",
+        "Renewed": "Renewed"
+    },
     "planType": {
         "Catastrophic": "Catastrophic",
         "Bronze": "Bronze",

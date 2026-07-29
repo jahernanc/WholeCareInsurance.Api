@@ -131,13 +131,18 @@
         "showing": "Mostrando {{from}}-{{to}} de {{total}}"
     },
     "table": {
-        "policy": "Póliza",
-        "type": "Tipo",
-        "insuranceCompany": "Compañía aseguradora",
-        "status": "Estatus",
-        "period": "Período",
-        "premium": "Prima",
         "customer": "Cliente",
+        "contact": "Contacto",
+        "plan": "Plan",
+        "type": "Tipo",
+        "applicants": "Aplicantes",
+        "status": "Estatus",
+        "effectiveDate": "Fecha efectiva",
+        "agency": "Agencia",
+        "agent": "Agente",
+        "stateProvince": "Estado/Provincia",
+        "registrationDate": "Fecha de registro",
+        "renewalStatus": "Estatus de renovación",
         "actions": "Acciones"
     },
     "actionTitles": {
