@@ -47,6 +47,10 @@ namespace WholeCareInsurance.api.DTOs.Customers
 
         public int? AgentId { get; set; }
         public string? AgentName { get; set; }
+        // Agencia ACTUAL del agente (§18.1) — derivada en vivo, no un dato histórico de la
+        // póliza. Si el agente cambia de agencia, esto refleja la nueva, no la vigente al
+        // momento de escribir una póliza puntual (trade-off aceptado, ver PENDIENTE.md §18.1).
+        public string? AgentAgency { get; set; }
         public int? AssistantAgentId { get; set; }
         public string? AssistantAgentName { get; set; }
         public int? RecordAgentId { get; set; }

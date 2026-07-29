@@ -14,6 +14,8 @@ namespace WholeCareInsurance.api.DTOs.Policies
         public int Period { get; set; }
         public int? NumberOfApplicants { get; set; }
         public DateTime UpdatedAt { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public string? RenewalStatus { get; set; }
         public int CustomerId { get; set; }
 
         public string? PlanType { get; set; }

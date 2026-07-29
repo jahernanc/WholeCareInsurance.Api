@@ -51,6 +51,19 @@ namespace WholeCareInsurance.Migration
                 return 0;
             }
 
+            if (options.BackfillRenewalStatus)
+            {
+                var healthFile = FindFile(options.SourceDir, "healthinsurance");
+                if (healthFile == null)
+                {
+                    Console.Error.WriteLine("No se encontró el xlsx de Health/Obamacare (marcador \"healthinsurance\") en el directorio de origen.");
+                    return 1;
+                }
+                var renewalReport = await RenewalStatusBackfillRunner.RunAsync(healthFile, db, options.Commit);
+                renewalReport.Print(options.Commit);
+                return 0;
+            }
+
             // §15.2: importa agentes ANTES que pólizas, para que si algún día se corren
             // juntos en el mismo --commit, EntityMatcher.ResolveAgentAsync ya encuentre los
             // agentes reales por Nombre en vez de caer al fallback Admin en esa misma corrida.

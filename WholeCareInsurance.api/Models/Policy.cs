@@ -30,6 +30,17 @@ namespace WholeCareInsurance.api.Models
         // para esto: solo trackea cambios de Status (§13), no cualquier campo.
         public DateTime UpdatedAt { get; set; }
 
+        // "Registration date" en la tabla de Policies (§18.1). Se setea en Create; las
+        // pólizas migradas se backfillearon con MIN(PolicyHistory.ChangedAt) — todas tienen
+        // al menos un registro de historial inicial (RecordStatusChange en Create).
+        public DateTime CreatedAt { get; set; }
+
+        // "Renewal status" en la tabla de Policies (§18.1). Columna exclusiva del xlsx de
+        // Health/Obamacare — Medicare/Life/Supplemental no la traen, queda null para esos
+        // tipos (esperado, no un bug). Backfill parcial vía WholeCareInsurance.Migration
+        // --backfill-renewal-status (re-lee el xlsx real, matchea por PolicyNumber).
+        public string? RenewalStatus { get; set; }
+
         // Campos confirmados por el análisis del archivo real de migración (Health/Obamacare).
         // Metal tier de ACA — DISTINTO de Type (Obama Care/Medicare/Auto/Otro), ambos coexisten.
         public string? PlanType { get; set; }

@@ -21,6 +21,8 @@ namespace WholeCareInsurance.Migration.Importers
                     policy.InsurancePlan = row.GetString("Insurance plan");
                     policy.TaxCreditSubsidy = row.GetDecimal("Tax Credit / Subsidy");
                     policy.MonthlyPremiumAmount = row.GetDecimal("Monthly premium amount");
+                    // Exclusivo de este archivo (§18.1) — Medicare/Life/Supplemental no la traen.
+                    policy.RenewalStatus = row.GetString("Renewal status");
 
                     var consent = row.GetString("Confirmed consent");
                     if (consent != null)

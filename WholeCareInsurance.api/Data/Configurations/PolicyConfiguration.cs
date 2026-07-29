@@ -38,6 +38,8 @@ namespace WholeCareInsurance.api.Data.Configurations
 
             entity.Property(p => p.StartDate).IsRequired();
             entity.Property(p => p.EndDate).IsRequired();
+            entity.Property(p => p.CreatedAt).IsRequired();
+            entity.Property(p => p.RenewalStatus).HasMaxLength(100);
 
             entity.Property(p => p.PlanType).HasMaxLength(20);
             entity.Property(p => p.InsurancePlan).HasMaxLength(200);
