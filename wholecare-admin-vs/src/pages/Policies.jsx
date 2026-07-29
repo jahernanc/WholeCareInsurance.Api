@@ -6,7 +6,7 @@ import { translateEnum } from "../i18n/translateEnum";
 import Modal from "../components/Modal";
 import ActionsMenu from "../components/ActionsMenu";
 import CustomerFormFields from "../components/CustomerFormFields";
-import LifeInsuranceFields from "../components/LifeInsuranceFields";
+import TitularLifeSection from "../components/TitularLifeSection";
 import MaskedInput from "../components/MaskedInput";
 import MaskedText from "../components/MaskedText";
 import { maskValue } from "../utils/maskValue";
@@ -101,14 +101,8 @@ function Policies() {
     // directamente el Customer titular ya seleccionado (PUT /api/customers/{id}),
     // ya que el titular se elige por dropdown y no se crea/edita inline como los
     // dependientes (ver decisión de la sesión: nueva sección inline para el titular).
-    const [titularLifeForm, setTitularLifeForm] = useState({
-        age: "", countryOfBirth: "", height: "", weight: "",
-        backDateToSaveAge: false, spentMoreThan4MonthsAbroad: false, militaryOrganizationMember: false,
-        currentlyEmployed: "", hasDriverLicense: false, driverLicenseNumber: "",
-        netWorth: "", householdIncome: "", householdNetWorth: "",
-    });
-    const [titularLifeError, setTitularLifeError] = useState("");
-    const [savingTitularLife, setSavingTitularLife] = useState(false);
+    // Estado/handlers propios en src/components/TitularLifeSection.jsx (§20.3) —
+    // montado con key={customerId} más abajo, no hace falta nada acá.
 
     // Beneficiarios (§12.6): sección propia de Policy, sin vínculo con Customer.
     const [beneficiaries, setBeneficiaries] = useState([]);
@@ -184,106 +178,6 @@ function Policies() {
     const getCustomerPhone = (id) => {
         const customer = customers.find((c) => c.id === Number(id));
         return customer ? customer.phone : null;
-    };
-
-    // Precarga los campos de Life Insurance del titular seleccionado cada vez que
-    // cambia el customerId (alta o edición), para que "Guardar datos del titular"
-    // parta siempre de los valores ya guardados en ese Customer.
-    useEffect(() => {
-        const c = getCustomer(customerId);
-        setTitularLifeForm({
-            age: c?.age ?? "",
-            countryOfBirth: c?.countryOfBirth ?? "",
-            height: c?.height ?? "",
-            weight: c?.weight ?? "",
-            backDateToSaveAge: c?.backDateToSaveAge ?? false,
-            spentMoreThan4MonthsAbroad: c?.spentMoreThan4MonthsAbroad ?? false,
-            militaryOrganizationMember: c?.militaryOrganizationMember ?? false,
-            currentlyEmployed: c?.currentlyEmployed === null || c?.currentlyEmployed === undefined ? "" : String(c.currentlyEmployed),
-            hasDriverLicense: c?.hasDriverLicense ?? false,
-            driverLicenseNumber: c?.driverLicenseNumber ?? "",
-            netWorth: c?.netWorth ?? "",
-            householdIncome: c?.householdIncome ?? "",
-            householdNetWorth: c?.householdNetWorth ?? "",
-        });
-        setTitularLifeError("");
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [customerId, customers]);
-
-    const handleTitularLifeField = (e) => {
-        const { name, value, type: inputType, checked } = e.target;
-        setTitularLifeForm((f) => ({ ...f, [name]: inputType === "checkbox" ? checked : value }));
-    };
-
-    const handleSaveTitularLife = async () => {
-        const base = getCustomer(customerId);
-        if (!base) return;
-
-        setTitularLifeError("");
-        setSavingTitularLife(true);
-
-        try {
-            const body = {
-                socialSecurityNumber: base.socialSecurityNumber,
-                firstName: base.firstName,
-                lastName: base.lastName,
-                dateOfBirth: base.dateOfBirth?.slice(0, 10),
-                email: base.email,
-                address1: base.address1,
-                phone: base.phone,
-                migrationStatus: base.migrationStatus,
-                relacionConPrincipal: base.relacionConPrincipal,
-                zipCode: base.zipCode ?? "",
-                state: base.state ?? "",
-                city: base.city ?? "",
-                county: base.county ?? "",
-                maritalStatus: base.maritalStatus ?? "",
-                occupation: base.occupation ?? "",
-                agentId: base.agentId ?? null,
-                assistantAgentId: base.assistantAgentId ?? null,
-                recordAgentId: base.recordAgentId ?? null,
-                middleName: base.middleName ?? "",
-                gender: base.gender ?? "",
-                greenCard: base.greenCard ?? "",
-                workPermit: base.workPermit ?? "",
-                address2: base.address2 ?? "",
-                employerName: base.employerName ?? "",
-                companyPhone: base.companyPhone ?? "",
-                annualIncome: base.annualIncome ?? 0,
-                tags: base.tags ?? "",
-                contactLanguage: base.contactLanguage ?? "",
-                age: titularLifeForm.age === "" ? null : Number(titularLifeForm.age),
-                countryOfBirth: titularLifeForm.countryOfBirth,
-                height: titularLifeForm.height,
-                weight: titularLifeForm.weight,
-                backDateToSaveAge: titularLifeForm.backDateToSaveAge,
-                spentMoreThan4MonthsAbroad: titularLifeForm.spentMoreThan4MonthsAbroad,
-                militaryOrganizationMember: titularLifeForm.militaryOrganizationMember,
-                currentlyEmployed: titularLifeForm.currentlyEmployed === "" ? null : titularLifeForm.currentlyEmployed === "true",
-                hasDriverLicense: titularLifeForm.hasDriverLicense,
-                driverLicenseNumber: titularLifeForm.hasDriverLicense ? titularLifeForm.driverLicenseNumber : "",
-                netWorth: titularLifeForm.netWorth === "" ? null : Number(titularLifeForm.netWorth),
-                householdIncome: titularLifeForm.householdIncome === "" ? null : Number(titularLifeForm.householdIncome),
-                householdNetWorth: titularLifeForm.householdNetWorth === "" ? null : Number(titularLifeForm.householdNetWorth),
-            };
-
-            const res = await apiFetch(`/api/customers/${customerId}`, {
-                method: "PUT",
-                body: JSON.stringify(body),
-            });
-
-            if (!res.ok) {
-                setTitularLifeError(t("form.titularLifeSaveError"));
-                return;
-            }
-
-            await loadData();
-        } catch (error) {
-            console.error(error);
-            setTitularLifeError(t("form.titularLifeSaveError"));
-        } finally {
-            setSavingTitularLife(false);
-        }
     };
 
     const loadData = async (filterOverrides = {}, pageOverride = page) => {
@@ -1556,6 +1450,8 @@ function Policies() {
                                 <select
                                     value={customerId}
                                     onChange={(e) => setCustomerId(e.target.value)}
+                                    disabled={!!editingId}
+                                    title={editingId ? t("form.customerLockedTitle") : undefined}
                                     style={{ width: "100%", padding: 8, marginTop: 4 }}
                                 >
                                     <option value="">{t("form.selectCustomer")}</option>
@@ -1568,26 +1464,12 @@ function Policies() {
                             </div>
 
                             {isLifeInsurance && customerId && (
-                                <div style={{ border: "1px solid #ddd", borderRadius: 8, padding: 12, marginBottom: 12, background: "white" }}>
-                                    <label style={{ fontWeight: "bold" }}>{t("form.titularLifeSection")}</label>
-
-                                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 8 }}>
-                                        <LifeInsuranceFields form={titularLifeForm} onFieldChange={handleTitularLifeField} />
-                                    </div>
-
-                                    {titularLifeError && (
-                                        <p style={{ color: "red", marginTop: 8 }}>{titularLifeError}</p>
-                                    )}
-
-                                    <button
-                                        type="button"
-                                        onClick={handleSaveTitularLife}
-                                        disabled={savingTitularLife}
-                                        style={{ marginTop: 8, background: "#16a34a", color: "white", padding: "8px 16px", border: "none", borderRadius: 6, cursor: "pointer" }}
-                                    >
-                                        {savingTitularLife ? t("form.savingTitularLife") : t("form.saveTitularLife")}
-                                    </button>
-                                </div>
+                                <TitularLifeSection
+                                    key={customerId}
+                                    customer={getCustomer(customerId)}
+                                    customerId={customerId}
+                                    onSaved={loadData}
+                                />
                             )}
 
                             {formError && (

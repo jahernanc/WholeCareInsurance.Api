@@ -65,6 +65,7 @@
         "selectOption": "Seleccionar",
         "inactiveSuffix": "(Inactiva)",
         "selectCustomer": "Seleccionar cliente",
+        "customerLockedTitle": "El titular no se puede cambiar una vez guardada la póliza",
         "requiredError": "Todos los campos son obligatorios",
         "saveError": "Error al guardar la póliza",
         "submitCreating": "Creando...",

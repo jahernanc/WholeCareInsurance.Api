@@ -65,6 +65,7 @@
         "selectOption": "Select",
         "inactiveSuffix": "(Inactive)",
         "selectCustomer": "Select customer",
+        "customerLockedTitle": "The policyholder can't be changed once the policy is saved",
         "requiredError": "All fields are required",
         "saveError": "Error saving policy",
         "submitCreating": "Creating...",
