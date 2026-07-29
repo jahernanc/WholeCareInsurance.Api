@@ -921,7 +921,7 @@ Backfill completo de la opción A confirmada en §22.2. **Backup previo**: `D:\b
 
 ---
 
-## 23. Customers duplicados por un bug de matching en la migración — 🔶 Parcial: 2 casos confirmados fusionados (§23.2), mejora del matching para futuras migraciones propuesta pero no implementada (§23.3)
+## 23. Customers duplicados por un bug de matching en la migración — ✅ Hecho (2026-07-29): 2 casos confirmados fusionados (§23.2) + matching reforzado para futuras migraciones, solo reporta (§23.3)
 
 ### 23.1 Cómo se detectó: el sufijo "+mig..." en `Customer.Email`
 
@@ -949,9 +949,25 @@ Búsqueda exhaustiva en los 2,130 Customers (no solo los 35 con sufijo): agrupan
 
 **Hallazgo aparte, visto en el camino, sin resolver**: la póliza 381835 de Mariana (la que traía "Salvador Cruz" sin SSN real) tenía `AgentId = 1` (el Admin seedeado, fallback de `EntityMatcher.ResolveAgentAsync` — ver §7/§15.3) en vez de un agente real, porque el nombre de agente de esa fila de origen no matcheó ningún `User` existente al momento de migrar. No es parte de este trabajo de deduplicación de Customers, pero queda anotado como candidato a revisar junto con el pendiente ya documentado en §7 de reasignar `Customer.AgentId` de fallback cuando corresponda (mismo tipo de gap, ahora confirmado que también aplica a `Policy` vía el agente asociado a la fila migrada).
 
-### 23.3 Mejora del matching de deduplicación para futuras migraciones/re-importaciones — ⏸ Propuesta pendiente de aprobación, no implementada
+### 23.3 Mejora del matching de deduplicación para futuras migraciones/re-importaciones — ✅ Hecho (2026-07-29): solo reporta, nunca fusiona
 
-Investigar cómo reforzar `NameDobKey`/`ResolveCustomerAsync` en `EntityMatcher.cs` para no perder casos como los de §23.2 en una futura corrida de migración o re-importación, sin volverlo tan laxo que fusione personas distintas por error (falso positivo — mucho más peligroso que un falso negativo, que al menos es detectable después vía este mismo tipo de análisis). Pendiente de que el responsable revise la propuesta concreta (trade-off laxitud vs. seguridad) antes de tocar el código de matching.
+**Decisión confirmada del responsable**: el matching fuzzy nuevo **solo deja constancia en el reporte** (mismo patrón que `SsnCollisionWarnings`) — nunca fusiona ni descarta el registro por su cuenta. El `Customer` se sigue creando exactamente igual que antes cuando no hay match exacto por `NameDobKey`; el volumen es bajo (2 en 2,130) y no se justifica el riesgo de una fusión automática de personas distintas por unos pocos casos por corrida. Cualquier "posible duplicado" señalado se revisa manualmente caso por caso, igual que se hizo con Doris y Mariana en §23.2.
+
+**Implementado en `EntityMatcher.cs`**:
+- Nuevo índice en memoria `_customerByDob` (poblado en `PreloadCachesAsync` y actualizado en cada alta dentro del mismo run, igual que `_customerByNameDob`), agrupa Customers por `DateOfBirth.Date` con su `FirstName`/`LastName`/`Phone`/`Address1` ya normalizados.
+- `CheckPossibleDuplicate(data)`, invocado en `ResolveCustomerAsync` justo antes de crear un `Customer` nuevo (solo cuando el `NameDobKey` exacto ya falló): dispara únicamente si **las dos condiciones se cumplen a la vez** — (1) `FirstName` normalizado idéntico (sin tolerancia, para no generar ruido con nombres comunes) y `LastName` "variante" del mismo apellido (uno contiene al otro tras sacar espacios/guiones/puntuación, o distancia de Levenshtein ≤2) — **y** (2) `Phone` o `Address1` normalizados coinciden exactamente con algún Customer del mismo DOB. Sin la señal (2), no dispara — es lo que evita fusionar por la simple coincidencia de cumpleaños (96 grupos de DOB compartido en la base real, casi todos sin relación).
+- Cuando dispara, agrega una entrada a `MigrationReport.PossibleDuplicateWarnings` (nueva lista, impresa en `Print()` igual que las demás advertencias) con el `SourceReference`, el nombre de la fila, el `Customer.Id` candidato y qué señal coincidió (`Phone` o `Address1`) — y el flujo sigue exactamente igual: el `Customer` se crea, nada se fusiona ni se descarta solo.
+- Normalización agregada (reutilizable): `StripDiacritics` (quita acentos), `NormalizeNamePart` (trim + minúsculas + sin acentos + solo alfanumérico), `NormalizePhone` (solo dígitos), `NormalizeAddress` (minúsculas + abreviaturas comunes de EE.UU. — "Drive"→"dr", "Street"→"st", etc. — + espacios colapsados), y un `Levenshtein` propio (sin dependencia externa).
+
+**Verificación** (build + prueba funcional dentro de una transacción revertida, sin persistir datos de prueba — mismo criterio de no tocar datos reales sin confirmar):
+- `dotnet build` sobre `WholeCareInsurance.Migration`: **0 errores**, solo 2 warnings preexistentes sin relación (nullable en `Truncate`, ya presentes antes de este cambio).
+- Harness de prueba descartable (proyecto de consola aparte, fuera del repo, referenciando `WholeCareInsurance.Migration` con `ProjectReference`) corrido dentro de una transacción con `ROLLBACK` al final:
+  - **Caso positivo**: fila sintética "Doris Maldonado **Rodriguez**" (variante de apellido), mismo DOB/Phone/Address que el Customer real #19613 ("Doris Maldonado", sobreviviente de la fusión de §23.2) → dispara 1 warning señalando `#19613`, **y el Customer se crea igual** (`CustomerMatchKind.Created`), confirmando que no fusiona.
+  - **Caso negativo 1** (mismo DOB + apellido variante, pero Phone/Address sin relación con nadie) → 0 warnings, como se esperaba.
+  - **Caso negativo 2** (mismo DOB + mismo Phone/Address que #19613, pero apellido no relacionado — "Gutierrez") → 0 warnings, como se esperaba: confirma que compartir teléfono/dirección solo no alcanza sin el apellido variante.
+  - `COUNT(*)` de `Customers` verificado en 2,128 antes y después de la prueba (la transacción de prueba se revirtió, cero datos de prueba persistidos).
+
+**No implementado / fuera de este alcance**: no se corrió una migración real con este cambio (no hay una re-importación pendiente); esto queda listo para la próxima vez que se corra el script de migración o una re-importación. Tampoco se aplicó este mismo chequeo como script de verificación periódica contra la base ya viva (fue lo que se hizo a mano en §23.2 para los 2 casos existentes) — si se quiere repetir ese análisis más adelante, hoy sigue siendo manual.
 
 ---
 
@@ -1002,4 +1018,4 @@ Investigar cómo reforzar `NameDobKey`/`ResolveCustomerAsync` en `EntityMatcher.
 43. ~~Rediseño de la tabla de Policies (12 columnas nuevas, scroll horizontal, `Policy.CreatedAt`/`Policy.RenewalStatus` nuevos, `CustomerResponseDto.AgentAgency`)~~ ✅ Hecho (§18), incluye 2 hallazgos fuera del plan original: menú de acciones (⋮) reutilizable en Policies/Customers/Agentes y fix de un bug de layout preexistente en `AppLayout.jsx` (§18.11)
 44. ~~Deuda técnica — ESLint `react-hooks/set-state-in-effect`~~ ✅ Resuelto parcial (§20): 5 casos de fetching corregidos vía `queueMicrotask` (Dashboard/Customers/Agentes/InsuranceCompanies + un 6to caso silencioso en Policies no reportado por el linter, ver §20.1). Queda 1 caso distinto pendiente (§20.3): extraer la sección "Datos Life Insurance del titular" de Policies.jsx a subcomponente con `key={customerId}`.
 45. Dashboard "Additional statistics" — bug de normalización de mayúsculas en `Customer.City` — 🔶 Parcial: backfill de datos aplicado (336 filas corregidas con backup previo, 304→191 valores distintos, 0 duplicados de case restantes, ver §22.4). Falta el freno al `<input>` libre del frontend y los gráficos tipo torta/dona (top 9 + Otros) de la Parte 2, ninguno de los dos implementado todavía (§22.3)
-46. Customers duplicados por bug de matching en la migración (Doris Maldonado, Mariana Salvador Cruz) — 🔶 Parcial: los 2 casos confirmados fusionados con backup previo y verificación (§23.2). Falta aprobar e implementar el refuerzo del matching `NameDobKey` para futuras migraciones (§23.3) y revisar el hallazgo aparte del `AgentId` en fallback Admin en la póliza de Mariana (§23.2, mismo gap que §7)
+46. ~~Customers duplicados por bug de matching en la migración (Doris Maldonado, Mariana Salvador Cruz)~~ ✅ Hecho: los 2 casos confirmados fusionados con backup previo y verificación (§23.2); refuerzo del matching (`_customerByDob` + `CheckPossibleDuplicate`, solo reporta, nunca fusiona automáticamente) implementado y verificado (§23.3). Queda pendiente, aparte, revisar el `AgentId` en fallback Admin encontrado en la póliza de Mariana (§23.2, mismo gap que §7)

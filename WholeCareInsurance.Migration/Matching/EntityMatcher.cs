@@ -1,3 +1,6 @@
+using System.Globalization;
+using System.Text;
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using WholeCareInsurance.api.Data;
 using WholeCareInsurance.api.Models;
@@ -20,6 +23,10 @@ namespace WholeCareInsurance.Migration.Matching
         private readonly Dictionary<string, int> _companyByName = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, int> _customerBySsn = new();
         private readonly Dictionary<string, List<int>> _customerByNameDob = new(StringComparer.OrdinalIgnoreCase);
+        // §23.3: candidatos a "posible duplicado" agrupados por DOB exacto — solo se
+        // consulta cuando el NameDobKey exacto de arriba ya falló. Nunca decide un match,
+        // solo alimenta CheckPossibleDuplicate para dejar constancia en el reporte.
+        private readonly Dictionary<DateTime, List<CustomerFuzzyRecord>> _customerByDob = new();
         private readonly Dictionary<string, int> _agentByName = new(StringComparer.OrdinalIgnoreCase);
         private int? _fallbackAdminUserId;
 
@@ -43,6 +50,8 @@ namespace WholeCareInsurance.Migration.Matching
                 if (!_customerByNameDob.TryGetValue(key, out var list))
                     _customerByNameDob[key] = list = new List<int>();
                 list.Add(c.Id);
+
+                AddToDobCache(c.Id, c.FirstName, c.LastName, c.Phone, c.Address1, c.DateOfBirth);
             }
 
             foreach (var u in await _db.Users.ToListAsync())
@@ -166,6 +175,8 @@ namespace WholeCareInsurance.Migration.Matching
             if (_customerByNameDob.TryGetValue(nameDobKey, out var candidates) && candidates.Count > 0)
                 return new CustomerMatchResult(candidates[0], CustomerMatchKind.MatchedByNameDob);
 
+            CheckPossibleDuplicate(data);
+
             var customer = new Customer
             {
                 SocialSecurityNumber = ssnUsableForCreate ?? BuildSsnPlaceholder(data.SourceReference),
@@ -200,6 +211,7 @@ namespace WholeCareInsurance.Migration.Matching
             if (!_customerByNameDob.TryGetValue(nameDobKey, out var list))
                 _customerByNameDob[nameDobKey] = list = new List<int>();
             list.Add(customer.Id);
+            AddToDobCache(customer.Id, customer.FirstName!, customer.LastName!, customer.Phone, customer.Address1, customer.DateOfBirth);
 
             return new CustomerMatchResult(customer.Id, CustomerMatchKind.Created);
         }
@@ -257,6 +269,117 @@ namespace WholeCareInsurance.Migration.Matching
 
         private static string MapOrDefault(Dictionary<string, string> map, string? key, string fallback)
             => key != null && map.TryGetValue(key, out var v) ? v : fallback;
+
+        private void AddToDobCache(int id, string firstName, string lastName, string? phone, string? address1, DateTime dob)
+        {
+            var record = new CustomerFuzzyRecord(id, NormalizeNamePart(firstName), NormalizeNamePart(lastName), NormalizePhone(phone), NormalizeAddress(address1));
+            var dobDate = dob.Date;
+            if (!_customerByDob.TryGetValue(dobDate, out var list))
+                _customerByDob[dobDate] = list = new List<CustomerFuzzyRecord>();
+            list.Add(record);
+        }
+
+        // §23.3: reporta (NUNCA fusiona ni descarta) posibles duplicados de Customer que
+        // el NameDobKey exacto no detecta por variaciones de formato de apellido — ver
+        // caso real Doris Maldonado / Maldonado Ramirez, PENDIENTE.md §23.2. Solo dispara
+        // cuando: mismo DOB (agrupado en _customerByDob), FirstName normalizado idéntico
+        // (sin tolerancia — evita falsos positivos con nombres comunes), LastName
+        // "variante" del mismo apellido (uno contiene al otro tras sacar espacios/guiones,
+        // o distancia de edición ≤2 — cubre apellido compuesto y typos de formato) Y,
+        // además, Phone o Address1 normalizados coinciden exactamente. Esta última señal
+        // es la que separa "misma persona" de la simple coincidencia de cumpleaños: en
+        // los 2,130 Customers reales hay 96 fechas de nacimiento compartidas por más de
+        // una persona, casi todas sin relación — exigir Phone o Address además del
+        // apellido variante es lo que evitó falsos positivos en el análisis manual previo.
+        // La creación del Customer sigue igual que antes de este cambio: esto solo deja
+        // constancia en el reporte para revisión humana, igual que SsnCollisionWarnings.
+        private void CheckPossibleDuplicate(CustomerSourceData data)
+        {
+            if (!_customerByDob.TryGetValue(data.DateOfBirth.Date, out var candidates))
+                return;
+
+            var firstNameNorm = NormalizeNamePart(data.FirstName);
+            var lastNameNorm = NormalizeNamePart(data.LastName);
+            var phoneNorm = NormalizePhone(data.Phone);
+            var addressNorm = NormalizeAddress(data.Address1);
+
+            foreach (var candidate in candidates)
+            {
+                if (candidate.FirstNameNorm != firstNameNorm) continue;
+                if (candidate.LastNameNorm == lastNameNorm) continue; // esto ya lo habría atrapado el NameDobKey exacto
+
+                var lastNameVariant = lastNameNorm.Length > 0 && candidate.LastNameNorm.Length > 0
+                    && (lastNameNorm.Contains(candidate.LastNameNorm) || candidate.LastNameNorm.Contains(lastNameNorm)
+                        || Levenshtein(lastNameNorm, candidate.LastNameNorm) <= 2);
+                if (!lastNameVariant) continue;
+
+                var phoneMatch = phoneNorm.Length > 0 && phoneNorm == candidate.PhoneNorm;
+                var addressMatch = addressNorm.Length > 0 && addressNorm == candidate.AddressNorm;
+                if (!phoneMatch && !addressMatch) continue;
+
+                _report.PossibleDuplicateWarnings.Add(
+                    $"Fila {data.SourceReference} (\"{data.FirstName} {data.LastName}\", DOB {data.DateOfBirth:yyyy-MM-dd}): posible duplicado de Customer #{candidate.Id} — mismo nombre y fecha de nacimiento, apellido con formato distinto, coincide {(phoneMatch ? "Phone" : "Address1")}. Se creó un Customer nuevo igual (no se fusiona automáticamente) — revisar manualmente.");
+            }
+        }
+
+        private static string StripDiacritics(string s)
+        {
+            var normalized = s.Normalize(NormalizationForm.FormD);
+            var sb = new StringBuilder(normalized.Length);
+            foreach (var c in normalized)
+                if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+                    sb.Append(c);
+            return sb.ToString().Normalize(NormalizationForm.FormC);
+        }
+
+        private static string NormalizeNamePart(string s)
+            => new(StripDiacritics(s.Trim().ToLowerInvariant()).Where(char.IsLetterOrDigit).ToArray());
+
+        private static string NormalizePhone(string? s)
+            => new((s ?? "").Where(char.IsDigit).ToArray());
+
+        private static readonly (string Pattern, string Replacement)[] AddressAbbreviations =
+        {
+            (@"\bdrive\b", "dr"), (@"\bstreet\b", "st"), (@"\bcourt\b", "ct"),
+            (@"\bavenue\b", "ave"), (@"\bapartment\b", "apt"), (@"\bboulevard\b", "blvd"),
+            (@"\blane\b", "ln"), (@"\bcircle\b", "cir"), (@"\bplace\b", "pl"),
+            (@"\bnorth\b", "n"), (@"\bsouth\b", "s"), (@"\beast\b", "e"), (@"\bwest\b", "w"),
+        };
+
+        private static string NormalizeAddress(string? s)
+        {
+            if (string.IsNullOrWhiteSpace(s)) return "";
+            var v = StripDiacritics(s.Trim().ToLowerInvariant());
+            v = Regex.Replace(v, "[.,#]", " ");
+            foreach (var (pattern, replacement) in AddressAbbreviations)
+                v = Regex.Replace(v, pattern, replacement);
+            return Regex.Replace(v, @"\s+", " ").Trim();
+        }
+
+        private static int Levenshtein(string a, string b)
+        {
+            if (a == b) return 0;
+            if (a.Length == 0) return b.Length;
+            if (b.Length == 0) return a.Length;
+
+            var prev = new int[b.Length + 1];
+            var cur = new int[b.Length + 1];
+            for (var j = 0; j <= b.Length; j++) prev[j] = j;
+
+            for (var i = 1; i <= a.Length; i++)
+            {
+                cur[0] = i;
+                for (var j = 1; j <= b.Length; j++)
+                {
+                    var cost = a[i - 1] == b[j - 1] ? 0 : 1;
+                    cur[j] = Math.Min(Math.Min(prev[j] + 1, cur[j - 1] + 1), prev[j - 1] + cost);
+                }
+                (prev, cur) = (cur, prev);
+            }
+            return prev[b.Length];
+        }
+
+        private sealed record CustomerFuzzyRecord(int Id, string FirstNameNorm, string LastNameNorm, string PhoneNorm, string AddressNorm);
     }
 
     public enum CustomerMatchKind { MatchedBySsn, MatchedByNameDob, Created }

@@ -25,6 +25,7 @@ namespace WholeCareInsurance.Migration.Reporting
         public List<string> UnprocessableRows { get; } = new();
         public List<string> RelationConflicts { get; } = new();
         public List<string> SsnCollisionWarnings { get; } = new();
+        public List<string> PossibleDuplicateWarnings { get; } = new();
         public List<PolicyGroupSummary> PolicyGroups { get; } = new();
         public List<SkippedDuplicateEntry> SkippedDuplicatePolicyNumbers { get; } = new();
 
@@ -69,6 +70,9 @@ namespace WholeCareInsurance.Migration.Reporting
             Console.WriteLine();
             Console.WriteLine($"Advertencias de colisión de SSN ({SsnCollisionWarnings.Count}):");
             foreach (var w in SsnCollisionWarnings) Console.WriteLine($"  {w}");
+            Console.WriteLine();
+            Console.WriteLine($"Posibles duplicados de Customer — NO fusionados automáticamente, revisar a mano ({PossibleDuplicateWarnings.Count}):");
+            foreach (var w in PossibleDuplicateWarnings) Console.WriteLine($"  {w}");
             Console.WriteLine();
             Console.WriteLine($"PolicyNumber duplicado dentro del run, fila salteada ({SkippedDuplicatePolicyNumbers.Count}):");
             foreach (var s in SkippedDuplicatePolicyNumbers)
