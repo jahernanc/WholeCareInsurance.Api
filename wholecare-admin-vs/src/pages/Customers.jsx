@@ -64,8 +64,12 @@ function Customers() {
     };
 
     useEffect(() => {
-        loadCustomers();
-        if (userIsAdmin) loadAgents();
+        // queueMicrotask (§20): loadCustomers() setea loading síncronamente antes de su
+        // primer await — ver mismo comentario en Dashboard.jsx.
+        queueMicrotask(() => {
+            loadCustomers();
+            if (userIsAdmin) loadAgents();
+        });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 

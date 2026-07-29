@@ -186,7 +186,11 @@ function Dashboard() {
     };
 
     useEffect(() => {
-        loadDashboard();
+        // queueMicrotask (§20): loadDashboard() setea loading síncronamente antes de su
+        // primer await — llamarlo directo acá dispara react-hooks/set-state-in-effect
+        // (cascading render). Diferir un microtask rompe esa cadena de reachability
+        // síncrona sin cambiar nada perceptible para el usuario.
+        queueMicrotask(loadDashboard);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 

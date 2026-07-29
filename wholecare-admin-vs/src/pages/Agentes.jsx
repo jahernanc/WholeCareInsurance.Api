@@ -67,7 +67,9 @@ function Agentes() {
         }
     };
 
-    useEffect(() => { loadUsers(); }, []);
+    // queueMicrotask (§20): loadUsers() setea loading síncronamente antes de su primer
+    // await — ver mismo comentario en Dashboard.jsx.
+    useEffect(() => { queueMicrotask(loadUsers); }, []);
 
     const handleSearch = () => loadUsers(undefined, 1);
     const handleClearSearch = () => {

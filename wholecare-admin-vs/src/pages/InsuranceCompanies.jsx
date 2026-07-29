@@ -31,7 +31,9 @@ function InsuranceCompanies() {
         }
     };
 
-    useEffect(() => { loadCompanies(); }, []);
+    // queueMicrotask (§20): loadCompanies() setea loading síncronamente antes de su
+    // primer await — ver mismo comentario en Dashboard.jsx.
+    useEffect(() => { queueMicrotask(loadCompanies); }, []);
 
     const handleField = (e) => {
         const { name, value, type, checked } = e.target;

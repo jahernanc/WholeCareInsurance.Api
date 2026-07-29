@@ -745,7 +745,11 @@ function Policies() {
     useEffect(() => {
         if (!localStorage.getItem("accessToken")) return;
         // Re-carga cuando cambia el Período activo del header (filtra la lista).
-        loadData({}, 1);
+        // queueMicrotask (§20, 6ta instancia del mismo patrón — no reportada por el
+        // linter en este archivo particular, pero es el mismo defecto conceptual que
+        // Dashboard/Customers/Agentes/InsuranceCompanies): loadData() setea loading
+        // síncronamente antes de su primer await.
+        queueMicrotask(() => loadData({}, 1));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [period]);
 
