@@ -672,7 +672,7 @@ Verificado por el responsable en navegador: las 3 pantallas con tabla consistent
 
 ---
 
-## 18. Rediseño de la tabla de Policies — nuevas columnas + scroll horizontal — ⏸ Pendiente de implementar (plan aprobado, análisis completo)
+## 18. Rediseño de la tabla de Policies — nuevas columnas + scroll horizontal — ✅ Hecho (2026-07-29)
 
 Pedido: acercar la tabla de `Policies.jsx` a una referencia visual (3 capturas del responsable — **no llegaron a esta sesión**, el plan se documentó solo a partir de la lista de columnas en texto). Antes de implementar, se auditó contra el código real qué campos ya existen y cuáles hacen falta agregar.
 
@@ -687,11 +687,11 @@ Pedido: acercar la tabla de `Policies.jsx` a una referencia visual (3 capturas d
 | 5 | Applicants | `Policy.NumberOfApplicants` | ✅ Existe (§1.9), no se muestra en la tabla hoy. Columna nueva. |
 | 6 | Status (badge) | `Policy.Status` | ⚠️ El campo existe, pero **hoy se renderiza como texto plano** (`Policies.jsx:2058`, `{translateEnum("policyStatus", p.status)}`), no como badge. `Dashboard.jsx` ya tiene un array `POLICY_STATUSES` (8 valores) + `CATEGORICAL_COLORS` para los gráficos de torta — se puede extraer a un util compartido y reusar como badge de tabla (mismo criterio que se hizo con `agencyStyle.js` para el badge de Agency en Agentes, §17). Cambio de frontend únicamente. |
 | 7 | Effective date | `Policy.EffectiveDate` | ✅ Existe (nullable), sin mostrar en tabla hoy. Sin hora. |
-| 8 | Agency (badge) | `Customer.Agent.Agency` (`User.Agency`) | ❌ No existe como campo propio de `Policy` ni `Customer`. **Decisión confirmada: derivar en vivo**, no agregar campo nuevo — sumar `AgentAgency` a `CustomerResponseDto` (mapeo directo desde `Customer.Agent.Agency` en el controller, mismo patrón que ya tiene `AgentName`). Sin migración. **Trade-off aceptado explícitamente**: esto refleja la agencia ACTUAL del agente, no la agencia que tenía al momento de escribir esa póliza puntual (que sí existe sin usar en el xlsx de origen, columna `"Agency"` presente en los 4 archivos de pólizas — se descarta usarla). Mismo estilo de badge que ya usamos en Agentes (`src/utils/agencyStyle.js`, reusable tal cual). |
+| 8 | Agency (badge) | `Customer.Agent.Agency` (`User.Agency`) | ✅ Hecho (2026-07-29) — mapeo en §18.9, badge visual en §18.10. |
 | 9 | Agent (solo texto) | `CustomerResponseDto.AgentName` | ✅ Ya resuelto server-side, sin avatar — mismo criterio ya aplicado en Agentes (§17.5). |
 | 10 | State/Province | `Customer.State` | ✅ Existe, ya en `CustomerResponseDto`. Confirmado que la columna real del xlsx de origen se llama literalmente `"State / Province"` en los 4 archivos de pólizas (`CommonFieldsExtractor.cs:38`). |
-| 11 | Registration date | `Policy.CreatedAt` (**nuevo**) | ❌ No existe (`Policy` solo tiene `UpdatedAt`, §9.6). La columna `"Registration date"` del xlsx de origen **ya se lee hoy** (`CommonFieldsExtractor.cs:58`) pero solo se usa para setear el `ChangedAt` de la primera fila de `PolicyHistory` de cada póliza — tanto para las migradas como para las creadas en vivo (`PoliciesController.Create` siempre inserta un `PolicyHistory` inicial vía `RecordStatusChange`). **Backfill limpio, sin re-leer ningún xlsx**: `UPDATE Policies SET CreatedAt = (SELECT MIN(ChangedAt) FROM PolicyHistory WHERE PolicyId = Policies.Id)`. Sin hora. |
-| 12 | Renewal status | `Policy.RenewalStatus` (**nuevo**) | ❌ No existe. La columna `"Renewal status"` existe **solo en el xlsx de Health/Obamacare** (1258 de ~1283 filas migradas) — Medicare/Life/Supplemental no tienen esta columna en absoluto, quedarán siempre en `null` para esos tipos (esperado, no es un bug). Backfill parcial: re-leer el xlsx de Health y matchear contra `Policy.PolicyNumber` (que sí tiene índice único en la base — `PolicyConfiguration.cs:18`). **Riesgo, a diferencia de los backfills anteriores** (User/Email tenía clave única confiable al 100%): `PolicyNumberRaw` es nullable por fila en el origen, puede haber huecos de match. **Obligatorio correr `--dry-run` primero y revisar cuántas pólizas matchean vs. quedan sin match antes de aplicar `--commit`.** |
+| 11 | Registration date | `Policy.CreatedAt` (**nuevo**) | ✅ Hecho (2026-07-29) — ver §18.7. |
+| 12 | Renewal status | `Policy.RenewalStatus` (**nuevo**) | ✅ Hecho (2026-07-29) — ver §18.8. |
 
 ### 18.2 Explícitamente fuera de alcance por ahora: Tags
 
@@ -711,11 +711,80 @@ Effective date y Registration date se muestran ambas como `dd/mm/aaaa`, sin hora
 
 ### 18.6 Orden de implementación sugerido cuando se retome
 
-1. **`Policy.CreatedAt`** — migración + backfill vía `MIN(PolicyHistory.ChangedAt)`. Bajo riesgo, dato ya disponible en la base, sin re-leer ningún xlsx.
-2. **`Policy.RenewalStatus`** — migración + backfill parcial vía `PolicyNumber` contra el xlsx de Health/Obamacare. **`--dry-run` obligatorio antes de `--commit`**, revisar cobertura real (cuántas matchean vs. quedan `null`) antes de aplicar en serio.
-3. **`CustomerResponseDto.AgentAgency`** — una línea de mapeo en el controller, sin migración.
-4. **Frontend**: las 12 columnas en el orden definido, Status como badge (extrayendo la paleta de `Dashboard.jsx`), Agency/Agent sin avatar (mismo criterio que Agentes), scroll horizontal, fechas sin hora.
-5. Build + lint + verificación en navegador (mismo checklist que las sesiones anteriores), antes de dar el trabajo por cerrado.
+1. ~~**`Policy.CreatedAt`**~~ ✅ Hecho — migración + backfill vía `MIN(PolicyHistory.ChangedAt)`. Ver §18.7.
+2. ~~**`Policy.RenewalStatus`**~~ ✅ Hecho — migración + backfill vía `--backfill-renewal-status`. Ver §18.8.
+3. ~~**`CustomerResponseDto.AgentAgency`**~~ ✅ Hecho — mapeo directo en el controller, sin migración. Ver §18.9.
+4. ~~**Frontend**~~ ✅ Hecho — las 12 columnas en el orden definido, Status como badge, Agency/Agent sin avatar, scroll horizontal, fechas sin hora. Ver §18.10.
+5. ~~Build + lint + verificación en navegador~~ ✅ Hecho, ver §18.10/§18.11 — más 2 hallazgos de esta misma sesión (menú de acciones ⋮ y un bug de layout preexistente) documentados abajo.
+
+### 18.7 `Policy.CreatedAt` implementado — ✅ Hecho (2026-07-29)
+
+Primer paso del orden sugerido en §18.6. Migración `20260729153240_AddPolicyCreatedAt`: columna `datetime2 NOT NULL`, sin nullable — sentinel `0001-01-01` solo transitorio durante el `ALTER TABLE`, reemplazado por el backfill dentro de la misma migración.
+
+- Backfill vía `UPDATE Policies SET CreatedAt = MIN(PolicyHistories.ChangedAt) WHERE PolicyId = Policies.Id` (join contra la tabla real `PolicyHistories`, plural — el nombre de tabla sigue el `DbSet<PolicyHistory> PolicyHistories` de `AppDbContext`, no el nombre de la clase singular; primer intento de la migración falló con "Invalid object name 'PolicyHistory'" hasta corregirlo). Sin re-leer ningún xlsx.
+- Red de seguridad agregada por las dudas (no disparó en la práctica): `CreatedAt = UpdatedAt` para cualquier póliza sin ningún `PolicyHistory` — no aplicó a ninguna fila real, las 1211 pólizas ya tenían su historial inicial.
+- `PoliciesController.Create` ahora también setea `CreatedAt = DateTime.UtcNow` (mismo criterio que `UpdatedAt`, que ya se seteaba ahí) — una póliza nueva no depende del backfill. `Update` no lo toca (solo se setea al crear).
+- `PolicyResponseDto.CreatedAt` agregado, mapeado en `PoliciesController.ToResponse` y en `CustomersController.GetPoliciesForCustomer` (comparten el mismo DTO, §5.2).
+- Verificado con sqlcmd (1211/1211 pólizas con `CreatedAt` real, 0 en sentinel, rango `2025-09-24` a `2026-07-22`) y con curl (`GET /api/policies` devuelve `createdAt` con fecha real distinta de `updatedAt`; `POST /api/policies` de prueba confirma `createdAt` = fecha actual del alta, registro de prueba borrado después). `dotnet build` limpio (0 warnings/0 errors).
+
+### 18.8 `Policy.RenewalStatus` implementado — ✅ Hecho (2026-07-29)
+
+Segundo paso del orden sugerido en §18.6. Migración `20260729154446_AddPolicyRenewalStatus`: columna `nvarchar(100) NULL`, sin backfill embebido en la migración (a diferencia de `CreatedAt`, acá el dato vive en un xlsx externo, no en la base).
+
+- **Riesgo de matching resuelto sin heurística nueva**: en vez de comparar el texto crudo de `"Policy number"` contra `Policy.PolicyNumber` (que hubiera fallado para +90% de las filas, dado que ese campo llega vacío/basura en el origen — ver `PolicyNumberResolver`), el runner `--backfill-renewal-status` (`RenewalStatusBackfillRunner.cs`, nuevo en `WholeCareInsurance.Migration`) reutiliza el mismo `HealthInsuranceImporter`/`ImportPipeline` que ya migró los datos reales (§7): vuelve a preparar los mismos grupos consolidados (misma resolución de Customer/Aseguradora, dentro de una transacción que se revierte siempre — nunca escribe nada por sí sola) y toma el `PolicyNumber` + `"Renewal status"` ya resueltos de la fila vigente de cada grupo. El match contra la `Policy` real en la base termina siendo exacto por construcción, no por heurística propia.
+- `HealthInsuranceImporter.cs` ahora también popula `policy.RenewalStatus = row.GetString("Renewal status")` — cubre tanto el backfill de este runner como cualquier futura re-importación del archivo de Health.
+- `PolicyResponseDto.RenewalStatus` agregado, mapeado en `PoliciesController.ToResponse` y `CustomersController.GetPoliciesForCustomer` (mismo criterio que `CreatedAt`, §18.7).
+- **`--dry-run` corrido primero** (obligatorio, según lo acordado): 1185/1185 pólizas de Health re-preparadas matchearon 100% contra la base, sin huecos — mejor cobertura de la esperada (el riesgo documentado en el plan original no se materializó). Distribución real de valores: 1183 `Pending` + 2 `Renewed` (verificado independientemente contra el XML crudo del `.xlsx`, no es un artefacto del código).
+- **`--commit --confirm` aplicado** tras confirmación explícita del responsable. Verificado con sqlcmd post-commit:
+
+  | Type | Total | NULL | Pending | Renewed |
+  |---|---|---|---|---|
+  | Health Insurance (ACA) | 1185 | 0 | 1183 | 2 |
+  | Life Insurance | 2 | 2 | 0 | 0 |
+  | Medicare | 8 | 8 | 0 | 0 |
+  | Supplemental Plans | 16 | 16 | 0 | 0 |
+
+  1185/1185 pólizas de Health quedaron con `RenewalStatus` no nulo; las 26 pólizas de Medicare/Life/Supplemental (que no tienen esta columna en su xlsx de origen) confirmadas sin tocar, siguen en `NULL` como es esperado. `dotnet build` limpio (0 warnings/0 errors) en `WholeCareInsurance.api` y `WholeCareInsurance.Migration`.
+
+### 18.9 `CustomerResponseDto.AgentAgency` implementado — ✅ Hecho (2026-07-29)
+
+Tercer paso del orden sugerido en §18.6. Sin migración — mapeo directo, mismo patrón que `AgentName`.
+
+- `CustomerResponseDto.AgentAgency` (nuevo, nullable) agregado junto a `AgentName`.
+- `CustomersController.ToResponse`: `AgentAgency = c.Agent?.Agency` — `Agent` ya viene cargado vía `.Include(c => c.Agent)` en `CustomerService` (mismo `Include` que ya sostiene `AgentName`), sin necesidad de tocar ninguna query.
+- Es el único call site que construye `CustomerResponseDto` con datos de `Agent` (confirmado por búsqueda en el controller).
+- Verificado con curl (`GET /api/customers`): `agentAgency` coincide con `agentAgency` real del agente asignado (ej. "Preventive Health Insurance", "Whole Care Insurance Group llC") y viene `null` en los customers sin agente asignado, igual que `agentName`. `dotnet build` limpio (0 warnings/0 errors).
+
+### 18.10 Frontend — las 12 columnas + badges + scroll horizontal — ✅ Hecho (2026-07-29)
+
+Cuarto paso del orden sugerido en §18.6. `Policies.jsx` reemplaza las 8 columnas anteriores (Policy Number, Type, Insurance Company, Status, Period, Premium, Customer, Actions) por las 12 definidas en §18.1, en ese orden: Customer, Contact, Plan, Type, Applicants, Status (badge), Effective date, Agency (badge), Agent, State/Province, Registration date, Renewal status — más Actions al final (fuera del conteo de "12").
+
+- **Status como badge**: nuevo `src/utils/policyStatusStyle.js`, con `POLICY_STATUSES` extraído de `Dashboard.jsx` (que ahora lo importa desde ahí en vez de tener su propia copia — single source of truth para el orden categórico) y una paleta pastel (par fondo claro + texto oscuro) derivada del mismo orden que ya usan los gráficos de torta del Dashboard, mismo criterio que `agencyStyle.js` (§17).
+- **Agency como badge**: reusa `agencyStyle.js` tal cual, sin cambios — mismo estilo visual que ya tiene Agentes.
+- **Fechas sin hora**: nuevo `src/utils/formatDate.js` (`formatDateOnly`, `dd/mm/aaaa`) extraído de `Agentes.jsx` (que ahora también lo importa en vez de tener su propia copia) — usado en Effective date y Registration date.
+- **Agency/Agent/State sin avatar**: derivados de `getCustomer(p.customerId)` (ya cargado por `Policies.jsx` vía `/api/customers`, sin endpoint nuevo) — `customer.agentAgency`/`customer.agentName`/`customer.state`, con `"-"` cuando no hay dato.
+- **Traducción de Renewal status**: nuevo grupo `policyRenewalStatus` en `enums.json` (es/en) — los 2 valores reales migrados (`Pending`→"Pendiente", `Renewed`→"Renovado"), con fallback al valor crudo si aparece uno no contemplado (mismo mecanismo que el resto de `translateEnum`).
+- **Scroll horizontal**: sin cambios de fondo — seguía usando el mismo contenedor `overflowX:auto` que ya tenía la tabla; ver §18.11 para el bug de layout que este mismo rediseño expuso (no introdujo).
+- Traducciones nuevas en `en/policies.json`/`es/policies.json` (namespace `table`): `customer`, `contact`, `plan`, `applicants`, `effectiveDate`, `agency`, `agent`, `stateProvince`, `registrationDate`, `renewalStatus` — se sacaron `policy`, `insuranceCompany`, `period`, `premium` (columnas que salieron de la tabla; los datos siguen disponibles en el modal de detalle).
+- Verificado con `npm run build`/`npm run lint` (mismos 6 problemas preexistentes de §20, ninguno nuevo) y por el responsable directamente en el navegador (sin extensión de Chrome conectada en esta sesión para captura automática).
+
+### 18.11 Hallazgos fuera del plan original, mismo día — ✅ Hecho (2026-07-29)
+
+Dos piezas de trabajo que no estaban en el plan aprobado de §18, pedidas/encontradas durante la verificación en navegador del punto anterior:
+
+**Menú de acciones (⋮) reutilizable** — a pedido del responsable, para reemplazar los íconos de acciones sueltos (🔍✏️🗑💬) por un menú desplegable en las 3 pantallas con tabla real (Policies, Customers, Agentes — `InsuranceCompanies` quedó afuera a propósito: no es una tabla sino una grilla de tarjetas, y tiene una sola acción, "Editar", por lo que un menú de 3 puntitos ahí solo agregaría un click sin beneficio, decisión confirmada con el responsable).
+- `src/components/ActionsMenu.jsx` (nuevo, mismo criterio que `Modal.jsx`: un solo componente, las 3 pantallas lo consumen). API: `items={[{ icon, label, onClick? , href?, external?, disabled? }]}`.
+- **Primer uso de `createPortal` en este código**: el dropdown se renderiza como hijo directo de `document.body` (no anidado en el `<td>`), posicionado con `position: fixed` calculado desde `getBoundingClientRect()` del botón `⋮` — así el contenedor `overflowX:auto` de la tabla nunca lo recorta ni lo desalinea, sea cual sea el scroll horizontal activo. Se mide el tamaño real del menú antes de mostrarlo (renderiza off-screen, mide en un `useLayoutEffect`, reposiciona) en vez de asumir un ancho/alto fijo, y se flipea a la izquierda/arriba si no entra cerca de un borde de la pantalla.
+- Cierre por click afuera (`mousedown`), `Escape`, scroll (capturado en fase de captura para detectar también el scroll horizontal interno de la tabla) y al ejecutar cualquier acción.
+- Acciones por pantalla (mismas de antes, solo cambia la presentación — íconos + texto, no solo íconos con tooltip, porque una vez abierto el menú el texto es más legible que forzar un hover): Policies (🔍 Detalle, ✏️ Editar, 🗑 Eliminar, 💬 WhatsApp condicional), Customers (✏️ Editar, 🔍 Detalle, 💬 WhatsApp condicional, 🗑 Eliminar), Agentes (✏️ Editar, 🔍 Detalle, 🗑/♻️ Activar-Desactivar, respeta el `disabled` mientras hay un toggle en curso).
+- Verificado con `npm run build`/`npm run lint` (mismos 6 problemas preexistentes) y por el responsable en las 3 pantallas.
+
+**Bug de layout preexistente en `AppLayout.jsx`, expuesto (no causado) por el rediseño de 12 columnas** — el responsable reportó que el Header (selector de Período/idioma/perfil) se veía cortado en Policies después de agregar el `ActionsMenu`; se investigó antes de tocar nada (a pedido explícito) y se descartó el portal como causa (solo monta con el menú abierto, el bug se reproducía en frío) — la causa real era anterior y ortogonal al `ActionsMenu`.
+- **Causa**: el `<div style={{ flex: 1, display: "flex", flexDirection: "column" }}>` de `AppLayout.jsx` (envuelve Header + `main`) no tenía `min-width` fijado. Los flex items tienen `min-width: auto` por default — su ancho mínimo se calcula en base al `min-content` de su contenido más ancho, salvo que se pise explícitamente. Al no haber ningún `min-width:0`/`overflow` en la cadena hasta el wrapper `overflowX:auto` de la tabla, el `min-content` de la tabla de 12 columnas (la más ancha de las 4 pantallas) forzaba a crecer a **todo el contenedor**, Header incluido (es hermano de `main` dentro del mismo flex item). El `overflowX:auto` de la tabla nunca llegaba a activarse como límite local porque su contenedor ya venía sobredimensionado — el scroll que se generaba era de página completa, arrastrando al Header con él.
+- Bug latente desde antes de esta sesión (no introducido por el rediseño ni por `ActionsMenu`) — nunca se había manifestado porque ninguna tabla anterior (Agentes/Customers) llegaba a superar el ancho del viewport.
+- **Fix**: una línea, `minWidth: 0` en ese mismo `div` de `AppLayout.jsx` — deja que se achique al ancho realmente disponible (`100vw` menos el ancho del Sidebar), con lo que el `overflowX:auto` de la tabla pasa a ser el único límite real de scroll horizontal.
+- Fix en un archivo de layout compartido por las 4 pantallas — no debería cambiar nada visualmente en Customers/Agentes/InsuranceCompanies (sus tablas no llegan a superar el viewport), pero de paso las blinda contra el mismo problema si alguna crece en el futuro.
+- Verificado con `npm run build`/`npm run lint` limpios y por el responsable en el navegador: Header fijo al scrollear Policies horizontalmente, sin cambios en las otras 3 pantallas.
 
 ---
 
@@ -782,5 +851,5 @@ Encontrados por el responsable en el Error List de Visual Studio (`Dashboard.jsx
 40. ~~Dashboard (KPIs, gráficos por Tipo/Status, estadísticas, últimas pólizas, próximos a cumplir 65, scoping por rol)~~ ✅ Hecho (§9), incluye `Policy.UpdatedAt` nuevo (§9.6) y paleta de colores semántica en toda la app (§9.1)
 41. ~~Modal/Dialog reutilizable para crear/editar (Policies/Customers/Agentes/InsuranceCompanies)~~ ✅ Hecho (§16), incluye 2 bugs encontrados/corregidos en el camino (foco del Modal, falso required por Premium=0) y ajuste visual del modal de detalle
 42. ~~Unificación de listados de Customers/Agentes al estilo tabla de Policies + paginado en los 3 (pageSize=10)~~ ✅ Hecho (§17), incluye `User.IsActive` nuevo (baja lógica de agentes, reemplaza el DELETE que hubiera fallado siempre por FKs Restrict) y 2 modales de detalle nuevos
-43. Rediseño de la tabla de Policies (12 columnas nuevas, scroll horizontal, `Policy.CreatedAt`/`Policy.RenewalStatus` nuevos) — plan completo documentado y aprobado, implementación pendiente (§18)
+43. ~~Rediseño de la tabla de Policies (12 columnas nuevas, scroll horizontal, `Policy.CreatedAt`/`Policy.RenewalStatus` nuevos, `CustomerResponseDto.AgentAgency`)~~ ✅ Hecho (§18), incluye 2 hallazgos fuera del plan original: menú de acciones (⋮) reutilizable en Policies/Customers/Agentes y fix de un bug de layout preexistente en `AppLayout.jsx` (§18.11)
 44. Deuda técnica — 5 errores reales de ESLint `react-hooks/set-state-in-effect` (Dashboard/Customers/Agentes/InsuranceCompanies/Policies, preexistentes desde `390c3e0`) — diagnóstico confirmado, corrección pendiente para una sesión dedicada (§20)
