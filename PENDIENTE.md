@@ -921,6 +921,40 @@ Backfill completo de la opción A confirmada en §22.2. **Backup previo**: `D:\b
 
 ---
 
+## 23. Customers duplicados por un bug de matching en la migración — 🔶 Parcial: 2 casos confirmados fusionados (§23.2), mejora del matching para futuras migraciones propuesta pero no implementada (§23.3)
+
+### 23.1 Cómo se detectó: el sufijo "+mig..." en `Customer.Email`
+
+Encontrado al investigar un caso puntual: la Customer "Doris Maldonado" (Id 21390) tenía `Email = dorism89+migP12122025017644@hotmail.com` en vez del email real `dorism89@hotmail.com`. Rastreado a `EntityMatcher.ResolveUniqueEmailAsync` (`WholeCareInsurance.Migration/Matching/EntityMatcher.cs:240-256`): cuando el email real de una fila de origen ya está en uso por otro Customer (índice único de `Customer.Email`, `CustomerConfiguration.cs:21`), la migración no descarta el dato ni falla el import — inserta `+mig<SourceReference>` antes del `@` para no violar la unicidad, dejando constancia en el reporte de migración.
+
+**Alcance medido de ese síntoma**: 35 de 2,130 Customers (≈1.6%) tienen ese sufijo. Reconstruyendo el email limpio para los 35, los 35 chocan con el email de otro Customer real — **0 casos** se podían revertir sin generar una colisión nueva. De esos 35, 33 son grupos familiares reales que comparten un correo de contacto en el sistema origen (cónyuges/padres/hijos con distintos apellidos, comportamiento correcto de la migración). Los otros **2 no eran familias — eran la misma persona real migrada dos veces** como Customers separados.
+
+### 23.2 Los 2 casos confirmados — fusionados — ✅ Hecho (2026-07-29)
+
+Búsqueda exhaustiva en los 2,130 Customers (no solo los 35 con sufijo): agrupando por `DateOfBirth` exacto hay 96 fechas compartidas por más de un Customer (195 registros), en su mayoría coincidencias de cumpleaños sin relación. Cruzando esos grupos contra mismo `Phone` **o** misma `Address1` normalizada (sin filtro de nombre, para no dejar nada afuera), el resultado fueron exactamente los mismos 2 pares — ninguno adicional oculto:
+
+| | Id conservado | Id fusionado (borrado) | DOB | Evidencia |
+|---|---|---|---|---|
+| Doris Maldonado | **19613** ("Maldonado") | 21390 ("Maldonado Ramirez") | 1989-08-05 | mismo `Phone`, misma `Address1` ("889 Pin Oak Dr" / "Drive"), mismo `AgentId` (3048) en ambas pólizas |
+| Mariana Salvador Cruz | **19315** ("Salvador - Cruz", con SSN real) | 21386 ("Salvador Cruz", SSN placeholder) | 2005-03-27 | misma `Address1` exacta ("2700 Glenmont Ct"); `Phone` distinto entre las dos filas de origen |
+
+**Causa raíz confirmada**: `EntityMatcher.NameDobKey` (`EntityMatcher.cs:60-61`) compara `FirstName|LastName|DOB` como string exacto. Una variación mínima de formato en `LastName` entre dos filas de origen de la misma persona (un apellido de más — "Maldonado" vs "Maldonado Ramirez" — o un guión — "Salvador - Cruz" vs "Salvador Cruz") alcanza para que el matching no las una. Tampoco matchean por SSN porque ninguna de las 4 filas de origen traía un SSN real: el placeholder `NS-<SourceReference>` (`BuildSsnPlaceholder`) es único por fila, así que nunca colisiona entre sí.
+
+**Proceso de fusión** (cada Id duplicado tenía exactamente 1 `Policy` propia como titular, 0 como `PolicyDependent`, 0 documentos, 0 beneficiarios):
+1. **Backup completo previo**: `D:\backups\WholeCareInsuranceDb_pre_merge_duplicados_20260729.bak` (10.8 MB, `BACKUP DATABASE` completo, mismo criterio que §22.4).
+2. `UPDATE Policies SET CustomerId = <Id conservado>` para la única póliza de cada Id duplicado (Doris: póliza 381839 P12122025017644; Mariana: póliza 381835 P22112025017101).
+3. Verificación pre-`DELETE` (mostrada y confirmada por el responsable antes de borrar): `Policies` y `PolicyDependents` con `CustomerId` = Id a borrar → 0 filas en ambos casos, para los 2 Ids.
+4. `DELETE` de `Customers` Id 21390 y 21386.
+5. Verificación final: `COUNT(*)` de `Customers` bajó de 2,130 a **2,128** (exacto, sin efectos colaterales); las 2 pólizas reasignadas quedaron accesibles y con datos correctos consultando por los Ids conservados (19613 tiene 2 pólizas, 19315 tiene 2 pólizas).
+
+**Hallazgo aparte, visto en el camino, sin resolver**: la póliza 381835 de Mariana (la que traía "Salvador Cruz" sin SSN real) tenía `AgentId = 1` (el Admin seedeado, fallback de `EntityMatcher.ResolveAgentAsync` — ver §7/§15.3) en vez de un agente real, porque el nombre de agente de esa fila de origen no matcheó ningún `User` existente al momento de migrar. No es parte de este trabajo de deduplicación de Customers, pero queda anotado como candidato a revisar junto con el pendiente ya documentado en §7 de reasignar `Customer.AgentId` de fallback cuando corresponda (mismo tipo de gap, ahora confirmado que también aplica a `Policy` vía el agente asociado a la fila migrada).
+
+### 23.3 Mejora del matching de deduplicación para futuras migraciones/re-importaciones — ⏸ Propuesta pendiente de aprobación, no implementada
+
+Investigar cómo reforzar `NameDobKey`/`ResolveCustomerAsync` en `EntityMatcher.cs` para no perder casos como los de §23.2 en una futura corrida de migración o re-importación, sin volverlo tan laxo que fusione personas distintas por error (falso positivo — mucho más peligroso que un falso negativo, que al menos es detectable después vía este mismo tipo de análisis). Pendiente de que el responsable revise la propuesta concreta (trade-off laxitud vs. seguridad) antes de tocar el código de matching.
+
+---
+
 ## 21. Orden sugerido de trabajo
 
 1. ~~Tipo en Policy~~ ✅ Hecho
@@ -968,3 +1002,4 @@ Backfill completo de la opción A confirmada en §22.2. **Backup previo**: `D:\b
 43. ~~Rediseño de la tabla de Policies (12 columnas nuevas, scroll horizontal, `Policy.CreatedAt`/`Policy.RenewalStatus` nuevos, `CustomerResponseDto.AgentAgency`)~~ ✅ Hecho (§18), incluye 2 hallazgos fuera del plan original: menú de acciones (⋮) reutilizable en Policies/Customers/Agentes y fix de un bug de layout preexistente en `AppLayout.jsx` (§18.11)
 44. ~~Deuda técnica — ESLint `react-hooks/set-state-in-effect`~~ ✅ Resuelto parcial (§20): 5 casos de fetching corregidos vía `queueMicrotask` (Dashboard/Customers/Agentes/InsuranceCompanies + un 6to caso silencioso en Policies no reportado por el linter, ver §20.1). Queda 1 caso distinto pendiente (§20.3): extraer la sección "Datos Life Insurance del titular" de Policies.jsx a subcomponente con `key={customerId}`.
 45. Dashboard "Additional statistics" — bug de normalización de mayúsculas en `Customer.City` — 🔶 Parcial: backfill de datos aplicado (336 filas corregidas con backup previo, 304→191 valores distintos, 0 duplicados de case restantes, ver §22.4). Falta el freno al `<input>` libre del frontend y los gráficos tipo torta/dona (top 9 + Otros) de la Parte 2, ninguno de los dos implementado todavía (§22.3)
+46. Customers duplicados por bug de matching en la migración (Doris Maldonado, Mariana Salvador Cruz) — 🔶 Parcial: los 2 casos confirmados fusionados con backup previo y verificación (§23.2). Falta aprobar e implementar el refuerzo del matching `NameDobKey` para futuras migraciones (§23.3) y revisar el hallazgo aparte del `AgentId` en fallback Admin en la póliza de Mariana (§23.2, mismo gap que §7)
