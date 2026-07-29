@@ -819,7 +819,7 @@ Dos opciones evaluadas: (A) sacar `setLoading(true)` de la función compartida y
 
 ---
 
-## 22. Dashboard — "Additional statistics": bug de normalización de mayúsculas + plan de gráficos tipo torta — ⏸ Pendiente de implementar, prioridad normal no bloqueante (decisión tomada, plan documentado, nada implementado)
+## 22. Dashboard — "Additional statistics": bug de normalización de mayúsculas + plan de gráficos tipo torta — 🔶 Parcial: backfill de datos aplicado (§22.4), falta el freno en el frontend y los gráficos (§22.3)
 
 Encontrado por el responsable en el widget "Additional statistics" (By Insurance Company / By County / By City, §9.3): "Nashville" (114) y "NASHVILLE" (30) aparecen como entradas separadas cuando deberían ser una sola ciudad — mismo problema visible en Antioch/ANTIOCH y Smyrna/SMYRNA. Se pidió investigar el alcance real (no asumir que son solo esos 3 casos) antes de proponer una solución, y documentar además un plan de gráficos tipo torta/dona para reemplazar las 3 listas actuales — sin implementar nada de ninguna de las dos partes todavía.
 
@@ -883,11 +883,41 @@ Pedido: reemplazar las 3 listas actuales (`NameCountList`, `Dashboard.jsx:96-118
 
 **Por qué depende de la Parte 1**: si se grafica antes de normalizar el case, "Nashville" y "NASHVILLE" van a aparecer como 2 porciones separadas en la torta (peor que en una lista, porque además de duplicar la cuenta, 2 porciones finitas para lo que visualmente debería ser una sola ciudad rompe la lectura de proporciones de un vistazo, que es la razón misma de usar un gráfico de torta).
 
-**Problema de legibilidad a resolver (ya señalado por el responsable)**: `County` y `City` hoy muestran "y N más" (101 más, 295 más — con la normalización de Parte 1 aplicada, `City` bajaría a ~247 valores distintos, `County` a 110, ambos siguen siendo demasiados para una torta legible). `InsuranceCompany` tiene como máximo 31 valores posibles (§1.5) pero en la práctica los datos reales rondan bastante menos — a confirmar cuántas aseguradoras distintas aparecen realmente con pólizas antes de decidir si necesita el mismo tratamiento.
+**Problema de legibilidad a resolver (ya señalado por el responsable)**: `County` y `City` hoy muestran "y N más" (101 más, 295 más — con la normalización de Parte 1 ya aplicada (§22.4), `City` quedó en 191 valores distintos, sigue siendo demasiado para una torta legible). `InsuranceCompany` tiene como máximo 31 valores posibles (§1.5) pero en la práctica los datos reales rondan bastante menos — a confirmar cuántas aseguradoras distintas aparecen realmente con pólizas antes de decidir si necesita el mismo tratamiento.
 
 **Propuesta**: top 9 + "Otros" agrupado (10 porciones como máximo, mismo límite que ya usa `NameCountList` hoy con su `limit = 10`, así que es un criterio ya validado en esta misma pantalla, no uno nuevo) — para los 3 (`ByInsuranceCompany`/`ByCounty`/`ByCity`), por consistencia, aunque `InsuranceCompany` probablemente nunca llegue a necesitar el agrupamiento en la práctica. "Otros" se pinta con un gris neutro fijo (no un color de la paleta categórica, para no confundirlo visualmente con una categoría real) y va sin criterio de orden especial (siempre al final, sea cual sea su tamaño). Reutiliza `CATEGORICAL_COLORS`/`ChartWithLegend` tal cual existen hoy — no hace falta ningún componente nuevo, solo una función chica que colapse `items.slice(9)` en un bucket "Otros" antes de pasarlo a `ChartWithLegend`.
 
-**No implementado** — a la espera de que se resuelva la Parte 1 primero (según lo pedido), y de que el responsable confirme la propuesta del top 9 + Otros.
+**No implementado todavía** — la Parte 1 ya está resuelta (§22.4), queda pendiente que el responsable confirme la propuesta del top 9 + Otros antes de implementar.
+
+### 22.4 Parte 1 — Backfill de `Customer.City` aplicado — ✅ Hecho (2026-07-29)
+
+Backfill completo de la opción A confirmada en §22.2. **Backup previo**: `D:\backups\WholeCareInsuranceDb_pre_city_normalization.bak` (10.6 MB, `BACKUP DATABASE` completo antes de tocar cualquier fila).
+
+**Aplicado en un solo lote, revisado y confirmado por el responsable antes de cada tanda**:
+- **323 filas**: los 57 grupos de duplicado por case (914 filas totales en esos grupos, pero solo 323 tenían un case distinto al canónico — el resto ya estaba bien escrito) + los typos/abreviaturas confirmados a mano cruzando `ZipCode` contra un zip real conocido (ej. `Nasville`→Nashville confirmado por zip 37207; `CASELBERRY`→Casselberry por zip 32707 compartido con `CASSELBERRY`) — todos con Title Case como canónico.
+- **1 fila**: `LAND O<carácter corrupto>LAKES` → "Land O' Lakes", matcheada por patrón `LIKE 'LAND O_LAKES'` (comodín de 1 carácter) en vez de un string literal, precisamente para no depender de reproducir un byte corrupto que el cliente SQL de esta sesión no podía representar de forma confiable.
+- **2 filas — caso "zip cargado en el campo City"**: `City = "37167"` → "Smyrna" (zip real confirmado externamente, [city-data.com](https://www.city-data.com/zips/37167.html)); `City = "37217"` → "Nashville" **y además** `ZipCode` (que en esa fila decía literalmente el string `"Nashville"`, los dos campos estaban invertidos) → "37217" ([zip-codes.com](https://www.zip-codes.com/zip-code/37217/zip-code-37217.asp)).
+
+**Hallazgos que aparecieron durante la verificación posterior al lote principal (no estaban en el análisis original, se fueron resolviendo a medida que se encontraban, cada uno confirmado antes de aplicar)**:
+- **`La�Vergne` (Id 20014)**: el responsable lo investigó directamente en SSMS/Azure Data Studio con `ASCII(SUBSTRING(...))` — no era un apóstrofo corrupto como se sospechaba, era un **non-breaking space (código 160)** en vez de un espacio normal (32) entre "La" y "Vergne". Corregido con `REPLACE(City, NCHAR(160), ' ')`. Se corrió además un `SELECT` buscando `NCHAR(160)` en toda la columna `City` antes de asumir que era el único caso — confirmado que sí lo era.
+- **`VERGNE` (Id 20137, sin "La" adelante, mayúsculas)**: mismo zip (37086) que La Vergne — confirmado como el mismo lugar, corregido a "La Vergne".
+- **`LA VERGE` (Id 19925)**: mismo zip (37086) — este typo **se había detectado en el análisis automático por distancia de edición pero no llegó a la tabla final mostrada para aprobación** (error del asistente al compilar la tabla). Encontrado recién en la verificación de "mismo ZipCode, distinto City" que se corrió como chequeo cruzado adicional, no como parte del plan original — corregido a "La Vergne" apenas se detectó el faltante.
+- **4 casos de "nombre de estado en vez de ciudad"** (`Wisconsin`→Pewaukee zip 53072, `Oklahoma`→Oklahoma City zip 73120, `CALIFORNIA`→Chula Vista zip 91911, `NEW JERSEY`→Lakewood zip 08701) — categoría nueva, no contemplada en el análisis original de "raros" (case/typo/abreviatura/encoding). Encontrados en el mismo chequeo cruzado de "mismo ZipCode, distinto City". Cada ciudad real confirmada por fuente externa (city-data.com/zip-codes.com) antes de aplicar; el de Lakewood además coincidía con un cliente ya existente en la base con ese mismo zip y `City = "Lakewood"`.
+- **Efecto secundario del propio fix anterior**: al corregir `Wisconsin`→"Pewaukee", se expuso un duplicado de case nuevo (`PEWAUKEE`, 2 clientes, sin variante de case previa así que nunca había aparecido en los 57 grupos originales) — corregido también, misma categoría que el resto del lote.
+
+**El chequeo de "mismo `ZipCode`, distinto `City`" resultó ser la herramienta más efectiva para encontrar casos no detectados por el análisis de texto/distancia de edición** — la mayoría de los resultados de ese chequeo eran solapamientos reales de zona (ej. zip 33025 cubre Miami/Miramar/Pembroke Pines, zip 37013 cubre Antioch/Cane Ridge/Nashville — vecindarios reales, no errores), pero fue el método que sacó a la luz los 3 típos de "La Vergne" faltantes y los 4 de estado-como-ciudad.
+
+**Verificación final**:
+
+| Métrica | Resultado |
+|---|---|
+| Grupos con duplicado por case restantes | **0** |
+| Filas con `NCHAR(160)` (non-breaking space) restantes | **0** |
+| Nombres de estado cargados como `City` restantes | **0** |
+| Valores distintos de `City` (antes: 304) | **191** |
+| Clientes con `City` no vacío | 1179 (sin cambios, no se agregó ni borró ningún cliente) |
+
+**Pendiente, fuera de este backfill de datos**: el freno al `<input>` libre de `CustomerFormFields.jsx:121` (paso 3 del plan de §22.2, para que esto no se vuelva a ensuciar con altas/ediciones nuevas) y los gráficos de Parte 2 (§22.3) — ninguno de los dos se tocó en esta sesión, ambos siguen pendientes.
 
 ---
 
@@ -937,4 +967,4 @@ Pedido: reemplazar las 3 listas actuales (`NameCountList`, `Dashboard.jsx:96-118
 42. ~~Unificación de listados de Customers/Agentes al estilo tabla de Policies + paginado en los 3 (pageSize=10)~~ ✅ Hecho (§17), incluye `User.IsActive` nuevo (baja lógica de agentes, reemplaza el DELETE que hubiera fallado siempre por FKs Restrict) y 2 modales de detalle nuevos
 43. ~~Rediseño de la tabla de Policies (12 columnas nuevas, scroll horizontal, `Policy.CreatedAt`/`Policy.RenewalStatus` nuevos, `CustomerResponseDto.AgentAgency`)~~ ✅ Hecho (§18), incluye 2 hallazgos fuera del plan original: menú de acciones (⋮) reutilizable en Policies/Customers/Agentes y fix de un bug de layout preexistente en `AppLayout.jsx` (§18.11)
 44. ~~Deuda técnica — ESLint `react-hooks/set-state-in-effect`~~ ✅ Resuelto parcial (§20): 5 casos de fetching corregidos vía `queueMicrotask` (Dashboard/Customers/Agentes/InsuranceCompanies + un 6to caso silencioso en Policies no reportado por el linter, ver §20.1). Queda 1 caso distinto pendiente (§20.3): extraer la sección "Datos Life Insurance del titular" de Policies.jsx a subcomponente con `key={customerId}`.
-45. Dashboard "Additional statistics" — bug de normalización de mayúsculas en `Customer.City` (914/1179 clientes con City afectados, 57 grupos duplicados por case) — decisión tomada: normalizar el dato + capar el input del frontend, prioridad normal (impacto confirmado contenido al Dashboard, sin urgencia) — + plan de gráficos tipo torta/dona (top 9 + Otros) condicionado a resolver esto primero. Nada implementado todavía (§22)
+45. Dashboard "Additional statistics" — bug de normalización de mayúsculas en `Customer.City` — 🔶 Parcial: backfill de datos aplicado (336 filas corregidas con backup previo, 304→191 valores distintos, 0 duplicados de case restantes, ver §22.4). Falta el freno al `<input>` libre del frontend y los gráficos tipo torta/dona (top 9 + Otros) de la Parte 2, ninguno de los dos implementado todavía (§22.3)
