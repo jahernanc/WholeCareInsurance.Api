@@ -788,22 +788,106 @@ Dos piezas de trabajo que no estaban en el plan aprobado de §18, pedidas/encont
 
 ---
 
-## 20. Deuda técnica — 5 errores reales de ESLint (`react-hooks/set-state-in-effect`) — ⏸ Pendiente, sesión dedicada
+## 20. Deuda técnica — ESLint `react-hooks/set-state-in-effect` — ✅ Resuelto parcial (2026-07-29): 5/6 casos de fetching corregidos, 1 caso distinto (estado derivado) queda como pendiente propio
 
-Encontrados por el responsable en el Error List de Visual Studio (`Dashboard.jsx:189`, marcado como "Error", no "Warning") — se pidió confirmar el diagnóstico antes de tocar nada.
+Encontrados originalmente por el responsable en el Error List de Visual Studio (`Dashboard.jsx:189`, marcado como "Error", no "Warning"). Confirmado en su momento que no era un problema de configuración editor/terminal — mismo error real en ambos lados (`eslint.config.js` hereda `reactHooks.configs.flat.recommended` del plugin `eslint-plugin-react-hooks@7.1.1` tal cual, que trae la regla en `"error"`). `npm run build` nunca se vio afectado — `vite build` no ejecuta ESLint.
 
-**Confirmado, no es un problema de configuración distinta entre el editor y la terminal — es el mismo error real en ambos lados:**
-- `npm run lint` (`eslint .`) reporta **5 errores reales** de la regla `react-hooks/set-state-in-effect` (más 1 warning aparte, sin relación) — `✖ 6 problems (5 errors, 1 warning)`, exit code `1`. `eslint.config.js` no define severidad propia para esta regla, hereda el preset `reactHooks.configs.flat.recommended` del plugin (`eslint-plugin-react-hooks@7.1.1`) tal cual viene — confirmado programáticamente que ese preset trae la regla en `"error"`, no `"warning"`. VS lee el mismo `eslint.config.js`, por eso coincide exacto con la terminal.
-- **`npm run build` (`vite build`) nunca se ve afectado** — es un script totalmente independiente de `lint` en `package.json`, no ejecuta ESLint en ningún paso. Por eso el build siempre compiló limpio pese a estos errores.
-- **Los 5 archivos y líneas afectadas** (mismo patrón en los 5: `useEffect(() => { loadXxx(); }, [])` llama a una función que hace `setState` de forma síncrona en el cuerpo del efecto):
-  - `Dashboard.jsx:189`
-  - `Customers.jsx:66`
-  - `Agentes.jsx:76`
-  - `InsuranceCompanies.jsx:34`
-  - `Policies.jsx:191`
-- **Origen: preexistente desde `390c3e0`** ("feat: frontend del Dashboard (§9)", 2026-07-27) — confirmado con `git blame` sobre `Dashboard.jsx:189` y con `git show --stat` de los commits de esta sesión (ninguno tocó `Dashboard.jsx`). No es deuda introducida en las sesiones de Agentes/Phone-CreatedAt/rediseño de tabla — ya estaba ahí desde el Dashboard original y se viene arrastrando (y reportando como "mismos problemas preexistentes, sin regresiones") desde entonces.
+**Origen: preexistente desde `390c3e0`** ("feat: frontend del Dashboard (§9)", 2026-07-27), confirmado con `git blame`.
 
-**No se corrige en esta sesión** — toca 5 archivos, conviene una sesión dedicada en vez de mezclarlo con trabajo de features. El fix conceptual (según la propia regla, ver `https://react.dev/learn/you-might-not-need-an-effect`) sería mover la carga inicial fuera del cuerpo síncrono del efecto (ej. inicializar el estado directo con una función lazy, o separar la función async y no depender de la regla `exhaustive-deps` deshabilitada a mano como está hoy en los 5 casos) — a evaluar caso por caso cuando se retome, no todos los 5 necesariamente se resuelven igual.
+### 20.1 Diagnóstico al retomar (2026-07-29): no eran 5 casos iguales, eran 6, y 2 patrones distintos
+
+Al retomar, se le pidió al asistente confirmar el patrón exacto de cada archivo antes de tocar nada (en vez de asumir que los 5 eran iguales):
+
+- **5 (de los 4 reportados + 1 silencioso) comparten el mismo patrón de fetching**: una función `async loadXxx()` reutilizable cuya primera línea (antes de cualquier `await`) es `setLoading(true)`, invocada directo desde un `useEffect(() => { loadXxx(); }, [])` de solo-montaje:
+  - `Dashboard.jsx:189` (`loadDashboard`)
+  - `Customers.jsx:67` (`loadCustomers`)
+  - `Agentes.jsx:70` (`loadUsers`)
+  - `InsuranceCompanies.jsx:34` (`loadCompanies`)
+  - **`Policies.jsx:748` (`loadData`) — 6to caso real, no reportado por el linter.** Mismo patrón exacto (`setLoading(true)` antes del primer `await`, llamado desde un `useEffect` de `[period]`), verificado armando reproducciones aisladas del patrón (con parámetros default y con el mismo guard `if (!token) return;` que tiene el efecto real) — ambas SÍ fueron marcadas por el linter en aislamiento, así que no es el guard ni los defaults lo que lo esconde. No se pudo aislar la causa exacta de por qué el linter no lo reporta en el archivo real (2500+ líneas) — sospecha: algún límite/bail-out del analizador del compilador de React ante un componente tan grande, sin confirmar. Se corrigió igual, por ser el mismo defecto conceptual.
+- **`Policies.jsx:194` (el 5to error originalmente reportado) es un patrón DISTINTO** — no es fetching, es el efecto que sincroniza `titularLifeForm` con el Customer titular seleccionado (`useEffect(() => { const c = getCustomer(customerId); setTitularLifeForm({...}); }, [customerId, customers])`). Es el caso de libro de ["adjusting state when a prop changes"](https://react.dev/learn/you-might-not-need-an-effect) — el fix recomendado no es diferir la llamada, es darle `key={customerId}` a esa sección del formulario para que React la remonte con estado fresco, lo que requiere extraerla a un subcomponente propio (ver §20.3, queda pendiente aparte).
+
+### 20.2 Fix aplicado a los 5 casos de fetching — ✅ Hecho (2026-07-29)
+
+Dos opciones evaluadas: (A) sacar `setLoading(true)` de la función compartida y ponerlo explícito en cada handler que dispara una recarga manual (arquitectónicamente más prolijo, pero toca ~15 call-sites entre los 4 archivos, con riesgo de que a alguno se le olvide el `setLoading(true)` y deje de mostrar el spinner ahí); (B) diferir la llamada un microtask (`queueMicrotask`), que rompe la cadena de reachability síncrona que chequea el linter sin cambiar ningún comportamiento perceptible. **Decisión del responsable: opción B** — menor riesgo, no depende de verificar cada call-site en navegador uno por uno. La opción A queda para el día que se refactorice alguna de esas pantallas por otro motivo.
+
+- Cambio de una línea en cada uno de los 5 `useEffect` de montaje: `loadXxx()` → `queueMicrotask(loadXxx)` (o `queueMicrotask(() => loadXxx(...))` donde hace falta pasar argumentos o llamar más de una función).
+- Verificado con `npm run build` (limpio) y `npm run lint`: bajó de `✖ 6 problems (5 errors, 1 warning)` a `✖ 2 problems (1 error, 1 warning)` — el único error remanente es `Policies.jsx:194` (titularLifeForm, ver §20.3), el warning es el de `exhaustive-deps` en `Agentes.jsx:72` (preexistente, sin relación con esta regla).
+
+### 20.3 Pendiente nuevo: extraer sección "Datos Life Insurance del titular" a subcomponente — ⏸ Pendiente
+
+`Policies.jsx:192-211` (el efecto que sincroniza `titularLifeForm`) queda como el único error real restante de `react-hooks/set-state-in-effect`. Fix recomendado (no aplicado en esta sesión, a pedido explícito del responsable de separarlo como tarea aparte): extraer la sección "Datos Life Insurance del titular" (~130 líneas de JSX + su estado: `titularLifeForm`, `titularLifeError`, `savingTitularLife`, `handleTitularLifeField`, `handleSaveTitularLife`) a un subcomponente propio, montado con `key={customerId}` — así React resetea su estado automáticamente al cambiar de titular, sin necesitar un efecto que lo haga a mano. Más invasivo que los 5 de fetching (cambia la estructura del archivo, no solo una línea por efecto), por eso se trata aparte.
+
+---
+
+## 22. Dashboard — "Additional statistics": bug de normalización de mayúsculas + plan de gráficos tipo torta — ⏸ Pendiente de implementar, prioridad normal no bloqueante (decisión tomada, plan documentado, nada implementado)
+
+Encontrado por el responsable en el widget "Additional statistics" (By Insurance Company / By County / By City, §9.3): "Nashville" (114) y "NASHVILLE" (30) aparecen como entradas separadas cuando deberían ser una sola ciudad — mismo problema visible en Antioch/ANTIOCH y Smyrna/SMYRNA. Se pidió investigar el alcance real (no asumir que son solo esos 3 casos) antes de proponer una solución, y documentar además un plan de gráficos tipo torta/dona para reemplazar las 3 listas actuales — sin implementar nada de ninguna de las dos partes todavía.
+
+### 22.1 Parte 1 — Origen del dato y alcance real del bug de case
+
+**Origen del dato — confirmado por código, no es corrupción de ningún paso de la migración**:
+- `Customer.City`/`Customer.County` vienen del xlsx de origen tal cual, sin normalizar (`CommonFieldsExtractor.cs:39-40`, `row.GetString("City")` — `ExcelRow.GetString` solo hace `.Trim()`, ningún cambio de case).
+- En el frontend, `City` es un `<input>` de texto libre (`CustomerFormFields.jsx:121`, sin dropdown ni normalización) — **riesgo activo, no solo histórico**: cualquier alta/edición nueva puede introducir otra variante de case. `County`, en cambio, es un `<select>` constreñido al dataset fijo `usCounties.json` (`CustomerFormFields.jsx:126`).
+- **Causa técnica exacta de por qué el Dashboard los separa**: la base tiene collation `SQL_Latin1_General_CP1_CI_AS` (**Case-Insensitive**) tanto a nivel de base como en las columnas `City`/`County`/`State` — confirmado con `sys.columns` + `DATABASEPROPERTYEX(..., 'Collation')`. Bajo esa collation, SQL Server trata `'Nashville' = 'NASHVILLE'` como verdadero para comparaciones/`GROUP BY`/`DISTINCT` (aunque el texto se guarda tal cual se escribió, sin normalizar el byte real). Pero `DashboardService.GetStats` (`DashboardService.cs:114-140`) primero hace `.ToListAsync()` (trae los strings crudos a memoria) y **recién ahí** aplica `.GroupBy(p => p.City)` — LINQ-to-Objects en memoria usa comparación **ordinal (case-sensitive)** por default, a diferencia de SQL. Ese desfasaje de collation (DB case-insensitive vs. agrupación en memoria case-sensitive) es la causa raíz exacta: no es un bug de un solo campo, es estructural a cómo está armado ese endpoint.
+
+**Alcance real, medido contra la base completa (no solo el top 10 visible)**:
+
+| Campo | Grupos canónicos con duplicado por case | Filas afectadas | Total con dato |
+|---|---|---|---|
+| `Customer.City` | **57** (de 304 valores distintos) | **914 / 1179 clientes con City (77.5%)** | 1179 |
+| `Customer.County` | 0 | — | 1179 |
+| `InsuranceCompany.Name` | 0 | — | — |
+| `Customer.State` | 0 | — | — |
+| `User.Agency` | 0 | — | — |
+| `Policy.RenewalStatus` | 0 | — | — |
+| `Customer.Occupation` | 8 (no usado hoy en ninguna pantalla/agrupación) | no medido | — |
+| `Customer.MaritalStatus` | 0 | — | — |
+
+City es **el único campo con el problema activo** entre los que efectivamente se usan en pantalla, y su alcance es mucho mayor al de los 3 ejemplos reportados (57 grupos, no 3; 914 de 1179 clientes con ciudad caen en algún grupo duplicado). El motivo por el que County/InsuranceCompany/State/Agency/RenewalStatus dan 0 es consistente con el código: todos son `<select>` controlados (dataset fijo, tabla propia con validación de duplicado, o el enum de 2 valores del backfill de §18.8) — ninguno permite texto libre salvo `City` (y `Occupation`, que hoy no se usa para agrupar en ningún lado, así que no es urgente pero queda anotado).
+
+Ejemplos reales (top 5 por impacto, de los 57 grupos): NASHVILLE (3 variantes, 142 filas), ANTIOCH (2 variantes, 123 filas), SMYRNA (3 variantes, 108 filas), MURFREESBORO (3 variantes, 91 filas), ORLANDO (3 variantes, 45 filas).
+
+### 22.2 Parte 1 — Propuesta de solución: normalizar el dato, no la query
+
+Dos caminos evaluados:
+
+- **(A) Normalizar el dato en la base** (`UPDATE Customers SET City = <case canónico>` una sola vez + capar el `<input>` del frontend para que no se pueda volver a romper). **Pros**: arregla la causa de raíz para toda la app, no solo el Dashboard — cualquier pantalla/export/reporte futuro que use `City` ya lo ve limpio; cierra la fuga hacia adelante (el `<input>` libre de `CustomerFormFields.jsx:121` sigue sumando variantes nuevas con cada alta/edición si no se toca). **Contras**: hay que decidir un case canónico caso por caso — un Title Case automático a ciegas puede arruinar mayúsculas internas legítimas (ej. "La Vergne", "Fort Lauderdale", "Mt Juliet") — y correr un `UPDATE` masivo sobre datos reales; técnicamente de bajo riesgo (`City` no es FK ni participa del matching de la migración, ver §22.2b), pero toca 914 filas reales.
+- **(B) Normalizar solo en la query del Dashboard** (`GROUP BY UPPER(p.City)` o equivalente, sin tocar el dato real). **Pros**: cambio mínimo, un solo archivo (`DashboardService.cs`), sin migración de datos, sin tener que decidir un case canónico. **Contras**: el dato real sigue sucio y el `<input>` sigue sin freno — cualquier funcionalidad futura que use `City` (hoy ninguna otra, ver §22.2b) tendría que repetir la normalización, y la base sigue creciendo con variantes nuevas indefinidamente. Es un parche sobre el síntoma, no sobre la causa.
+
+**✅ Decisión confirmada del responsable: opción (A).** El hallazgo de §22.2b (impacto contenido al Dashboard, sin urgencia) baja la prioridad pero no cambia la decisión — se prefiere cerrar la causa de raíz antes de que se abra en algún otro lugar, en vez de parchear la query y depender de acordarse de replicarlo. **Prioridad normal, no bloqueante** — se implementa cuando haya lugar en el roadmap, no antes de otro trabajo en curso.
+
+**Pasos para cuando se implemente** (ninguno hecho todavía):
+1. Mostrar la lista completa de los 304 valores distintos de `City` antes de decidir el `UPDATE` — no aplicar Title Case automático a ciegas. Casos con mayúsculas internas legítimas ("La Vergne", "Fort Lauderdale", "Mt Juliet", posibles siglas) se revisan a mano o con una regla curada, no una función genérica de un solo paso.
+2. `UPDATE` masivo sobre los 914 registros afectados, con backup previo (mismo criterio que otros `UPDATE` masivos de este proyecto — ver `D:\backups\WholeCareInsuranceDb_pre_migracion.bak` de §7 como precedente).
+3. Frontend: agregar algún freno al `<input>` libre de City en `CustomerFormFields.jsx:121` — evaluar entre (a) un `<datalist>`/autocomplete con las ciudades ya existentes (reduce variantes nuevas sin forzar una lista cerrada que podría no cubrir una ciudad real que falte) o (b) normalizar a Title Case en el blur/submit del formulario antes de guardar (más simple, no depende de tener el dataset de ciudades ya cargado en el cliente). A decidir cuál al implementar.
+4. Aplicar la misma normalización a los datos de Parte 2 (gráficos) una vez resuelto esto — ver §22.3.
+
+**Fuera de este alcance, anotado para más adelante**: `Occupation` tiene el mismo tipo de problema (8 grupos duplicados por case) pero menor prioridad — no se usa para agrupar/mostrar en ningún lado hoy, así que no hay urgencia ninguna.
+
+### 22.2b Parte 1 — Alcance del impacto: ¿afecta a algo más que el Dashboard? — Investigado, impacto contenido
+
+A pedido del responsable, se investigó si el mismo problema de case en `City` afecta a algo más allá del widget del Dashboard (búsquedas/filtros en Customers, otros reportes, matching de la migración) antes de decidir la prioridad. **Confirmado: no — es el único lugar de toda la aplicación que agrupa/compara por `City`.**
+
+- `grep` completo de `City` en todos los Controllers/Services del backend: solo aparece en `CustomersController`/`UsersController` pasando el valor tal cual (create/update/response) — nunca se filtra, busca ni agrupa por `City` ahí.
+- `CustomerService.Search(page, pageSize)` no tiene ningún filtro además de paginado (ni siquiera por nombre) — el listado de Customers no tiene forma de buscar/filtrar por ciudad hoy.
+- `PolicyService.Search` filtra por `firstName`/`lastName`/`policyNumber`/`status`/`type`/`insuranceCompanyId`/`period` — `City` no es uno de los filtros.
+- Único `GroupBy` sobre `City` en todo `WholeCareInsurance.api`: `DashboardService.cs:136` (de 6 `GroupBy` totales en el proyecto, los otros 5 son sobre Status/Type/InsuranceCompany/County/PolicyId, ninguno en otro archivo).
+- Frontend: `city`/`City` solo precarga formularios de alta/edición (`Customers.jsx`, `Policies.jsx` sección titular Life Insurance) — nunca se usa para buscar, filtrar, ni listar valores distintos en ningún otro lugar.
+- `EntityMatcher.ResolveCustomerAsync` (script de migración, §7.1): el matching de Customers para deduplicar usa SSN + Nombre/Apellido/Fecha de nacimiento — `City` se guarda como dato pero no participa del matching, así que las variantes de case tampoco causaron altas duplicadas de Customer por este motivo.
+
+**Conclusión**: el 77.5% es un número real y grande, pero el impacto funcional está contenido al widget "Additional statistics" — no hay búsquedas rotas, no hay filtros afectados, no hay duplicados de Customer causados por esto. Es la base de la decisión de tratarlo con **prioridad normal, no bloqueante** (§22.2).
+
+### 22.3 Parte 2 — Gráficos tipo torta/dona para "Additional statistics" (condicionado a que se resuelva la Parte 1 primero)
+
+Pedido: reemplazar las 3 listas actuales (`NameCountList`, `Dashboard.jsx:96-118`) por el mismo componente de torta+leyenda que ya existe y se usa para Tipo/Status (`ChartWithLegend`/`DonutChart`, `Dashboard.jsx:29-94`) — mismo componente, sin reinventar nada nuevo, solo alimentarlo con datos distintos.
+
+**Por qué depende de la Parte 1**: si se grafica antes de normalizar el case, "Nashville" y "NASHVILLE" van a aparecer como 2 porciones separadas en la torta (peor que en una lista, porque además de duplicar la cuenta, 2 porciones finitas para lo que visualmente debería ser una sola ciudad rompe la lectura de proporciones de un vistazo, que es la razón misma de usar un gráfico de torta).
+
+**Problema de legibilidad a resolver (ya señalado por el responsable)**: `County` y `City` hoy muestran "y N más" (101 más, 295 más — con la normalización de Parte 1 aplicada, `City` bajaría a ~247 valores distintos, `County` a 110, ambos siguen siendo demasiados para una torta legible). `InsuranceCompany` tiene como máximo 31 valores posibles (§1.5) pero en la práctica los datos reales rondan bastante menos — a confirmar cuántas aseguradoras distintas aparecen realmente con pólizas antes de decidir si necesita el mismo tratamiento.
+
+**Propuesta**: top 9 + "Otros" agrupado (10 porciones como máximo, mismo límite que ya usa `NameCountList` hoy con su `limit = 10`, así que es un criterio ya validado en esta misma pantalla, no uno nuevo) — para los 3 (`ByInsuranceCompany`/`ByCounty`/`ByCity`), por consistencia, aunque `InsuranceCompany` probablemente nunca llegue a necesitar el agrupamiento en la práctica. "Otros" se pinta con un gris neutro fijo (no un color de la paleta categórica, para no confundirlo visualmente con una categoría real) y va sin criterio de orden especial (siempre al final, sea cual sea su tamaño). Reutiliza `CATEGORICAL_COLORS`/`ChartWithLegend` tal cual existen hoy — no hace falta ningún componente nuevo, solo una función chica que colapse `items.slice(9)` en un bucket "Otros" antes de pasarlo a `ChartWithLegend`.
+
+**No implementado** — a la espera de que se resuelva la Parte 1 primero (según lo pedido), y de que el responsable confirme la propuesta del top 9 + Otros.
 
 ---
 
@@ -852,4 +936,5 @@ Encontrados por el responsable en el Error List de Visual Studio (`Dashboard.jsx
 41. ~~Modal/Dialog reutilizable para crear/editar (Policies/Customers/Agentes/InsuranceCompanies)~~ ✅ Hecho (§16), incluye 2 bugs encontrados/corregidos en el camino (foco del Modal, falso required por Premium=0) y ajuste visual del modal de detalle
 42. ~~Unificación de listados de Customers/Agentes al estilo tabla de Policies + paginado en los 3 (pageSize=10)~~ ✅ Hecho (§17), incluye `User.IsActive` nuevo (baja lógica de agentes, reemplaza el DELETE que hubiera fallado siempre por FKs Restrict) y 2 modales de detalle nuevos
 43. ~~Rediseño de la tabla de Policies (12 columnas nuevas, scroll horizontal, `Policy.CreatedAt`/`Policy.RenewalStatus` nuevos, `CustomerResponseDto.AgentAgency`)~~ ✅ Hecho (§18), incluye 2 hallazgos fuera del plan original: menú de acciones (⋮) reutilizable en Policies/Customers/Agentes y fix de un bug de layout preexistente en `AppLayout.jsx` (§18.11)
-44. Deuda técnica — 5 errores reales de ESLint `react-hooks/set-state-in-effect` (Dashboard/Customers/Agentes/InsuranceCompanies/Policies, preexistentes desde `390c3e0`) — diagnóstico confirmado, corrección pendiente para una sesión dedicada (§20)
+44. ~~Deuda técnica — ESLint `react-hooks/set-state-in-effect`~~ ✅ Resuelto parcial (§20): 5 casos de fetching corregidos vía `queueMicrotask` (Dashboard/Customers/Agentes/InsuranceCompanies + un 6to caso silencioso en Policies no reportado por el linter, ver §20.1). Queda 1 caso distinto pendiente (§20.3): extraer la sección "Datos Life Insurance del titular" de Policies.jsx a subcomponente con `key={customerId}`.
+45. Dashboard "Additional statistics" — bug de normalización de mayúsculas en `Customer.City` (914/1179 clientes con City afectados, 57 grupos duplicados por case) — decisión tomada: normalizar el dato + capar el input del frontend, prioridad normal (impacto confirmado contenido al Dashboard, sin urgencia) — + plan de gráficos tipo torta/dona (top 9 + Otros) condicionado a resolver esto primero. Nada implementado todavía (§22)
