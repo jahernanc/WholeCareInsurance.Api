@@ -1228,6 +1228,64 @@ Solo afecta a una futura re-importación o re-run del script — el script ya co
 
 ---
 
+## 26. Rediseño de la sección "Profile" — ver/editar datos del perfil + cambio de contraseña — ⏸ Propuesta de arquitectura, sin implementar
+
+Pedido: hoy `/profile` (accesible desde el ícono de usuario en `Header.jsx`) muestra únicamente el formulario de cambio de contraseña — no hay forma de que un usuario logueado vea ni edite sus propios datos (nombre, teléfono, dirección, etc.). El legacy sí tiene una ficha de perfil completa (Name/agencia, Description/nombre de persona, Phone, Email, y una sección Address separada con Address #1/#2, City, Country, State/Province, Zip code, County — captura de referencia adjunta por el responsable). Se pide agregar esa vista/edición sin sacar el cambio de contraseña, con algún tipo de menú/tabs para navegar entre las dos secciones.
+
+### 26.1 Investigación previa — qué existe hoy
+
+**Backend, endpoints relacionados a "mis propios datos"** (`UsersController.cs`):
+- `GET /users/me` (`:97-105`) — existe, pero devuelve `UserMeDto`, un DTO **deliberadamente chico**: solo `Nombre`, `Email`, `Rol`, `IsEncargado`, `PreferredLanguage`, `MustChangePassword`. **No incluye `Phone`, `Agency`, `Address1/Address2/City/State/ZipCode/County` ni ninguno de los campos de perfil del Agente (§11)** — hoy se usa solo para la reconciliación en background de `AppLayout.jsx` (detectar `MustChangePassword` en una sesión activa), no para mostrar un perfil.
+- `PUT /users/me/language` (`:107-119`) — existe, pero solo actualiza `PreferredLanguage` (lo usa el selector de idioma del Header). No sirve como base para editar el resto de los campos.
+- `PUT /users/{id:int}` (`:121-169`) — el único endpoint que edita el resto de los campos (`Phone`, `Agency`, `Address1/2`, `City`, `State`, `ZipCode`, `County`, `Licensed`, `NpnNumber`, etc.), pero está restringido con `[Authorize(Roles = "Admin")]`. **Un Agente no puede llamarlo ni siquiera para su propio Id** — hoy no existe ningún camino por el que un Agente autenticado pueda editar un solo campo de su propio perfil más allá del idioma.
+- Aparte, `GET /users/{id}` (`:88-95`) solo exige `[Authorize]` (cualquier rol autenticado) y no restringe a que `id` sea el propio — cualquier usuario logueado puede traer el perfil completo de **cualquier otro** User por Id. No es parte de este pedido, pero queda anotado como hallazgo aparte (ver §26.4).
+
+**Conclusión: hoy no existe ningún endpoint que le permita a un Agente ver o editar su propio perfil completo — hay que crear uno nuevo** (`GET`/`PUT /users/me`, con un DTO más completo que `UserMeDto`, o extender ese mismo endpoint).
+
+### 26.2 Qué puede editar el usuario autenticado — restricciones, ✅ confirmadas por el responsable (2026-07-30)
+
+Comparando contra `PUT /users/{id}` (hoy Admin-only, edita todo), **no todos los campos deberían ser auto-editables por un Agente**:
+
+- **Editables razonablemente por el propio usuario**: `Nombre`, `MiddleName`, `Gender`, `Phone`, `Email`, `Address1`, `Address2`, `City`, `State`, `ZipCode`, `County` — son datos de contacto/identidad de la persona, no organizacionales.
+- **`Agency`** — ✅ **confirmado: solo lectura en el perfil propio** (se ve, no se edita). Mismo criterio que ya se aplicó a `Customer.AgentId`/`RecordAgentId` (asignación organizacional, solo Admin la cambia) — coincide además con que hoy solo hay 2 valores reales posibles (§15.1), no es un campo de "texto libre de la persona".
+- **`Rol`, `IsEncargado`, `IsActive`** — organizacionales/de permisos, deben seguir siendo Admin-only (ya lo son en `PUT /users/{id}`). No tiene sentido que aparezcan en absoluto en la pantalla de "mi perfil".
+- **`Licensed`/`LicenseNumber`/`NpnNumber`/`NpnOverride`/`HasCompanyContract`/`ContractNumber`/`CompanyName`/`ContractsWanted`/`AdditionalInformation`** — campos del formulario de alta de Agente (§11), no mencionados en el pedido ni en la captura del legacy adjuntada (que solo muestra Name/Description/Phone/Email/Address). Fuera de alcance de "mi perfil" por ahora — son datos que hoy solo carga/edita un Admin al dar de alta o editar un agente desde `/agentes`, no parte de la ficha de perfil simple que se está pidiendo.
+- **`Email`** — ✅ **confirmado: cambiar el propio email requiere confirmar con la contraseña actual**, mismo criterio que `POST /auth/change-password` (`currentPassword` + valor nuevo). Motivado por el caso de Alexander Centeno de esta misma sesión: el email es el campo de login, así que no alcanza con solo estar autenticado para cambiarlo — al implementar, el endpoint `PUT /users/me` tiene que validar la contraseña actual específicamente cuando el `Email` del body difiere del actual, devolviendo 400 si no matchea (mismo patrón de verificación que `AuthService.ChangePassword`, `BCrypt.Verify`).
+
+### 26.3 Estado actual de `Profile.jsx` — conviene extender, no rehacer
+
+`Profile.jsx` (108 líneas) es un componente único y simple: un `<h2>` + una tarjeta con el formulario de cambio de contraseña (`POST /auth/change-password`), sin ningún estado de navegación interna ni componente de menú. No hay tabs en ningún lugar de la app hoy — es un patrón nuevo para este código.
+
+**El ícono de usuario en `Header.jsx` (`:92-128`) ya tiene su propio menú desplegable** (inline, `position:absolute`, sin usar `Modal` ni `ActionsMenu`) con 3 ítems: "Profile" (navega a `/profile`), "Help" (sin `onClick`, dead), "Logout". **Este menú no es el que hay que tocar** — el pedido es sobre la estructura *interna* de la página `/profile` en sí (hoy solo tiene una sección; hace falta una forma de elegir entre "Ver/editar perfil" y "Cambiar contraseña" una vez adentro).
+
+### 26.4 Diseño del selector de sección — ✅ confirmado por el responsable (2026-07-30): 2 botones toggle, no tabs
+
+Evaluadas las opciones mencionadas en el pedido:
+
+- **`ActionsMenu` (⋮)**: descartado. Es un componente pensado específicamente para acciones de fila en una tabla (Policies/Customers/Agentes) — se posiciona con `position:fixed` + portal, ancla su menú a un botón chico dentro de una fila. Usarlo para navegar entre 2 secciones de una página completa sería forzar un patrón semánticamente distinto al que fue diseñado, y visualmente no hay precedente de un ⋮ como selector de sección en ningún lugar de la app hoy.
+- **Tabs**: descartado. No existe ningún componente de tabs en el código hoy — habría que crear uno nuevo desde cero, más superficie de la necesaria.
+- **✅ Confirmado — 2 botones tipo toggle, mismo patrón que ya usa `Customers.jsx`/`Policies.jsx`** para mostrar/ocultar el formulario de alta (`showForm ? "Cerrar formulario" : "+ Nuevo cliente"`, ver `Customers.jsx:194-200`): un par de botones ("Datos del perfil" / "Cambiar contraseña") arriba de la tarjeta, que controlan un estado local (`activeSection`) determinando qué sección se renderiza debajo. Menor superficie nueva (no hay que crear un componente de tabs), patrón ya validado visualmente en 2 pantallas de la app.
+
+### 26.5 Alcance propuesto (sin implementar)
+
+**Backend:**
+- Nuevo DTO `UserProfileDto` (o extender `UserMeDto` con los campos que faltan — ver punto abierto único, abajo) con `Nombre`, `MiddleName`, `Gender`, `Email`, `Phone`, `Agency` (solo lectura, se expone igual para mostrarlo), `Address1`, `Address2`, `City`, `State`, `ZipCode`, `County`.
+- `GET /users/me` — o se amplía el DTO que ya devuelve, o se agrega un endpoint nuevo más completo (a decidir al implementar, ver punto abierto único).
+- `PUT /users/me` nuevo — mismo patrón que `PUT /users/{id}` pero resolviendo el `id` desde el JWT (`ClaimTypes.NameIdentifier`, mismo criterio que `PUT /users/me/language`), **sin** permitir tocar `Rol`/`IsEncargado`/`IsActive`/`Agency` (ver §26.2) ni los campos de agente (Licensed/NPN/contrato). Valida `currentPassword` contra el hash existente específicamente cuando `Email` cambia (§26.2).
+
+**Frontend:**
+- `Profile.jsx`: agregar el selector de sección de 2 botones (§26.4) + una sección nueva "Datos del perfil" (formulario con los campos de §26.2, similar en estructura a los campos de dirección que ya existen inline en `Agentes.jsx` — evaluar si conviene extraerlos a un componente compartido, mismo criterio que `CustomerFormFields.jsx` en su momento, §2). La sección "Cambiar contraseña" existente se mueve tal cual a la segunda sección, sin cambios de lógica.
+- Sin cambios en `Header.jsx` — su menú desplegable actual (Profile/Help/Logout) sigue igual, solo sigue apuntando a `/profile`.
+
+**Fuera de alcance de este rediseño:**
+- El hallazgo aparte de `GET /users/{id}` sin restringir a "propio Id" (§26.1) — no es parte de este pedido, se deja anotado para evaluar aparte si corresponde restringirlo.
+- El ítem "Help" del menú del Header, sin `onClick` (dead) — no mencionado en este pedido, no se toca.
+- Campos de agente (Licensed/NPN/contrato/ContractsWanted/AdditionalInformation) — fuera de "mi perfil" según §26.2, siguen editables solo por Admin desde `/agentes`.
+
+**Único punto abierto restante** (los otros 3 quedaron confirmados arriba — a criterio técnico al momento de implementar, el responsable no necesita resolverlo de antemano): si `GET/PUT /users/me` reemplaza el `UserMeDto`/`GET /users/me` actual, o se agrega un endpoint nuevo aparte — priorizando **no romper el uso actual que ya hace `AppLayout.jsx`** (reconciliación en background de `MustChangePassword`).
+
+---
+
 ## 21. Orden sugerido de trabajo
 
 1. ~~Tipo en Policy~~ ✅ Hecho
@@ -1278,3 +1336,4 @@ Solo afecta a una futura re-importación o re-run del script — el script ya co
 46. ~~Customers duplicados por bug de matching en la migración (Doris Maldonado, Mariana Salvador Cruz)~~ ✅ Hecho: los 2 casos confirmados fusionados con backup previo y verificación (§23.2); refuerzo del matching (`_customerByDob` + `CheckPossibleDuplicate`, solo reporta, nunca fusiona automáticamente) implementado y verificado (§23.3). Queda pendiente, aparte, revisar el `AgentId` en fallback Admin encontrado en la póliza de Mariana (§23.2, mismo gap que §7)
 47. ~~Rediseño de la relación Customer ↔ Customer (titular/dependiente-aplicante)~~ ✅ Hecho (§24): Fase 1 (modelo `CustomerRelationship`, migración) + Fase 2 (backfill de 884 filas, §24.6) + Fase 3 (endpoints backend, filtro `?role=`, KPI `UniqueMembersCount`, §24.7) + Fase 4 (filtro de rol en Customers.jsx, tarjeta "Personas únicas" en el Dashboard, §24.8) + backfill de los 75 dependientes de email real (§24.10) + Clara/Elizabeth revisadas e incluidas (§24.11) — `CustomerRelationships` en 961 filas, todo verificado end-to-end con SQL directo, curl y navegador. Solo queda el backfill manual de emails placeholder (§24.9), trabajo operativo, no de desarrollo.
 48. ~~`Customer.Email` opcional (reemplaza el placeholder `noemail+P...` por `NULL`)~~ ✅ Hecho (§25): Fase A (schema + índice único filtrado, DTOs, fix de `""→null` en el frontend) + Fase B (backfill de los 947 existentes a `NULL`, backup previo, verificado 947/2128/0 residuales/1181 con email real) + Fase C (`EntityMatcher.ResolveUniqueEmailAsync` devuelve `null` en vez de generar placeholder, para futuras re-importaciones) — todo verificado con SQL directo, curl y build.
+49. Rediseño de la sección "Profile" (ver/editar datos del perfil + cambio de contraseña) — ⏸ Propuesta de arquitectura documentada (§26), sin implementar: `GET/PUT /users/me` nuevo (hoy no existe forma de que un Agente edite su propio perfil), `Agency` de solo lectura, cambio de `Email` propio requiere contraseña actual, selector de sección con 2 botones toggle (no tabs). Listo para arrancar en otra sesión.
