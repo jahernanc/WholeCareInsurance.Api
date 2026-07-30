@@ -98,10 +98,54 @@ namespace WholeCareInsurance.api.Controllers
         [Authorize]
         public async Task<IActionResult> Me()
         {
-            var email = User.Identity!.Name!;
-            var user = await _usersService.GetByEmail(email);
+            // Resuelve por Id (NameIdentifier), no por email vía User.Identity.Name: con
+            // PUT /users/me (§26) el email puede cambiar sin reemitir el JWT en el momento,
+            // y el Name claim del token viejo quedaría apuntando al email anterior — buscar
+            // por Id evita un 404 hasta que el token se refresque. Mismo criterio que ya usan
+            // UpdateMe/UpdateMyLanguage/Logout en este controller.
+            var userId = int.Parse(User.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value);
+            var user = await _usersService.GetById(userId);
             if (user == null) return NotFound();
             return Ok(ToMeResponse(user));
+        }
+
+        [HttpPut("me")]
+        [Authorize]
+        public async Task<IActionResult> UpdateMe([FromBody] UserProfileUpdateDto dto)
+        {
+            var userId = int.Parse(User.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value);
+            var existing = await _usersService.GetById(userId);
+            if (existing == null) return NotFound();
+
+            // Cambiar el email (el campo de login) exige confirmar la contraseña actual —
+            // no alcanza con estar autenticado (§26.2). Si no cambia, no se pide.
+            var emailChanged = !string.Equals(existing.Email, dto.Email, StringComparison.OrdinalIgnoreCase);
+            if (emailChanged)
+            {
+                if (string.IsNullOrEmpty(dto.CurrentPassword) || !BCrypt.Net.BCrypt.Verify(dto.CurrentPassword, existing.PasswordHash))
+                    return BadRequest(new ProblemDetails { Title = "Para cambiar el email hay que confirmar la contraseña actual." });
+
+                var emailOwner = await _usersService.GetByEmail(dto.Email);
+                if (emailOwner != null && emailOwner.Id != existing.Id)
+                    return BadRequest(new ProblemDetails { Title = "Ese email ya está en uso por otro usuario." });
+
+                existing.Email = dto.Email;
+            }
+
+            existing.Nombre = dto.Nombre;
+            existing.MiddleName = dto.MiddleName;
+            existing.Gender = dto.Gender;
+            existing.Phone = dto.Phone;
+            existing.Address1 = dto.Address1;
+            existing.Address2 = dto.Address2;
+            existing.City = dto.City;
+            existing.ZipCode = dto.ZipCode;
+            existing.State = dto.State;
+            existing.County = dto.County;
+            // Agency intencionalmente no se toca: no forma parte de UserProfileUpdateDto (§26.2).
+
+            var updated = await _usersService.Update(existing);
+            return Ok(ToMeResponse(updated));
         }
 
         [HttpPut("me/language")]
@@ -208,7 +252,17 @@ namespace WholeCareInsurance.api.Controllers
             Rol = u.Rol,
             IsEncargado = u.IsEncargado,
             PreferredLanguage = u.PreferredLanguage,
-            MustChangePassword = u.MustChangePassword
+            MustChangePassword = u.MustChangePassword,
+            MiddleName = u.MiddleName,
+            Gender = u.Gender,
+            Phone = u.Phone,
+            Agency = u.Agency,
+            Address1 = u.Address1,
+            Address2 = u.Address2,
+            City = u.City,
+            ZipCode = u.ZipCode,
+            State = u.State,
+            County = u.County
         };
     }
 }

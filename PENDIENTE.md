@@ -1228,7 +1228,7 @@ Solo afecta a una futura re-importación o re-run del script — el script ya co
 
 ---
 
-## 26. Rediseño de la sección "Profile" — ver/editar datos del perfil + cambio de contraseña — ⏸ Propuesta de arquitectura, sin implementar
+## 26. Rediseño de la sección "Profile" — ver/editar datos del perfil + cambio de contraseña — ✅ Hecho (2026-07-30)
 
 Pedido: hoy `/profile` (accesible desde el ícono de usuario en `Header.jsx`) muestra únicamente el formulario de cambio de contraseña — no hay forma de que un usuario logueado vea ni edite sus propios datos (nombre, teléfono, dirección, etc.). El legacy sí tiene una ficha de perfil completa (Name/agencia, Description/nombre de persona, Phone, Email, y una sección Address separada con Address #1/#2, City, Country, State/Province, Zip code, County — captura de referencia adjunta por el responsable). Se pide agregar esa vista/edición sin sacar el cambio de contraseña, con algún tipo de menú/tabs para navegar entre las dos secciones.
 
@@ -1283,6 +1283,30 @@ Evaluadas las opciones mencionadas en el pedido:
 - Campos de agente (Licensed/NPN/contrato/ContractsWanted/AdditionalInformation) — fuera de "mi perfil" según §26.2, siguen editables solo por Admin desde `/agentes`.
 
 **Único punto abierto restante** (los otros 3 quedaron confirmados arriba — a criterio técnico al momento de implementar, el responsable no necesita resolverlo de antemano): si `GET/PUT /users/me` reemplaza el `UserMeDto`/`GET /users/me` actual, o se agrega un endpoint nuevo aparte — priorizando **no romper el uso actual que ya hace `AppLayout.jsx`** (reconciliación en background de `MustChangePassword`).
+
+### 26.6 Implementación — ✅ Hecho (2026-07-30)
+
+**Punto abierto de §26.5 resuelto**: se extendió `UserMeDto` en vez de agregar un endpoint nuevo — `AppLayout.jsx` solo lee `preferredLanguage`/`mustChangePassword` de la respuesta de `GET /users/me`, así que agregarle campos no le afecta, y evita mantener dos DTOs "yo mismo" en paralelo.
+
+**Backend:**
+- `UserMeDto` (`DTOs/Users/UserMeDto.cs`) extendido con `MiddleName`, `Gender`, `Phone`, `Agency`, `Address1`, `Address2`, `City`, `ZipCode`, `State`, `County`. `Agency` se expone (solo lectura en el frontend) pero no es editable desde este flujo.
+- DTO nuevo `UserProfileUpdateDto` (`DTOs/Users/UserProfileUpdateDto.cs`) para `PUT /users/me` — **a propósito no tiene propiedades `Rol`/`IsEncargado`/`IsActive`/`Agency`**: como esos campos ni siquiera existen en la clase, el model binding de ASP.NET Core los ignora aunque alguien arme el body a mano (verificado, ver abajo).
+- `PUT /users/me` nuevo en `UsersController.cs`, resuelve el usuario por `ClaimTypes.NameIdentifier` (mismo criterio que `PUT /users/me/language`). Si `Email` cambia respecto al valor actual (comparación case-insensitive), exige `CurrentPassword` y lo valida contra el hash (`BCrypt.Verify`, mismo criterio que `POST /auth/change-password`) antes de aplicar el cambio; si no cambia, no la pide. También chequea que el nuevo email no esté en uso por otro usuario (mismo patrón que el chequeo de nombre duplicado de `InsuranceCompaniesController`) antes de guardarlo, para no depender de que el índice único de la tabla tire una excepción 500 sin manejar.
+- **Bug encontrado y corregido de paso**: `GET /users/me` (`Me()`) resolvía al usuario buscando por `User.Identity.Name` (el claim `Name` del JWT, que en este sistema es el email). Como el JWT no se reemite en el momento al cambiar el email desde `PUT /users/me`, la primera llamada a `GET /users/me` después de cambiar el email —con el token viejo, que sigue siendo válido hasta que expire o se refresque— buscaba por el email *anterior* y devolvía 404, rompiendo silenciosamente la reconciliación de `AppLayout.jsx` (que ignora errores que no sean 401). Se cambió a resolver por `ClaimTypes.NameIdentifier` (Id), igual que ya hacían `UpdateMe`/`UpdateMyLanguage`/`Logout` en el mismo controller — con eso el Id nunca cambia, así que no hay ventana rota. Verificado explícitamente (ver Verificación abajo).
+
+**Frontend (`Profile.jsx`):**
+- 2 botones toggle ("Datos del perfil" / "Cambiar contraseña") controlando un estado local `activeSection`, mismo estilo de color que el botón `showForm` de `Customers.jsx`/`Policies.jsx` pero como par de botones fijos (no uno solo que alterna texto), ya que acá se elige entre 2 secciones y no se abre/cierra un formulario.
+- Sección "Cambiar contraseña" movida tal cual a un componente `ChangePasswordSection`, sin tocar su lógica (sigue pegándole a `POST /auth/change-password`).
+- Sección nueva `ProfileDataSection`: carga `GET /users/me` al montar, formulario con los campos editables + `Agency` como `<input disabled>` de solo lectura. Si el valor de Email difiere del cargado originalmente, aparece el campo "Confirmá tu contraseña actual" (`required` solo en ese caso) y se manda `currentPassword` en el body solo cuando corresponde.
+- **Sin componente compartido para los campos de dirección** (evaluado en §26.5): se armaron inline en `Profile.jsx`, reutilizando los datos `US_STATES`/`US_COUNTIES`/`GENDERS` ya existentes (mismos que usa `Agentes.jsx`) pero sin extraer un `ProfileFormFields.jsx` — es la única pantalla que los usa, así que extraerlos no evita duplicación real, solo agregaría una capa de indirección sin otro consumidor.
+
+**Hallazgo durante la verificación — decisión del responsable**: el admin sembrado por `AdminUserSeeder` nunca carga `Address1`/`City`/`State`/`ZipCode`/`County` (quedan en `""`), y `UserProfileUpdateDto` los marca `[Required]` (mismo criterio que `UserUpdateDto`, según lo pedido) — `[Required]` de .NET rechaza string vacío, no solo `null`. Esto significa que en cualquier deploy nuevo, el primer admin que entre a "Datos del perfil" no puede guardar ni un cambio de Phone sin completar antes una dirección de EE.UU. completa. **Consultado, el responsable confirmó dejarlo tal cual** (mismo patrón que `PUT /users/{id}`, sin relajar la validación) — queda anotado acá por si en el futuro se vuelve a topar con el mismo síntoma.
+
+**Verificación:**
+- Backend: `dotnet build` sin errores (mismos warnings preexistentes de nulabilidad que ya tenían `UserResponseDto`/`UserCreateDto`, no introducidos por este cambio).
+- Frontend: `npm run build` y `npm run lint` sin errores (1 warning preexistente en `Agentes.jsx`, no tocado acá).
+- Backend, script contra la API real (`dotnet run` + llamadas HTTP encadenadas simulando `Profile.jsx`): login → `GET /users/me` → `PUT /users/me` cambiando solo Phone (200) → intento de inyectar `agency`/`rol`/`isEncargado`/`isActive` en el body (200, todos ignorados, `agency` siguió `null`) → cambio de Email sin `currentPassword` (400) → con `currentPassword` incorrecta (400) → con `currentPassword` correcta (200) → `GET /users/me` inmediatamente después **con el JWT viejo** (200, confirma el fix de `Me()`) → login con el email viejo (401) → login con el email nuevo (200) → revertido a `admin@wholecare.com` para dejar la base limpia.
+- Frontend, en el navegador real (Vite dev server + API local, login como `admin@wholecare.com`): toggle entre las 2 secciones funciona y preserva el estado de cada una; cambiar solo Phone y guardar muestra "Datos actualizados correctamente."; cambiar Email dispara la aparición del campo de confirmación de contraseña; guardar con la contraseña incorrecta muestra el error del backend tal cual ("Para cambiar el email hay que confirmar la contraseña actual."); guardar con la contraseña correcta actualiza el email y hace desaparecer el campo de confirmación; navegar a otra pantalla (`/agentes`) después de cambiar el email **no** desloguea ni rompe la sesión (confirma el fix de `Me()` también end-to-end, no solo por script); campo `Agency` se muestra deshabilitado, sin forma de editarlo desde la UI.
 
 ---
 
