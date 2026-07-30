@@ -8,7 +8,9 @@ namespace WholeCareInsurance.api.DTOs.Customers
         [Required][MaxLength(100)] public string FirstName { get; set; } = default!;
         [Required][MaxLength(100)] public string LastName { get; set; } = default!;
         [Required] public DateTime DateOfBirth { get; set; }
-        [Required][EmailAddress][MaxLength(200)] public string Email { get; set; } = default!;
+        // Opcional a propósito (ver comentario en Models/Customer.cs) — [EmailAddress]
+        // solo valida el formato cuando viene un valor, no rechaza null/vacío.
+        [EmailAddress][MaxLength(200)] public string? Email { get; set; }
         [Required][MaxLength(300)] public string Address1 { get; set; } = default!;
         [Required][MaxLength(20)] public string Phone { get; set; } = default!;
         [Required][AllowedValues("Permiso de trabajo", "Residente permanente", "Ciudadano", "Otro", "Asilo",

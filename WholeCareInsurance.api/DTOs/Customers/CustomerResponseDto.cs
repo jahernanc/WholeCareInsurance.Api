@@ -7,7 +7,7 @@ namespace WholeCareInsurance.api.DTOs.Customers
         public string FirstName { get; set; } = default!;
         public string LastName { get; set; } = default!;
         public DateTime DateOfBirth { get; set; }
-        public string Email { get; set; } = default!;
+        public string? Email { get; set; }
         public string Address1 { get; set; } = default!;
         public string Phone { get; set; } = default!;
         public string MigrationStatus { get; set; } = default!;

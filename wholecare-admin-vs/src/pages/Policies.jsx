@@ -426,6 +426,9 @@ function Policies() {
 
         const body = {
             ...newDependentForm,
+            // "" no pasa [EmailAddress] en el backend (a diferencia de null, que sí es
+            // válido ahora que Email es opcional) — se manda null explícito si quedó vacío.
+            email: newDependentForm.email === "" ? null : newDependentForm.email,
             agentId: newDependentForm.agentId ? Number(newDependentForm.agentId) : null,
             assistantAgentId: newDependentForm.assistantAgentId ? Number(newDependentForm.assistantAgentId) : null,
             recordAgentId: newDependentForm.recordAgentId ? Number(newDependentForm.recordAgentId) : null,

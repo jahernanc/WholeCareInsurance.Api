@@ -7,7 +7,12 @@
         public string FirstName { get; set; } = default!;
         public string LastName { get; set; } = default!;
         public DateTime DateOfBirth { get; set; }
-        public string Email { get; set; } = default!;
+        // Nullable a propósito (antes NOT NULL con placeholder "noemail+P..." para los
+        // Customers migrados sin email real) — se deja vacío hasta que el agente cargue
+        // el dato real, en vez de un placeholder sintético. Índice único filtrado en
+        // CustomerConfiguration.cs (WHERE Email IS NOT NULL) para poder tener más de un
+        // Customer con Email = NULL a la vez.
+        public string? Email { get; set; }
         public string Address1 { get; set; } = default!;
         public string Phone { get; set; } = default!;
         public string MigrationStatus { get; set; } = default!;

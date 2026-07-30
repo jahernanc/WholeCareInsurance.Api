@@ -144,6 +144,9 @@ function Customers() {
 
         const body = {
             ...form,
+            // "" no pasa [EmailAddress] en el backend (a diferencia de null, que sí es
+            // válido ahora que Email es opcional) — se manda null explícito si quedó vacío.
+            email: form.email === "" ? null : form.email,
             agentId: form.agentId ? Number(form.agentId) : null,
             assistantAgentId: form.assistantAgentId ? Number(form.assistantAgentId) : null,
             recordAgentId: form.recordAgentId ? Number(form.recordAgentId) : null,

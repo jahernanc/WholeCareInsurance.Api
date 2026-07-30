@@ -17,8 +17,12 @@ namespace WholeCareInsurance.api.Data.Configurations
             entity.Property(c => c.LastName).IsRequired().HasMaxLength(100);
             entity.Property(c => c.DateOfBirth).IsRequired();
 
-            entity.Property(c => c.Email).IsRequired().HasMaxLength(200);
-            entity.HasIndex(c => c.Email).IsUnique();
+            entity.Property(c => c.Email).HasMaxLength(200);
+            // Filtrado (WHERE Email IS NOT NULL): un índice único normal en SQL Server
+            // solo permite UNA fila con NULL en toda la tabla — probado empíricamente
+            // antes de este cambio. Filtrado, cualquier cantidad de Customers puede
+            // tener Email = NULL a la vez; solo exige unicidad entre los emails reales.
+            entity.HasIndex(c => c.Email).IsUnique().HasFilter("[Email] IS NOT NULL");
 
             entity.Property(c => c.Address1).IsRequired().HasMaxLength(300);
             entity.Property(c => c.Phone).IsRequired().HasMaxLength(20);

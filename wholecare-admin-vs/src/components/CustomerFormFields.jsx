@@ -91,7 +91,7 @@ function CustomerFormFields({ form, onFieldChange, agents = [], userIsAdmin = fa
 
             <div style={{ gridColumn: "1 / -1" }}>
                 <label style={labelStyle}>{t("form.fields.email")}</label>
-                <input type="email" name="email" value={form.email} onChange={onFieldChange} required style={inputStyle} />
+                <input type="email" name="email" value={form.email} onChange={onFieldChange} style={inputStyle} />
             </div>
 
             <div style={{ gridColumn: "1 / -1" }}>

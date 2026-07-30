@@ -1177,6 +1177,37 @@ Confirma que el modelo soporta sin fricción que la misma persona sea titular de
 
 ---
 
+## 25. `Customer.Email` opcional — reemplaza el placeholder `noemail+P...` por `NULL` — 🔶 En progreso: Fase A (schema) ✅ Hecho (2026-07-30), Fase B (backfill) esperando confirmación del COUNT(*), Fase C (script de migración) pendiente
+
+Decisión del responsable: en vez de mantener el placeholder sintético `noemail+P<referencia>@migracion.wholecare.local` para los Customers migrados sin email real (§24, auditoría original), se prefiere dejar el campo directamente vacío (igual que el legacy, que muestra "Empty") para que cada agente cargue el dato real con el tiempo. Diagnóstico técnico previo (mismo día, sin cambios de código) confirmó que es viable pero no trivial — el índice único existente solo tolera **una** fila con `NULL` en toda la tabla salvo que se pase a un índice filtrado.
+
+**Orden estricto acordado** (invertirlo rompe el índice): Fase A (schema + índice filtrado, sin tocar datos) → Fase B (backfill de los ~947 existentes) → Fase C (evitar que una futura re-importación vuelva a generar placeholders).
+
+### 25.1 Fase A — Schema e índice filtrado — ✅ Hecho (2026-07-30)
+
+- `Models/Customer.cs`: `Email` pasó de `string` a `string?`.
+- `CustomerConfiguration.cs`: se sacó `.IsRequired()` de la property; el índice único pasó a **filtrado** — `entity.HasIndex(c => c.Email).IsUnique().HasFilter("[Email] IS NOT NULL")`. Motivo (probado empíricamente antes de decidir, ver conversación de esta sesión): un índice único normal de SQL Server solo permite **una** fila con `NULL` en toda la tabla — con un índice filtrado, cualquier cantidad de filas con `NULL` conviven sin problema, y el índice solo sigue exigiendo unicidad entre los emails reales que sí se carguen.
+- `CustomerCreateDto`/`CustomerUpdateDto` (esta última hereda de la primera): se sacó `[Required]` de `Email`, se mantuvo `[EmailAddress][MaxLength(200)]`. `CustomerResponseDto.Email` pasó a `string?`.
+- Migración `20260730155631_MakeCustomerEmailNullableWithFilteredIndex` generada y aplicada contra la base de dev (`ALTER COLUMN Email NULL` + `DROP`/`CREATE UNIQUE INDEX ... WHERE [Email] IS NOT NULL`).
+- Frontend: se sacó `required` del `<input type="email">` de `CustomerFormFields.jsx` (usado tanto en `Customers.jsx` como en el panel "crear dependiente nuevo" de `Policies.jsx`).
+- **Hallazgo durante la verificación, corregido en el mismo paso**: `[EmailAddress]` de ASP.NET Core rechaza con 400 un string **vacío** (`""`) — solo `null` es válido cuando no hay `[Required]` (confirmado con curl: `email:""` → 400 "not a valid e-mail address"; `email:null` → 201). Como el estado default del formulario usa `""`, no `null`, se agregó la conversión `email: form.email === "" ? null : form.email` en el armado del body tanto en `Customers.jsx` como en `Policies.jsx` (`handleSubmit`/`handleCreateDependent`) — sin este fix, guardar un Customer sin tocar el campo Email hubiera fallado con 400 pese a que el campo ya no es obligatorio.
+
+**Verificado**:
+- Metadata del índice por SQL directo: `has_filter=1`, `filter_definition='([Email] IS NOT NULL)'`.
+- Prueba empírica (transacción con `ROLLBACK`, sin dejar datos): 2 filas reales de `Customers` con `Email=NULL` insertadas sin conflicto contra el índice ya filtrado.
+- `dotnet build`/`npm run build`/`npm run lint` limpios (mismos warnings preexistentes de siempre, ninguno nuevo).
+- End-to-end con curl contra la API real (limpiando los datos de prueba después de cada verificación): crear 2 Customers reales con `email:null` → ambos `201`; editar uno con un email real → `200`; intentar poner ese mismo email real en el otro → rechazado (el índice sigue exigiendo unicidad entre emails reales — cae en un `500` genérico de `GlobalExceptionMiddleware`, gap preexistente sin relación a este cambio, ya señalado en el diagnóstico previo); volver a vaciar el email vía edición → `200`, confirma que el fix de `""→null` del frontend funciona en el flujo de edición también.
+
+### 25.2 Fase B — Backfill de los ~947 existentes — ⏸ Esperando confirmación del `COUNT(*)`, sin aplicar el `UPDATE`
+
+No ejecutado todavía. Pendiente: backup previo, `SELECT COUNT(*) FROM Customers WHERE Email LIKE 'noemail+P%'` (puede haber cambiado desde la medición original de 947 — la Fase 2/2.10/2.11 de §24 no tocaron `Email`, así que no debería haber variado, pero se re-mide antes de aplicar nada), mostrar el número al responsable, y solo después correr el `UPDATE ... SET Email = NULL`.
+
+### 25.3 Fase C — Evitar nuevos placeholders en futuras re-importaciones — Pendiente
+
+No ejecutado todavía. Cambio acotado a `EntityMatcher.cs` (`ResolveUniqueEmailAsync`): cuando no hay email real en el origen, devolver `null` en vez de generar `noemail+{sourceReference}@migracion.wholecare.local`. Solo afecta a una futura re-importación (el script ya corrido en §7 no se re-ejecuta).
+
+---
+
 ## 21. Orden sugerido de trabajo
 
 1. ~~Tipo en Policy~~ ✅ Hecho
@@ -1226,3 +1257,4 @@ Confirma que el modelo soporta sin fricción que la misma persona sea titular de
 45. ~~Dashboard "Additional statistics" — bug de normalización de mayúsculas en `Customer.City`~~ ✅ Hecho: backfill de datos (336 filas corregidas con backup previo, 304→191 valores distintos, §22.4) + freno al `<input>` libre (`<datalist>` de autocomplete + normalización a Title Case en el blur, §22.5 Parte A) + gráficos tipo torta/dona con top 9 + Otros para Aseguradora/Condado/Ciudad, reemplazando las 3 listas planas (§22.5 Parte B)
 46. ~~Customers duplicados por bug de matching en la migración (Doris Maldonado, Mariana Salvador Cruz)~~ ✅ Hecho: los 2 casos confirmados fusionados con backup previo y verificación (§23.2); refuerzo del matching (`_customerByDob` + `CheckPossibleDuplicate`, solo reporta, nunca fusiona automáticamente) implementado y verificado (§23.3). Queda pendiente, aparte, revisar el `AgentId` en fallback Admin encontrado en la póliza de Mariana (§23.2, mismo gap que §7)
 47. ~~Rediseño de la relación Customer ↔ Customer (titular/dependiente-aplicante)~~ ✅ Hecho (§24): Fase 1 (modelo `CustomerRelationship`, migración) + Fase 2 (backfill de 884 filas, §24.6) + Fase 3 (endpoints backend, filtro `?role=`, KPI `UniqueMembersCount`, §24.7) + Fase 4 (filtro de rol en Customers.jsx, tarjeta "Personas únicas" en el Dashboard, §24.8) + backfill de los 75 dependientes de email real (§24.10) + Clara/Elizabeth revisadas e incluidas (§24.11) — `CustomerRelationships` en 961 filas, todo verificado end-to-end con SQL directo, curl y navegador. Solo queda el backfill manual de emails placeholder (§24.9), trabajo operativo, no de desarrollo.
+48. `Customer.Email` opcional (reemplaza el placeholder `noemail+P...` por `NULL`) — 🔶 En progreso (§25): Fase A (schema + índice único filtrado, DTOs, fix de `""→null` en el frontend) ✅ Hecho, verificado end-to-end con SQL directo y curl; queda Fase B (backfill de los ~947 existentes, esperando confirmación del `COUNT(*)` antes del `UPDATE`) y Fase C (evitar nuevos placeholders en `EntityMatcher.cs` para futuras re-importaciones).
