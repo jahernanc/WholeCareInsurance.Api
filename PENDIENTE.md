@@ -971,7 +971,7 @@ Búsqueda exhaustiva en los 2,130 Customers (no solo los 35 con sufijo): agrupan
 
 ---
 
-## 24. Rediseño de la relación Customer ↔ Customer (titular/dependiente-aplicante) — 🔶 En progreso: Fase 1 (schema) ✅ Hecho (2026-07-30), Fases 2-4 pendientes
+## 24. Rediseño de la relación Customer ↔ Customer (titular/dependiente-aplicante) — 🔶 En progreso: Fases 1-2 (schema + backfill de 884 filas) ✅ Hecho (2026-07-30), Fases 3-4 pendientes
 
 Motivado por la auditoría de §23 (deduplicación) y una auditoría aparte enfocada específicamente en esta relación (2026-07-30, solo SQL de lectura, sin tocar datos): **947 de 2,128 Customers (44.5%)** tienen email placeholder de migración (`noemail+P<referencia>@migracion.wholecare.local`). De esos, 881 están vinculados como dependientes vía `PolicyDependent` y 66 son titulares de su propia póliza con email real todavía no cargado — **el 100% de los 947 ya tiene algún vínculo formal a una póliza**, no hay huérfanos flotantes. El problema no es de vínculo faltante, es de **modelo**: hoy no existe ninguna forma de decir "este Customer es un dependiente, no un titular" fuera de inferirlo indirectamente a través de `PolicyDependent`, y esa tabla mezcla dos conceptos distintos (relación personal vs. cobertura de una póliza puntual). Detalle completo de la auditoría en el historial de conversación de esta sesión.
 
@@ -1038,12 +1038,34 @@ Se propone **no tocar** `MembersCount`/`GetByStatus`/`GetByType` — miden cober
 ### 24.5 Fases de trabajo (estimación)
 
 - **Fase 1 — Backend/schema — ✅ Hecho (2026-07-30)**: modelo `CustomerRelationship` (`Models/CustomerRelationship.cs`), `CustomerRelationshipConfiguration.cs` (índice único compuesto `TitularCustomerId`+`DependentCustomerId`, ambas FKs a `Customer` en `Restrict`, igual que `PolicyDependentConfiguration.cs:18-20`), `DbSet` agregado a `AppDbContext.cs`, migración `20260730141422_AddCustomerRelationship` generada y aplicada contra la base de dev (`dotnet ef database update`). Sin backfill de datos todavía — tabla creada vacía a propósito (Fase 2 la puebla). Verificado: `dotnet build` sin errores nuevos (mismos 17 warnings preexistentes de nullable en DTOs de `Users`), schema confirmado por SQL directo (columnas, índice único, ambas FK con `ON DELETE NO ACTION`/Restrict), `COUNT(*)` de la tabla nueva en 0, y la API arranca limpio (`dotnet run`, seedea el admin, Swagger responde 200) sin ningún error de mapeo del modelo nuevo.
-- **Fase 2 — Migración de datos existentes**: script (probablemente dentro de `WholeCareInsurance.Migration/`, reusando el patrón de reporte de §23.3) que puebla `CustomerRelationship` desde `PolicyDependent`+`Policies` para los 881−casos_excluidos, genera el reporte de los 17 grupos ambiguos para revisión manual, backup previo obligatorio. Tamaño: mediano — la lógica es simple, pero necesita la misma disciplina de backup/verificación que §22/§23 (no se toca la base real sin confirmación explícita en cada paso).
+- **Fase 2 — Migración de datos existentes — ✅ Hecho (2026-07-30)**: ver detalle completo en §24.6.
 - **Fase 3 — Endpoints backend**: los 2 GET nuevos de relaciones, el efecto colateral en `AddDependent`/`RemoveDependent`, el filtro `?role=` en `CustomerService`, el KPI nuevo del Dashboard. Tamaño: mediano.
 - **Fase 4 — Frontend**: filtro de rol en `Customers.jsx`, tarjeta KPI nueva en `Dashboard.jsx`, mejora opcional en el detalle de dependientes de `Policies.jsx`. Tamaño: chico-mediano, similar a §17 (unificación de listados) pero con menos superficie.
-- **Fuera de fase, trabajo continuo sin bloquear nada**: revisión manual de los 17 grupos ambiguos (§24.2 punto 4) y backfill de los 947 emails placeholder (#4) — ambos son trabajo operativo del responsable/agentes, no tareas de desarrollo, y no bloquean ninguna de las 4 fases de arriba.
+- **Fuera de fase, trabajo continuo sin bloquear nada**: revisión manual de Clara y Elizabeth (§24.6) y backfill de los 947 emails placeholder (#4) — ambos son trabajo operativo del responsable/agentes, no tareas de desarrollo, y no bloquean las Fases 3-4.
 
-**Los 3 puntos abiertos de la propuesta original ya están resueltos** (comportamiento de `RemoveDependent`, filtro de rol como query param, nombres de tabla/endpoints — ver marcas ✅ arriba). **Fase 1 hecha** (ver arriba) — quedan Fases 2 a 4 (migración de datos, endpoints backend, frontend) para próximas sesiones.
+**Los 3 puntos abiertos de la propuesta original ya están resueltos** (comportamiento de `RemoveDependent`, filtro de rol como query param, nombres de tabla/endpoints — ver marcas ✅ arriba). **Fases 1 y 2 hechas** (ver arriba y §24.6) — quedan Fases 3 y 4 (endpoints backend, frontend) para próximas sesiones.
+
+### 24.6 Cierre de la Fase 2 — backfill de `CustomerRelationship` — ✅ Hecho (2026-07-30)
+
+**Backup previo**: `D:\backups\WholeCareInsuranceDb_pre_customerrelationship_migracion_20260730.bak` (10.9 MB, `BACKUP DATABASE` completo, mismo criterio que §22.4/§23.2).
+
+**Alcance final, ajustado en dry-run contra el plan original de §24.2**: al reconstruir el detalle completo de los 17 grupos de sufijo ambiguo (nombres, pólizas y titulares reales de cada miembro), 14 de los 17 resultaron ser renovaciones inofensivas (la misma familia migrada dos veces bajo el mismo titular, sin ambigüedad real) y solo 3 grupos tenían un miembro con titulares genuinamente distintos — exactamente los 5 ya confirmados en la auditoría original. Con esa evidencia, el responsable ajustó el alcance del `--commit`:
+- **Incluidos**: los 25 pares titular-dependiente de renovación pura (colapsan a 1 fila cada uno por el índice único, sin pérdida de información) + los 5 casos de doble titular confirmado (`20496`, `20497`, `20516`, `20517`, `20644` — 2 filas cada uno, un `TitularCustomerId` distinto por fila).
+- **Excluidos, documentados para revisión manual aparte** (no se insertó nada por ellos):
+  - **Clara Hasboun De Baptista (Id `20643`)**: comparte el grupo de sufijo `noemail+P23102025015943` con Jamal Baptista rivas (`20644`, uno de los 5 confirmados), pero Clara individualmente tiene un solo vínculo `PolicyDependent` (titular único, 19504 Luis Alfonso Baptista Zambrano) — no hay ninguna señal concreta de que sea un caso doble, solo quedó agrupada por compartir el prefijo de email con su hermano ambiguo. **Para incluirla después**: confirmar con el responsable si Clara tiene o no un segundo titular real (ej. el mismo padre/madre separado que aparece para Jamal) — si no lo tiene, se inserta como caso normal (`TitularCustomerId = 19504`).
+  - **Elizabeth Gonzalez rea (Id `20626`)**: mismo patrón — comparte el grupo `noemail+P26032026018209` con Nohemi Dugarte (`20625`) y Jahdiel Andara dugarte (`20627`), ambos con 2 vínculos de renovación al mismo titular (19491 Edder Andara palacios), pero Elizabeth individualmente tiene un solo vínculo `PolicyDependent` a ese mismo titular. **Para incluirla después**: mismo chequeo — confirmar que no falta un segundo vínculo real antes de insertarla como caso normal (`TitularCustomerId = 19491`).
+
+**Ejecución**: `INSERT INTO CustomerRelationships (TitularCustomerId, DependentCustomerId, RelationshipType, Source, CreatedAt) SELECT DISTINCT ...` desde `PolicyDependents` + `Policies` + `Customer.RelacionConPrincipal`, filtrando `Email LIKE 'noemail+P%'` y excluyendo únicamente `20643` y `20626`. `Source = 'Migración'` en las 884 filas (vs. `'Sistema'`, reservado para altas manuales futuras vía UI, cuando exista en Fase 3).
+
+**Verificación post-`--commit`**:
+
+| Chequeo | Resultado |
+|---|---|
+| `COUNT(*)` de `CustomerRelationships` | **884** (coincide exacto con el dry-run confirmado) |
+| Los 5 casos de doble titular tienen 2 filas cada uno, con 2 `TitularCustomerId` distintos | ✅ confirmado (`20496`, `20497`, `20516`, `20517`, `20644`, todos 2/2) |
+| Clara (`20643`) y Elizabeth (`20626`) no tienen ninguna fila | ✅ confirmado, `COUNT(*) = 0` para ambos Ids |
+
+**Pendiente, fuera de este backfill**: revisión manual de Clara y Elizabeth (arriba) — no bloquea las Fases 3/4, que ya pueden construirse sobre las 884 filas existentes.
 
 ---
 
@@ -1095,4 +1117,4 @@ Se propone **no tocar** `MembersCount`/`GetByStatus`/`GetByType` — miden cober
 44. ~~Deuda técnica — ESLint `react-hooks/set-state-in-effect`~~ ✅ Resuelto parcial (§20): 5 casos de fetching corregidos vía `queueMicrotask` (Dashboard/Customers/Agentes/InsuranceCompanies + un 6to caso silencioso en Policies no reportado por el linter, ver §20.1). Queda 1 caso distinto pendiente (§20.3): extraer la sección "Datos Life Insurance del titular" de Policies.jsx a subcomponente con `key={customerId}`.
 45. Dashboard "Additional statistics" — bug de normalización de mayúsculas en `Customer.City` — 🔶 Parcial: backfill de datos aplicado (336 filas corregidas con backup previo, 304→191 valores distintos, 0 duplicados de case restantes, ver §22.4). Falta el freno al `<input>` libre del frontend y los gráficos tipo torta/dona (top 9 + Otros) de la Parte 2, ninguno de los dos implementado todavía (§22.3)
 46. ~~Customers duplicados por bug de matching en la migración (Doris Maldonado, Mariana Salvador Cruz)~~ ✅ Hecho: los 2 casos confirmados fusionados con backup previo y verificación (§23.2); refuerzo del matching (`_customerByDob` + `CheckPossibleDuplicate`, solo reporta, nunca fusiona automáticamente) implementado y verificado (§23.3). Queda pendiente, aparte, revisar el `AgentId` en fallback Admin encontrado en la póliza de Mariana (§23.2, mismo gap que §7)
-47. Rediseño de la relación Customer ↔ Customer (titular/dependiente-aplicante) — 🔶 En progreso (§24): Fase 1 (modelo `CustomerRelationship`, configuration, migración `AddCustomerRelationship`) ✅ Hecho; quedan Fase 2 (migración de datos de los 947 Customers con email placeholder), Fase 3 (endpoints backend) y Fase 4 (frontend).
+47. Rediseño de la relación Customer ↔ Customer (titular/dependiente-aplicante) — 🔶 En progreso (§24): Fase 1 (modelo `CustomerRelationship`, configuration, migración `AddCustomerRelationship`) ✅ Hecho; Fase 2 (backfill de 884 filas desde `PolicyDependent`+`Policies`, con backup previo y verificación) ✅ Hecho (§24.6) — Clara (20643) y Elizabeth (20626) quedaron excluidas y documentadas para revisión manual aparte; quedan Fase 3 (endpoints backend) y Fase 4 (frontend).
