@@ -62,6 +62,12 @@
     "deleteError": "Error al eliminar el cliente",
     "loading": "Cargando clientes...",
     "empty": "No hay clientes registrados.",
+    "roleFilter": {
+        "label": "Mostrar",
+        "all": "Todos",
+        "titular": "Titulares",
+        "dependiente": "Dependientes"
+    },
     "table": {
         "fullName": "Nombre completo",
         "migrationStatus": "Tipo de residencia",

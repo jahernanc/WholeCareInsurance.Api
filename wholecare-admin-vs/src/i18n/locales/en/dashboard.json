@@ -11,7 +11,8 @@
         "agencies": "Agencies",
         "agents": "Agents",
         "policies": "Policies",
-        "members": "Members"
+        "members": "Members",
+        "uniqueMembers": "Unique members"
     },
     "byStatus": {
         "title": "Policies by Status",

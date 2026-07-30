@@ -271,6 +271,7 @@ function Dashboard() {
                         {summary.agentsCount !== null && <StatTile label={t("dashboard:summary.agents")} value={summary.agentsCount} />}
                         <StatTile label={t("dashboard:summary.policies")} value={summary.policiesCount} />
                         <StatTile label={t("dashboard:summary.members")} value={summary.membersCount} />
+                        <StatTile label={t("dashboard:summary.uniqueMembers")} value={summary.uniqueMembersCount} />
                     </div>
 
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, marginBottom: 20 }}>

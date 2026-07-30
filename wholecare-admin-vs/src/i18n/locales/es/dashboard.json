@@ -11,7 +11,8 @@
         "agencies": "Agencias",
         "agents": "Agentes",
         "policies": "Pólizas",
-        "members": "Miembros"
+        "members": "Miembros",
+        "uniqueMembers": "Personas únicas"
     },
     "byStatus": {
         "title": "Pólizas por Status",

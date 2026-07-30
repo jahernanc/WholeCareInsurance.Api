@@ -27,14 +27,17 @@ function Customers() {
     const [page, setPage] = useState(1);
     const [totalCount, setTotalCount] = useState(0);
     const [totalPages, setTotalPages] = useState(1);
+    const [roleFilter, setRoleFilter] = useState("");
 
     const userIsAdmin = isAdmin();
 
-    const loadCustomers = async (pageOverride) => {
+    const loadCustomers = async (pageOverride, roleOverride) => {
         const effectivePage = pageOverride ?? page;
+        const effectiveRole = roleOverride ?? roleFilter;
         try {
             setLoading(true);
-            const res = await apiFetch(`${API}?page=${effectivePage}`);
+            const roleParam = effectiveRole ? `&role=${effectiveRole}` : "";
+            const res = await apiFetch(`${API}?page=${effectivePage}${roleParam}`);
             if (!res.ok) throw new Error();
             const data = await res.json();
             setCustomers(data.items);
@@ -51,6 +54,12 @@ function Customers() {
     const handlePageChange = (newPage) => {
         if (newPage < 1 || newPage > totalPages) return;
         loadCustomers(newPage);
+    };
+
+    const handleRoleFilterChange = (e) => {
+        const newRole = e.target.value;
+        setRoleFilter(newRole);
+        loadCustomers(1, newRole);
     };
 
     const loadAgents = async () => {
@@ -182,13 +191,24 @@ function Customers() {
         <div>
             <h2 style={{ marginBottom: 20 }}>{t("title")}</h2>
 
-            <button
-                onClick={showForm ? () => setShowForm(false) : openCreate}
-                type="button"
-                style={{ marginBottom: 20, background: "#2563eb", color: "white", padding: "8px 14px", border: "none", borderRadius: 6, cursor: "pointer" }}
-            >
-                {showForm ? t("closeFormButton") : t("newButton")}
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 20, flexWrap: "wrap" }}>
+                <button
+                    onClick={showForm ? () => setShowForm(false) : openCreate}
+                    type="button"
+                    style={{ background: "#2563eb", color: "white", padding: "8px 14px", border: "none", borderRadius: 6, cursor: "pointer" }}
+                >
+                    {showForm ? t("closeFormButton") : t("newButton")}
+                </button>
+
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
+                    {t("roleFilter.label")}:
+                    <select value={roleFilter} onChange={handleRoleFilterChange} style={{ padding: "6px 8px" }}>
+                        <option value="">{t("roleFilter.all")}</option>
+                        <option value="titular">{t("roleFilter.titular")}</option>
+                        <option value="dependiente">{t("roleFilter.dependiente")}</option>
+                    </select>
+                </label>
+            </div>
 
             <Modal open={showForm} onClose={() => setShowForm(false)} maxWidth={560}>
                 <h3 style={{ marginTop: 0 }}>{editingId ? t("form.titleEdit") : t("form.titleCreate")}</h3>

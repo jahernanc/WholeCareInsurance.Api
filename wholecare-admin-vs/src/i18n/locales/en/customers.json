@@ -62,6 +62,12 @@
     "deleteError": "Error deleting customer",
     "loading": "Loading customers...",
     "empty": "No customers registered.",
+    "roleFilter": {
+        "label": "Show",
+        "all": "All",
+        "titular": "Titulars",
+        "dependiente": "Dependents"
+    },
     "table": {
         "fullName": "Full name",
         "migrationStatus": "Residency type",
