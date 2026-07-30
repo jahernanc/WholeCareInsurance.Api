@@ -1,5 +1,8 @@
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { apiFetch } from "../api";
 import { translateEnum } from "../i18n/translateEnum";
+import { toTitleCase } from "../utils/titleCase";
 import { US_STATES } from "../data/usStates";
 import US_COUNTIES from "../data/usCounties.json";
 import {
@@ -22,6 +25,31 @@ function CustomerFormFields({ form, onFieldChange, agents = [], userIsAdmin = fa
     const { t } = useTranslation(["customers", "common"]);
     const encargados = agents.filter((a) => a.isEncargado);
     const countiesForState = form.state ? (US_COUNTIES[form.state] ?? []) : [];
+    const [cityOptions, setCityOptions] = useState([]);
+
+    // §22.3: ciudades ya cargadas en la base, para sugerir sin forzar una lista cerrada
+    // (si el usuario escribe una ciudad real que no está todavía, se guarda igual).
+    useEffect(() => {
+        queueMicrotask(() => {
+            (async () => {
+                try {
+                    const res = await apiFetch("/api/customers/cities");
+                    if (res.ok) setCityOptions(await res.json());
+                } catch {
+                    // sin autocomplete si falla la carga — el campo sigue siendo texto libre
+                }
+            })();
+        });
+    }, []);
+
+    // Red de seguridad adicional (§22.3): normaliza a Title Case aunque no se haya
+    // usado el autocomplete, para que el dato guardado quede consistente igual.
+    const handleCityBlur = (e) => {
+        const normalized = toTitleCase(e.target.value);
+        if (normalized !== e.target.value) {
+            onFieldChange({ target: { name: "city", value: normalized } });
+        }
+    };
 
     return (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -118,7 +146,19 @@ function CustomerFormFields({ form, onFieldChange, agents = [], userIsAdmin = fa
 
             <div>
                 <label style={labelStyle}>{t("form.fields.city")}</label>
-                <input name="city" value={form.city} onChange={onFieldChange} style={inputStyle} />
+                <input
+                    name="city"
+                    list="city-suggestions"
+                    value={form.city}
+                    onChange={onFieldChange}
+                    onBlur={handleCityBlur}
+                    style={inputStyle}
+                />
+                <datalist id="city-suggestions">
+                    {cityOptions.map((c) => (
+                        <option key={c} value={c} />
+                    ))}
+                </datalist>
             </div>
 
             <div>

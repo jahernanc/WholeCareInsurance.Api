@@ -26,7 +26,7 @@
         "byInsuranceCompany": "By Insurance Company",
         "byCounty": "By County",
         "byCity": "By City",
-        "andMore": "and {{count}} more",
+        "others": "Others",
         "unspecified": "Unspecified"
     },
     "latestPolicies": {

@@ -96,6 +96,12 @@ namespace WholeCareInsurance.api.Controllers
             return Ok(policies);
         }
 
+        // Ciudades distintas ya cargadas (§22.3), para el <datalist> de autocomplete del
+        // campo City en CustomerFormFields.jsx — no es un dropdown cerrado, solo sugerencias.
+        [HttpGet("cities")]
+        public async Task<IActionResult> GetCities()
+            => Ok(await _customers.GetDistinctCities());
+
         // Dado un titular, sus dependientes vía CustomerRelationship (§24.1) — relación
         // personal, no ligada a una póliza puntual (eso lo sigue resolviendo
         // PoliciesController.GetDependents).

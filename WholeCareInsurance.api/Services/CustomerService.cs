@@ -118,6 +118,14 @@ namespace WholeCareInsurance.api.Services
             await _context.SaveChangesAsync();
         }
 
+        public async Task<List<string>> GetDistinctCities()
+            => await _context.Customers
+                .Where(c => c.City != null && c.City != "")
+                .Select(c => c.City!)
+                .Distinct()
+                .OrderBy(c => c)
+                .ToListAsync();
+
         // role: ver comentario en ICustomerService — "titular"/"dependiente" no son
         // excluyentes, cualquier otro valor (incluido null) no filtra nada.
         private IQueryable<Customer> ApplyRoleFilter(IQueryable<Customer> query, string? role) => role switch

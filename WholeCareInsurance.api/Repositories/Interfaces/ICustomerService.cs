@@ -17,5 +17,9 @@ namespace WholeCareInsurance.api.Services
         Task<List<CustomerRelationship>> GetDependentsOf(int titularCustomerId);
         Task<List<CustomerRelationship>> GetTitularesOf(int dependentCustomerId);
         Task UpsertRelationship(int titularCustomerId, int dependentCustomerId, string? relationshipType);
+
+        // Valores distintos de City ya cargados (§22.4: 191 tras la normalización) —
+        // alimenta el <datalist> de autocomplete del frontend (§22.3, freno al input libre).
+        Task<List<string>> GetDistinctCities();
     }
 }

@@ -14,6 +14,10 @@ const CATEGORICAL_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4
 const typeColor = (type) => CATEGORICAL_COLORS[POLICY_TYPES.indexOf(type) % CATEGORICAL_COLORS.length] ?? "#898781";
 const statusColor = (status) => CATEGORICAL_COLORS[POLICY_STATUSES.indexOf(status) % CATEGORICAL_COLORS.length] ?? "#898781";
 
+// "Otros" siempre gris neutro fijo (no un color de la paleta categórica, para no
+// confundirlo con una categoría real) y siempre al final, sea cual sea su tamaño (§22.3).
+const OTHERS_COLOR = "#9ca3af";
+
 const cardStyle = { border: "1px solid #ddd", borderRadius: 10, padding: 16, background: "white" };
 const sectionTitleStyle = { margin: "0 0 12px", fontSize: 16 };
 
@@ -93,28 +97,30 @@ function ChartWithLegend({ title, segments }) {
     );
 }
 
-function NameCountList({ title, items, unspecifiedLabel, andMoreLabel, limit = 10 }) {
-    const visible = items.slice(0, limit);
-    const restCount = items.length - visible.length;
-    const total = items.reduce((sum, i) => sum + i.policiesCount, 0);
+// Colapsa una lista "nombre -> cantidad de pólizas" (ya ordenada desc. por el backend)
+// en segmentos de torta: top 9 con colores de la paleta categórica (ciclados por
+// ranking — a diferencia de Tipo/Status, County/City/InsuranceCompany no tienen una
+// lista maestra fija, así que el color de una categoría puede variar según el filtro
+// activo) + un bucket "Otros" con el resto sumado, si hay más de `limit` valores.
+function toTopSegments(items, unspecifiedLabel, othersLabel, limit = 9) {
+    const labelFor = (name) => (name === "Sin especificar" || name === "Unspecified" ? unspecifiedLabel : name);
 
-    return (
-        <div style={cardStyle}>
-            <h5 style={{ margin: "0 0 8px", fontSize: 14 }}>{title}</h5>
-            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-                {visible.map((i) => (
-                    <li key={i.name} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "3px 0" }}>
-                        <span>{i.name === "Sin especificar" || i.name === "Unspecified" ? unspecifiedLabel : i.name}</span>
-                        <span style={{ color: "#666" }}>{i.policiesCount}</span>
-                    </li>
-                ))}
-            </ul>
-            {restCount > 0 && (
-                <div style={{ fontSize: 12, color: "#888", marginTop: 6 }}>{andMoreLabel(restCount)}</div>
-            )}
-            {items.length === 0 && total === 0 && <div style={{ fontSize: 13, color: "#888" }}>—</div>}
-        </div>
-    );
+    const top = items.slice(0, limit).map((item, i) => ({
+        label: labelFor(item.name),
+        count: item.policiesCount,
+        color: CATEGORICAL_COLORS[i % CATEGORICAL_COLORS.length],
+    }));
+
+    const rest = items.slice(limit);
+    if (rest.length > 0) {
+        top.push({
+            label: othersLabel,
+            count: rest.reduce((sum, item) => sum + item.policiesCount, 0),
+            color: OTHERS_COLOR,
+        });
+    }
+
+    return top;
 }
 
 function Dashboard() {
@@ -205,6 +211,12 @@ function Dashboard() {
     const typeSegments = byType.map((x) => ({ label: translateEnum("policyType", x.type), count: x.policiesCount, color: typeColor(x.type) }));
     const statusSegments = byStatus.map((x) => ({ label: translateEnum("policyStatus", x.status), count: x.policiesCount, color: statusColor(x.status) }));
 
+    const unspecifiedLabel = t("dashboard:stats.unspecified");
+    const othersLabel = t("dashboard:stats.others");
+    const insuranceCompanySegments = stats ? toTopSegments(stats.byInsuranceCompany, unspecifiedLabel, othersLabel) : [];
+    const countySegments = stats ? toTopSegments(stats.byCounty, unspecifiedLabel, othersLabel) : [];
+    const citySegments = stats ? toTopSegments(stats.byCity, unspecifiedLabel, othersLabel) : [];
+
     return (
         <div>
             <h2 style={{ marginBottom: 20 }}>{t("dashboard:title")}</h2>
@@ -282,25 +294,10 @@ function Dashboard() {
                     {stats && (
                         <div style={{ marginBottom: 20 }}>
                             <h3 style={sectionTitleStyle}>{t("dashboard:stats.title")}</h3>
-                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
-                                <NameCountList
-                                    title={t("dashboard:stats.byInsuranceCompany")}
-                                    items={stats.byInsuranceCompany}
-                                    unspecifiedLabel={t("dashboard:stats.unspecified")}
-                                    andMoreLabel={(n) => t("dashboard:stats.andMore", { count: n })}
-                                />
-                                <NameCountList
-                                    title={t("dashboard:stats.byCounty")}
-                                    items={stats.byCounty}
-                                    unspecifiedLabel={t("dashboard:stats.unspecified")}
-                                    andMoreLabel={(n) => t("dashboard:stats.andMore", { count: n })}
-                                />
-                                <NameCountList
-                                    title={t("dashboard:stats.byCity")}
-                                    items={stats.byCity}
-                                    unspecifiedLabel={t("dashboard:stats.unspecified")}
-                                    andMoreLabel={(n) => t("dashboard:stats.andMore", { count: n })}
-                                />
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16 }}>
+                                <ChartWithLegend title={t("dashboard:stats.byInsuranceCompany")} segments={insuranceCompanySegments} />
+                                <ChartWithLegend title={t("dashboard:stats.byCounty")} segments={countySegments} />
+                                <ChartWithLegend title={t("dashboard:stats.byCity")} segments={citySegments} />
                             </div>
                         </div>
                     )}

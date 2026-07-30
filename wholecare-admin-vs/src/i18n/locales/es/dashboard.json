@@ -26,7 +26,7 @@
         "byInsuranceCompany": "Por Compañía aseguradora",
         "byCounty": "Por Condado",
         "byCity": "Por Ciudad",
-        "andMore": "y {{count}} más",
+        "others": "Otros",
         "unspecified": "Sin especificar"
     },
     "latestPolicies": {
