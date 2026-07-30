@@ -971,6 +971,82 @@ Búsqueda exhaustiva en los 2,130 Customers (no solo los 35 con sufijo): agrupan
 
 ---
 
+## 24. Rediseño de la relación Customer ↔ Customer (titular/dependiente-aplicante) — ✅ Diseño aprobado (2026-07-30), sin implementar — arranca en Fase 1 en la próxima sesión
+
+Motivado por la auditoría de §23 (deduplicación) y una auditoría aparte enfocada específicamente en esta relación (2026-07-30, solo SQL de lectura, sin tocar datos): **947 de 2,128 Customers (44.5%)** tienen email placeholder de migración (`noemail+P<referencia>@migracion.wholecare.local`). De esos, 881 están vinculados como dependientes vía `PolicyDependent` y 66 son titulares de su propia póliza con email real todavía no cargado — **el 100% de los 947 ya tiene algún vínculo formal a una póliza**, no hay huérfanos flotantes. El problema no es de vínculo faltante, es de **modelo**: hoy no existe ninguna forma de decir "este Customer es un dependiente, no un titular" fuera de inferirlo indirectamente a través de `PolicyDependent`, y esa tabla mezcla dos conceptos distintos (relación personal vs. cobertura de una póliza puntual). Detalle completo de la auditoría en el historial de conversación de esta sesión.
+
+**Restricciones de diseño confirmadas por el responsable:**
+1. Un dependiente puede estar vinculado a **más de un titular** (5 casos reales confirmados: hijos que aparecen como dependientes en la póliza de cada uno de sus 2 padres, cada uno con su propia póliza separada). Descarta un `ParentCustomerId` simple 1-a-1 en `Customer`.
+2. La relación "personal" (quién es dependiente de quién, en general) y la relación "por póliza" (quién está cubierto en qué póliza específica) son conceptualmente distintas y hoy están mezcladas en `PolicyDependent`.
+3. `Customer.RelacionConPrincipal` (§1.6) sigue siendo descriptivo, no relacional, y el 62.5% de los dependientes migrados quedó en `"Otro"` genérico por el origen de datos (`HealthDependentsExtractor.cs`/`EnumMaps.cs` mapean "Parent"/"Dependent" del archivo viejo a `"Otro"` sin distinción). **No se promete mejorar esto retroactivamente** como parte de este rediseño.
+4. Los emails placeholder se completan a mano con el tiempo, sin bloquear nada mientras tanto — el diseño deja identificable la lista de candidatos (los 947 con `Email LIKE 'noemail+P%'`) sin necesidad de un campo nuevo para eso.
+5. El Dashboard cuenta "Miembros" por póliza (§9.3, `MembersOf` en `DashboardService.cs:47-48`) — puede contar a la misma persona física 2 veces si está en 2 pólizas. Se agrega un conteo de personas únicas, sin tocar el existente (§24.4).
+
+### 24.1 Diseño de tablas — tabla nueva `CustomerRelationship`, `PolicyDependent` no cambia
+
+**`PolicyDependent` se mantiene exactamente como está** (`PolicyId` + `CustomerId` + `IsAplicante`) — sigue respondiendo "¿quién está cubierto en esta póliza puntual, y es aplicante?". No se toca su schema ni sus endpoints existentes.
+
+**Tabla nueva, `CustomerRelationship`** — responde "¿quién es dependiente de quién, en general, más allá de una póliza puntual?":
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `Id` | `int` (PK) | |
+| `TitularCustomerId` | `int` (FK → `Customer`) | El principal |
+| `DependentCustomerId` | `int` (FK → `Customer`) | El dependiente |
+| `RelationshipType` | `string?` | Copiado de `Customer.RelacionConPrincipal` al migrar (ver §24.2); editable después por relación, no por persona — permite que la misma persona sea "Hijo/a" de un titular y algo distinto de otro, a futuro |
+| `Source` | `string` | `"Sistema"` / `"Migración"` — mismo patrón ya usado en `PolicyHistory.Source` (§13), para diferenciar vínculos creados a mano de los derivados del backfill |
+| `CreatedAt` | `DateTime` | |
+
+- **Índice único compuesto** en (`TitularCustomerId`, `DependentCustomerId`) — evita duplicar el mismo vínculo, y al ser dos columnas separadas (no una FK única) soporta de forma nativa que un `DependentCustomerId` aparezca en múltiples filas con distinto `TitularCustomerId` (restricción #1) y que un `TitularCustomerId` tenga muchos dependientes.
+- **Ambas FKs a `Customer` con `OnDelete(DeleteBehavior.Restrict)`** — mismo motivo que ya está documentado en `PolicyDependentConfiguration.cs:18-20`: dos FKs a la misma tabla desde una tabla intermedia no pueden cascadear ambas sin que SQL Server rechace el constraint por múltiples paths de cascada.
+- **No se agrega ningún flag `IsDependent`/`Role` en `Customer`** — la pregunta "¿es titular o dependiente?" se responde con una consulta derivada (`EXISTS` contra `Policies.CustomerId` para titular, contra `CustomerRelationship.DependentCustomerId` para dependiente; una persona puede ser ambas cosas a la vez, ej. un hijo mayor que además es titular de su propia póliza — confirmado que ese patrón ya existe hoy, ver §24.2 "2 casos con sufijo que también son titulares"). Guardar un flag desnormalizado obligaría a mantenerlo sincronizado en cada alta/baja de relación o póliza, con riesgo de quedar desactualizado — se prefiere derivarlo en la query, no cachearlo.
+
+**Vínculo entre las dos tablas**: al agregar un dependiente a una póliza (`POST /api/policies/{id}/dependents`, ya existente), el backend además crea (si no existe ya) la fila correspondiente en `CustomerRelationship` con `TitularCustomerId = Policy.CustomerId`. Si el par titular-dependiente ya tiene una fila (ej. el mismo dependiente se agrega a una segunda póliza del mismo titular — el caso de "renovación" confirmado en 25 de los 30 casos de la auditoría), no se duplica, gracias al índice único.
+
+**✅ Confirmado (2026-07-30)**: al *sacar* un dependiente de una póliza (`DELETE .../dependents/{customerId}`), **la `CustomerRelationship` se conserva** — no se borra junto con `PolicyDependent`. La relación familiar sigue siendo cierta aunque se dé de baja una cobertura puntual.
+
+### 24.2 Migración de los 947 Customers con email placeholder existentes
+
+Se deriva `CustomerRelationship` a partir de los datos que **ya son confiables** — `PolicyDependent` + `Policies.CustomerId` — no del patrón de sufijo del email (ese patrón solo se usó como heurística de análisis en la auditoría, no es la fuente de verdad).
+
+1. **881 dependientes con `PolicyDependent`**: por cada fila de `PolicyDependent`, insertar (si no existe) `CustomerRelationship(TitularCustomerId = Policy.CustomerId, DependentCustomerId = PolicyDependent.CustomerId, RelationshipType = Customer.RelacionConPrincipal, Source = "Migración")`. El índice único colapsa automáticamente los 25 casos de "mismo titular, 2 pólizas" (renovación) en una sola fila — no hace falta lógica especial para ese caso.
+2. **66 titulares con email placeholder**: no generan ninguna fila en `CustomerRelationship` (no son dependientes de nadie) — quedan igual de identificables que hoy por `Email LIKE 'noemail+P%'` + `EXISTS` en `Policies.CustomerId`, para la revisión manual de email del punto #4.
+3. **Los 5 casos de doble-titular ya confirmados** (customers 20496, 20497, 20516, 20517, 20644) se resuelven solos con este enfoque: cada uno genera automáticamente 2 filas en `CustomerRelationship`, una por cada titular real — es exactamente el comportamiento que la restricción #1 pide soportar, sin intervención manual.
+4. **Los 17 grupos de sufijo ambiguo** (los que en la auditoría mapeaban a 2 pólizas distintas por prefijo de email compartido — superset que incluye los 5 del punto anterior más 12 grupos donde un solo Customer terminó con 2 vínculos de póliza sin la confirmación visual de "2 padres reales" que sí se hizo para esos 5): **se excluyen del INSERT automático** y quedan en una lista de revisión aparte (mismo patrón que `MigrationReport.PossibleDuplicateWarnings` de §23.3 — un reporte que se imprime, no una fusión/inserción automática). El responsable revisa esos casos puntuales (¿son de verdad 2 titulares distintos, como los 5 ya confirmados, o es un error de la migración original?) y recién después se corre un segundo paso que los inserta ya confirmados, uno por uno o en lote.
+5. **Backup previo obligatorio** antes de correr el INSERT masivo, mismo criterio que §22.4/§23.2 (`BACKUP DATABASE` completo con timestamp en el nombre).
+6. **Verificación post-migración**: `COUNT(*)` de `CustomerRelationship` esperado ≈ 862 (881 menos los ~19 que colapsan por duplicado de titular) menos los excluidos por el punto 4, más los que se sumen a mano después de la revisión — número exacto a confirmar corriendo la query real al momento de implementar, no antes.
+
+### 24.3 Pantallas/endpoints afectados (alcance, sin implementar)
+
+**Backend:**
+- Modelo `CustomerRelationship` + `CustomerRelationshipConfiguration` + migración de EF Core (Fase 1, solo schema).
+- Endpoints nuevos, mismo prefijo que ya usa Customers (`api/customers`): `GET /api/customers/{id}/dependents` (titulares → sus dependientes) y `GET /api/customers/{id}/titulares` (dependiente → sus titulares). **✅ Nombres confirmados (2026-07-30)** — sujetos a cambiar solo si al implementar aparece algo mejor, sin necesidad de re-discutirlo antes.
+- `PoliciesController.AddDependent`/`RemoveDependent` (`PoliciesController.cs:251-`, `:303-`): se les agrega el efecto colateral de upsert/conservación en `CustomerRelationship` descripto en §24.1.
+- `CustomerService.GetAll()`/`Search()` (`CustomerService.cs:16`, `:28`): nuevo filtro opcional (`?role=titular|dependiente`) para que `Customers.jsx` y los dropdowns de selección puedan separar roles — hoy no existe ningún filtro de este tipo (confirmado en la auditoría), la lista siempre trae todo mezclado.
+- `DashboardService.GetSummary` (`DashboardService.cs:50-76`): nueva query para el conteo de personas únicas (§24.4) — **aditiva**, no reemplaza `MembersCount` existente ni toca `GetByStatus`/`GetByType`.
+
+**Frontend:**
+- `Customers.jsx`: **✅ confirmado (2026-07-30)** — filtro de rol como query param sobre el listado paginado existente (`?role=titular|dependiente`), no una pestaña/vista aparte. Usa el `?role=` nuevo del backend; hoy la tabla no distingue nada, es la causa directa del hallazgo de la auditoría anterior de que "cantidad de Customers" mezcla ambos roles.
+- `Policies.jsx`: la sección "Dependientes" (§1.2/§2) no necesita cambios funcionales — sigue hablando con `PolicyDependent` igual que hoy. Posible mejora menor (no obligatoria): mostrar en el detalle de un dependiente si tiene otro titular además del de esta póliza, usando el endpoint nuevo.
+- `Dashboard.jsx`: nueva tarjeta KPI "Personas únicas" junto a "Miembros" (§9.2) — ver §24.4.
+- No se propone ninguna pantalla nueva dedicada a "revisión de email placeholder" — el filtro `?role=` de Customers.jsx ya alcanza para listar los 947 candidatos (`email LIKE 'noemail+P%'`) sin construir nada aparte.
+
+### 24.4 "Miembros" vs. "Personas únicas" en el Dashboard
+
+Se propone **no tocar** `MembersCount`/`GetByStatus`/`GetByType` — miden cobertura por póliza (cuántas coberturas activas hay), que es una métrica de negocio legítima por sí misma (ej. para comisiones o volumen de pólizas). Se agrega un campo **nuevo** a `DashboardSummaryDto`, `UniqueMembersCount`: `COUNT(DISTINCT CustomerId)` sobre la unión de titulares de las pólizas en el scope (`ScopedPolicies(...).Select(p => p.CustomerId)`) y sus dependientes vía `CustomerRelationship` (`DependentCustomerId` donde `TitularCustomerId` está en ese mismo conjunto) — deduplicando por persona física, no por par titular-póliza. Mismo scoping por agente/fecha que ya tiene `GetSummary` (§9.5), sin cambios en `ScopedPolicies` ni en el resto del pipeline.
+
+### 24.5 Fases de trabajo (estimación)
+
+- **Fase 1 — Backend/schema**: modelo `CustomerRelationship`, configuration, migración de EF Core (solo `CREATE TABLE`, sin backfill de datos todavía). Tamaño: chico, mismo patrón que crear `PolicyBeneficiary` (§12.3) o `PolicyHistory` (§13).
+- **Fase 2 — Migración de datos existentes**: script (probablemente dentro de `WholeCareInsurance.Migration/`, reusando el patrón de reporte de §23.3) que puebla `CustomerRelationship` desde `PolicyDependent`+`Policies` para los 881−casos_excluidos, genera el reporte de los 17 grupos ambiguos para revisión manual, backup previo obligatorio. Tamaño: mediano — la lógica es simple, pero necesita la misma disciplina de backup/verificación que §22/§23 (no se toca la base real sin confirmación explícita en cada paso).
+- **Fase 3 — Endpoints backend**: los 2 GET nuevos de relaciones, el efecto colateral en `AddDependent`/`RemoveDependent`, el filtro `?role=` en `CustomerService`, el KPI nuevo del Dashboard. Tamaño: mediano.
+- **Fase 4 — Frontend**: filtro de rol en `Customers.jsx`, tarjeta KPI nueva en `Dashboard.jsx`, mejora opcional en el detalle de dependientes de `Policies.jsx`. Tamaño: chico-mediano, similar a §17 (unificación de listados) pero con menos superficie.
+- **Fuera de fase, trabajo continuo sin bloquear nada**: revisión manual de los 17 grupos ambiguos (§24.2 punto 4) y backfill de los 947 emails placeholder (#4) — ambos son trabajo operativo del responsable/agentes, no tareas de desarrollo, y no bloquean ninguna de las 4 fases de arriba.
+
+**Los 3 puntos abiertos de la propuesta original ya están resueltos** (comportamiento de `RemoveDependent`, filtro de rol como query param, nombres de tabla/endpoints — ver marcas ✅ arriba). Sin implementar todavía — listo para arrancar Fase 1 en la próxima sesión.
+
+---
+
 ## 21. Orden sugerido de trabajo
 
 1. ~~Tipo en Policy~~ ✅ Hecho
@@ -1019,3 +1095,4 @@ Búsqueda exhaustiva en los 2,130 Customers (no solo los 35 con sufijo): agrupan
 44. ~~Deuda técnica — ESLint `react-hooks/set-state-in-effect`~~ ✅ Resuelto parcial (§20): 5 casos de fetching corregidos vía `queueMicrotask` (Dashboard/Customers/Agentes/InsuranceCompanies + un 6to caso silencioso en Policies no reportado por el linter, ver §20.1). Queda 1 caso distinto pendiente (§20.3): extraer la sección "Datos Life Insurance del titular" de Policies.jsx a subcomponente con `key={customerId}`.
 45. Dashboard "Additional statistics" — bug de normalización de mayúsculas en `Customer.City` — 🔶 Parcial: backfill de datos aplicado (336 filas corregidas con backup previo, 304→191 valores distintos, 0 duplicados de case restantes, ver §22.4). Falta el freno al `<input>` libre del frontend y los gráficos tipo torta/dona (top 9 + Otros) de la Parte 2, ninguno de los dos implementado todavía (§22.3)
 46. ~~Customers duplicados por bug de matching en la migración (Doris Maldonado, Mariana Salvador Cruz)~~ ✅ Hecho: los 2 casos confirmados fusionados con backup previo y verificación (§23.2); refuerzo del matching (`_customerByDob` + `CheckPossibleDuplicate`, solo reporta, nunca fusiona automáticamente) implementado y verificado (§23.3). Queda pendiente, aparte, revisar el `AgentId` en fallback Admin encontrado en la póliza de Mariana (§23.2, mismo gap que §7)
+47. Rediseño de la relación Customer ↔ Customer (titular/dependiente-aplicante) — ✅ Diseño aprobado (§24), sin implementar: tabla nueva `CustomerRelationship` (M:N, `PolicyDependent` no cambia), plan de migración de los 947 Customers con email placeholder, alcance de pantallas/endpoints y 4 fases documentadas. Arranca en Fase 1 la próxima sesión.
