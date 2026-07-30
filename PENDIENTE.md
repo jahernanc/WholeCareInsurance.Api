@@ -1286,6 +1286,66 @@ Evaluadas las opciones mencionadas en el pedido:
 
 ---
 
+## 27. Preview de PolicyDocument en el navegador (sin descargar) — ⏸ Diagnóstico y plan, sin implementar
+
+Pedido: hoy los documentos cargados en el detalle de una póliza (`PolicyDocument`, §1.7) solo se pueden descargar — el cliente pidió poder **visualizarlos** en el navegador sin bajar el archivo primero.
+
+### 27.1 Parte 1 — Preview de PDF/imagen (caso simple, cubre lo que existe hoy)
+
+**Diagnóstico del estado actual:**
+
+- **Almacenamiento**: filesystem del servidor, no blob en SQL ni storage externo. `PolicyDocumentStorage` (`Services/PolicyDocumentStorage.cs`) guarda cada archivo en `App_Data/PolicyDocuments/{policyId}/{guid}{extension}`, fuera de `wwwroot`. La tabla `PolicyDocuments` solo guarda metadata (`OriginalFileName`, `StoredFileName`, `ContentType`, `SizeBytes`).
+- **Tipos permitidos al subir**: whitelist estricta en `Utils/FileValidationHelper.cs`, no "cualquier cosa" — solo `.pdf`, `.docx`, `.jpg`, `.jpeg`, con validación en cascada de extensión + tamaño (máx. 5 MB) + contenido real por magic bytes (`%PDF`, firma JPEG, ZIP+entradas OOXML reales para `.docx`, descarta un `.zip` renombrado).
+- **Estado real en la base**: consultada la tabla `PolicyDocuments` — hoy hay 1 solo documento cargado, un `.pdf` (`application/pdf`). Como el upload solo acepta esos 4 tipos, el universo futuro se limita a ellos.
+
+**Tres obstáculos identificados, hay que resolver los tres — no alcanza con tocar solo uno:**
+
+1. **Backend fuerza descarga siempre.** `DownloadDocument` (`Controllers/PoliciesController.cs:376-386`) hace `return PhysicalFile(path, document.ContentType, document.OriginalFileName);`. El Content-Type devuelto ya es el real (`application/pdf`, `image/jpeg`, resuelto por `FileExtensionContentTypeProvider` en el upload), pero pasar el 3er parámetro (`fileDownloadName`) hace que ASP.NET Core agregue siempre `Content-Disposition: attachment; filename=...` — eso es lo que fuerza "Guardar como" incluso para tipos que el navegador podría mostrar nativamente.
+2. **El endpoint exige JWT Bearer.** `PoliciesController` tiene `[Authorize]` a nivel de clase. Un `<a href="...">` o `window.open(url)` apuntando directo a la URL de la API fallaría con 401, porque el navegador no adjunta el header `Authorization` en una navegación normal de página — solo `apiFetch` (`src/api.js`) lo hace, leyendo el token de `localStorage`. Esto descarta la solución "más simple" de abrir la URL de descarga directamente en una pestaña nueva.
+3. **El frontend actual fuerza descarga también, independientemente del backend.** `handleDownloadDocument` (`src/pages/Policies.jsx:363-381`) ya pasa por `apiFetch` (por el punto 2), pero siempre convierte la respuesta en blob, crea un `<a>` y le setea `link.download = doc.originalFileName` antes de simular el click — eso fuerza "Guardar como" sin importar qué `Content-Disposition` devuelva el backend. Aunque se arregle el punto 1, este código seguiría descargando.
+
+**Plan de implementación propuesto:**
+
+- **Backend**: en `DownloadDocument`, cambiar a `Content-Disposition: inline` para los tipos previsualizables (o para todos — a decidir al implementar; ver nota de compatibilidad abajo). Puede resolverse seteando el header manualmente en vez de usar el overload de `PhysicalFile` que fuerza `attachment` (por ejemplo, devolver el `FileStreamResult`/`PhysicalFileResult` sin `fileDownloadName` y setear `Response.Headers.ContentDisposition` a mano con `Inline`).
+- **Frontend**: agregar una acción "Ver" (además de "Descargar") junto a cada documento en la lista (`Policies.jsx`). El flujo: fetch autenticado vía `apiFetch` (mismo mecanismo que ya usa `handleDownloadDocument` para sortear el punto 2) → `res.blob()` → `URL.createObjectURL(blob)` → `window.open(url, "_blank")` (sin setear `download` en ningún `<a>`, a diferencia de `handleDownloadDocument`). El botón "Descargar" existente queda igual, sin tocar.
+- **Nota de compatibilidad**: si se pasa a `inline` para `.docx` también, el navegador no sabría renderizarlo (no hay soporte nativo) y probablemente dispararía una descarga igual o un error, dependiendo del navegador — por eso probablemente convenga que el backend decida `inline` vs `attachment` según `ContentType` (`inline` solo para `application/pdf` e `image/jpeg`), dejando `.docx` con el comportamiter actual de descarga hasta que se resuelva la Parte 2.
+
+### 27.2 Parte 2 — Investigación de visor externo para `.docx` (sin implementar)
+
+`.docx` es el único de los 4 tipos permitidos que ningún navegador abre nativamente. Opciones evaluadas:
+
+**Opción A — Google Docs Viewer** (`docs.google.com/viewer?url=<url>&embedded=true`)
+- Cómo funciona: requiere una URL **pública** del archivo — los servidores de Google la descargan y renderizan como imagen/canvas.
+- No es un producto oficial ni documentado por Google para embeber contenido de terceros; la página de configuración standalone fue discontinuada hace años y lo que queda es un endpoint no oficial, sin SLA ni garantía de que siga funcionando.
+- Costo: gratis, pero sin límites publicados ni soporte — puede dejar de funcionar sin aviso.
+- Seguridad: expone el documento completo (con datos de clientes, potencialmente sensibles) a un tercero externo sin acuerdo formal de tratamiento de datos.
+
+**Opción B — Microsoft Office Online Viewer** (`view.officeapps.live.com/op/embed.aspx?src=<url>`)
+- Cómo funciona: igual que Google — requiere URL pública, Microsoft la descarga y renderiza.
+- Confirmado por Microsoft Q&A: **no está oficialmente soportado para uso comercial/de producción de terceros** — Microsoft recomienda Office Online Server (self-hosted) o integraciones de Microsoft 365 para eso. Es decir, usarlo así sería apoyarse en un comportamiento no garantizado.
+- Costo: gratis, mismo problema de falta de SLA/soporte.
+- Seguridad: mismo problema que la Opción A — el documento sale a un tercero externo.
+
+**Opción C — Conversión server-side a PDF (LibreOffice headless)**
+- Cómo funciona: el backend convierte el `.docx` a PDF on-the-fly (`soffice --headless --convert-to pdf`) al pedir el preview, y sirve el PDF resultante reutilizando la solución de la Parte 1 (preview nativo de PDF).
+- Seguridad: el archivo nunca sale del servidor propio — no hay exposición a terceros.
+- Costo/limitaciones: gratis (LibreOffice es software libre), pero agrega infraestructura — instalar LibreOffice en el servidor/contenedor, latencia de conversión en cada request (o cachear el PDF generado), y posibles problemas de fidelidad en documentos con formato complejo.
+
+**Opción D — Librería client-side (`docx-preview`, npm)**
+- Cómo funciona: renderiza el `.docx` a HTML/CSS **enteramente en el navegador**, sin ningún servidor ni tercero externo — reutiliza el mismo fetch autenticado que ya existe (Parte 1: `apiFetch` → blob), pasando el blob directo a `docx.renderAsync(blob, container)`.
+- Seguridad: la mejor de las cuatro — el archivo nunca sale de la sesión autenticada del usuario, no hay URL pública ni tercero involucrado en ningún momento.
+- Costo/limitaciones: gratis, mantenida activamente (según investigación, última versión reciente, uso activo vía npm). Limitación real: renderiza a HTML semántico, no es pixel-perfect — documentos con formato muy complejo (ciertos estilos, objetos incrustados, control de cambios) pueden no verse idénticos al original en Word. Para los documentos de esta app (probablemente formularios/contratos simples) es probablemente suficiente, pero no está garantizado sin probarlo contra ejemplos reales.
+
+**Recomendación:**
+
+Descartar A y B de entrada — no es solo una cuestión de límites de uso, es que **exponer documentos de pólizas de clientes (potencialmente con datos sensibles) a través de una URL pública hacia un servicio de terceros no oficialmente soportado** es un riesgo de privacidad/compliance que no se resuelve con una "URL firmada de corta duración": aunque se firme y expire en minutos, en esa ventana el archivo completo pasa por la infraestructura de Google o Microsoft sin que haya un acuerdo de tratamiento de datos de por medio, y ninguna de las dos empresas garantiza el comportamiento del servicio.
+
+Entre C y D, **la Opción D (`docx-preview` client-side) es la recomendada**: mismo nivel de seguridad que la Parte 1 (nunca sale del servidor/sesión autenticada), cero infraestructura nueva en el backend, y reutiliza el mismo patrón de fetch ya construido. El trade-off (fidelidad no pixel-perfect) es aceptable si el objetivo es "puedo ver rápido qué dice el documento sin descargarlo" y no "reemplazo de abrir el archivo en Word". La Opción C queda como alternativa si al probar D con documentos reales la fidelidad resulta insuficiente.
+
+**Punto abierto para el responsable**: decidir, con documentos `.docx` reales de la app en mano, si vale la complejidad de D (o C) — o si simplemente se mantiene "solo descargar" para `.docx` y el preview in-browser queda limitado a PDF/imagen (Parte 1), que ya cubre el único documento existente hoy en la base.
+
+---
+
 ## 21. Orden sugerido de trabajo
 
 1. ~~Tipo en Policy~~ ✅ Hecho
