@@ -29,17 +29,18 @@ namespace WholeCareInsurance.api.Controllers
         // (lo consumen dropdowns/typeahead que necesitan la lista completa, ej. el
         // selector de dependientes/titular en Policies.jsx); con él, la pantalla de
         // administración de Customers pide una página paginada (§17).
+        // "role" (§24.3, opcional): "titular" | "dependiente", filtra en ambos modos.
         [HttpGet]
-        public async Task<IActionResult> GetAll([FromQuery] int? page = null)
+        public async Task<IActionResult> GetAll([FromQuery] int? page = null, [FromQuery] string? role = null)
         {
             if (!page.HasValue)
             {
-                var list = (await _customers.GetAll()).Select(ToResponse);
+                var list = (await _customers.GetAll(role)).Select(ToResponse);
                 return Ok(list);
             }
 
             var effectivePage = page.Value < 1 ? 1 : page.Value;
-            var (found, totalCount) = await _customers.Search(effectivePage, DefaultPageSize);
+            var (found, totalCount) = await _customers.Search(effectivePage, DefaultPageSize, role);
             return Ok(new PagedResponseDto<CustomerResponseDto>
             {
                 Items = found.Select(ToResponse).ToList(),
@@ -93,6 +94,44 @@ namespace WholeCareInsurance.api.Controllers
                 });
 
             return Ok(policies);
+        }
+
+        // Dado un titular, sus dependientes vía CustomerRelationship (§24.1) — relación
+        // personal, no ligada a una póliza puntual (eso lo sigue resolviendo
+        // PoliciesController.GetDependents).
+        [HttpGet("{id:int}/dependents")]
+        public async Task<IActionResult> GetDependentsOf(int id)
+        {
+            var customer = await _customers.GetById(id);
+            if (customer == null) return NotFound();
+
+            var relationships = await _customers.GetDependentsOf(id);
+            return Ok(relationships.Select(r => new CustomerRelationshipResponseDto
+            {
+                CustomerId = r.DependentCustomer.Id,
+                FirstName = r.DependentCustomer.FirstName,
+                LastName = r.DependentCustomer.LastName,
+                RelationshipType = r.RelationshipType,
+            }));
+        }
+
+        // Dado un dependiente, sus titulares — puede haber más de uno (§24.1, restricción
+        // #1: casos confirmados de padres separados con el mismo hijo como dependiente en
+        // cada póliza).
+        [HttpGet("{id:int}/titulares")]
+        public async Task<IActionResult> GetTitularesOf(int id)
+        {
+            var customer = await _customers.GetById(id);
+            if (customer == null) return NotFound();
+
+            var relationships = await _customers.GetTitularesOf(id);
+            return Ok(relationships.Select(r => new CustomerRelationshipResponseDto
+            {
+                CustomerId = r.TitularCustomer.Id,
+                FirstName = r.TitularCustomer.FirstName,
+                LastName = r.TitularCustomer.LastName,
+                RelationshipType = r.RelationshipType,
+            }));
         }
 
         [HttpPost]

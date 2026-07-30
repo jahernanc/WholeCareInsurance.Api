@@ -47,16 +47,36 @@ namespace WholeCareInsurance.api.Services
         private static int MembersOf(int policyId, Dictionary<int, int> dependentsByPolicy)
             => 1 + dependentsByPolicy.GetValueOrDefault(policyId, 0);
 
+        // Personas físicas distintas del scope (§24.4): titulares + sus dependientes vía
+        // CustomerRelationship, deduplicado por Customer.Id — a diferencia de MembersOf,
+        // no cuenta dos veces a la misma persona si aparece en 2 pólizas del scope.
+        private async Task<int> UniqueMembersCount(List<int> titularIds)
+        {
+            if (titularIds.Count == 0) return 0;
+
+            var dependentIds = await _db.CustomerRelationships
+                .Where(r => titularIds.Contains(r.TitularCustomerId))
+                .Select(r => r.DependentCustomerId)
+                .Distinct()
+                .ToListAsync();
+
+            return titularIds.Union(dependentIds).Count();
+        }
+
         public async Task<DashboardSummaryDto> GetSummary(int? agentId, DateTime? from, DateTime? to)
         {
-            var policies = await ScopedPolicies(agentId, from, to).Select(p => p.Id).ToListAsync();
-            var dependentsByPolicy = await DependentsCountByPolicy(policies);
-            var membersCount = policies.Sum(id => MembersOf(id, dependentsByPolicy));
+            var policies = await ScopedPolicies(agentId, from, to)
+                .Select(p => new { p.Id, p.CustomerId })
+                .ToListAsync();
+            var policyIds = policies.Select(p => p.Id).ToList();
+            var dependentsByPolicy = await DependentsCountByPolicy(policyIds);
+            var membersCount = policyIds.Sum(id => MembersOf(id, dependentsByPolicy));
 
             var result = new DashboardSummaryDto
             {
                 PoliciesCount = policies.Count,
                 MembersCount = membersCount,
+                UniqueMembersCount = await UniqueMembersCount(policies.Select(p => p.CustomerId).Distinct().ToList()),
             };
 
             // Agencias/Agentes: solo tienen sentido en la vista global (agentId == null) —

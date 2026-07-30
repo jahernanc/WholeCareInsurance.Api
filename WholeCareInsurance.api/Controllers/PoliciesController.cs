@@ -271,6 +271,12 @@ namespace WholeCareInsurance.api.Controllers
                 IsAplicante = dto.IsAplicante
             });
 
+            // Efecto colateral (§24.1/§24.3): además del PolicyDependent de esta póliza
+            // puntual, deja constancia de la relación personal titular-dependiente en
+            // CustomerRelationship (upsert, no duplica si ya existe por otra póliza del
+            // mismo titular).
+            await _customers.UpsertRelationship(policy.CustomerId, dto.CustomerId, customer.RelacionConPrincipal);
+
             return CreatedAtAction(nameof(GetDependents), new { id }, new DependentResponseDto
             {
                 CustomerId = customer.Id,
@@ -307,6 +313,9 @@ namespace WholeCareInsurance.api.Controllers
             if (dependent == null) return NotFound();
 
             await _policies.RemoveDependent(dependent);
+            // A propósito: NO se toca CustomerRelationship acá (§24.1/§24.6, confirmado
+            // por el responsable) — la relación personal titular-dependiente sigue siendo
+            // cierta aunque se dé de baja la cobertura de esta póliza puntual.
             return NoContent();
         }
 

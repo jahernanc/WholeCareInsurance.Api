@@ -971,7 +971,7 @@ Búsqueda exhaustiva en los 2,130 Customers (no solo los 35 con sufijo): agrupan
 
 ---
 
-## 24. Rediseño de la relación Customer ↔ Customer (titular/dependiente-aplicante) — 🔶 En progreso: Fases 1-2 (schema + backfill de 884 filas) ✅ Hecho (2026-07-30), Fases 3-4 pendientes
+## 24. Rediseño de la relación Customer ↔ Customer (titular/dependiente-aplicante) — 🔶 En progreso: Fases 1-3 (schema + backfill de 884 filas + endpoints backend) ✅ Hecho (2026-07-30), Fase 4 (frontend) pendiente
 
 Motivado por la auditoría de §23 (deduplicación) y una auditoría aparte enfocada específicamente en esta relación (2026-07-30, solo SQL de lectura, sin tocar datos): **947 de 2,128 Customers (44.5%)** tienen email placeholder de migración (`noemail+P<referencia>@migracion.wholecare.local`). De esos, 881 están vinculados como dependientes vía `PolicyDependent` y 66 son titulares de su propia póliza con email real todavía no cargado — **el 100% de los 947 ya tiene algún vínculo formal a una póliza**, no hay huérfanos flotantes. El problema no es de vínculo faltante, es de **modelo**: hoy no existe ninguna forma de decir "este Customer es un dependiente, no un titular" fuera de inferirlo indirectamente a través de `PolicyDependent`, y esa tabla mezcla dos conceptos distintos (relación personal vs. cobertura de una póliza puntual). Detalle completo de la auditoría en el historial de conversación de esta sesión.
 
@@ -1039,11 +1039,11 @@ Se propone **no tocar** `MembersCount`/`GetByStatus`/`GetByType` — miden cober
 
 - **Fase 1 — Backend/schema — ✅ Hecho (2026-07-30)**: modelo `CustomerRelationship` (`Models/CustomerRelationship.cs`), `CustomerRelationshipConfiguration.cs` (índice único compuesto `TitularCustomerId`+`DependentCustomerId`, ambas FKs a `Customer` en `Restrict`, igual que `PolicyDependentConfiguration.cs:18-20`), `DbSet` agregado a `AppDbContext.cs`, migración `20260730141422_AddCustomerRelationship` generada y aplicada contra la base de dev (`dotnet ef database update`). Sin backfill de datos todavía — tabla creada vacía a propósito (Fase 2 la puebla). Verificado: `dotnet build` sin errores nuevos (mismos 17 warnings preexistentes de nullable en DTOs de `Users`), schema confirmado por SQL directo (columnas, índice único, ambas FK con `ON DELETE NO ACTION`/Restrict), `COUNT(*)` de la tabla nueva en 0, y la API arranca limpio (`dotnet run`, seedea el admin, Swagger responde 200) sin ningún error de mapeo del modelo nuevo.
 - **Fase 2 — Migración de datos existentes — ✅ Hecho (2026-07-30)**: ver detalle completo en §24.6.
-- **Fase 3 — Endpoints backend**: los 2 GET nuevos de relaciones, el efecto colateral en `AddDependent`/`RemoveDependent`, el filtro `?role=` en `CustomerService`, el KPI nuevo del Dashboard. Tamaño: mediano.
+- **Fase 3 — Endpoints backend — ✅ Hecho (2026-07-30)**: ver detalle completo en §24.7.
 - **Fase 4 — Frontend**: filtro de rol en `Customers.jsx`, tarjeta KPI nueva en `Dashboard.jsx`, mejora opcional en el detalle de dependientes de `Policies.jsx`. Tamaño: chico-mediano, similar a §17 (unificación de listados) pero con menos superficie.
 - **Fuera de fase, trabajo continuo sin bloquear nada**: revisión manual de Clara y Elizabeth (§24.6) y backfill de los 947 emails placeholder (#4) — ambos son trabajo operativo del responsable/agentes, no tareas de desarrollo, y no bloquean las Fases 3-4.
 
-**Los 3 puntos abiertos de la propuesta original ya están resueltos** (comportamiento de `RemoveDependent`, filtro de rol como query param, nombres de tabla/endpoints — ver marcas ✅ arriba). **Fases 1 y 2 hechas** (ver arriba y §24.6) — quedan Fases 3 y 4 (endpoints backend, frontend) para próximas sesiones.
+**Los 3 puntos abiertos de la propuesta original ya están resueltos** (comportamiento de `RemoveDependent`, filtro de rol como query param, nombres de tabla/endpoints — ver marcas ✅ arriba). **Fases 1, 2 y 3 hechas** (ver arriba, §24.6 y §24.7) — queda solo la Fase 4 (frontend) para una próxima sesión.
 
 ### 24.6 Cierre de la Fase 2 — backfill de `CustomerRelationship` — ✅ Hecho (2026-07-30)
 
@@ -1066,6 +1066,33 @@ Se propone **no tocar** `MembersCount`/`GetByStatus`/`GetByType` — miden cober
 | Clara (`20643`) y Elizabeth (`20626`) no tienen ninguna fila | ✅ confirmado, `COUNT(*) = 0` para ambos Ids |
 
 **Pendiente, fuera de este backfill**: revisión manual de Clara y Elizabeth (arriba) — no bloquea las Fases 3/4, que ya pueden construirse sobre las 884 filas existentes.
+
+### 24.7 Cierre de la Fase 3 — endpoints backend — ✅ Hecho (2026-07-30)
+
+**Implementado, siguiendo exactamente el alcance de §24.3:**
+- `GET /api/customers/{id}/dependents` y `GET /api/customers/{id}/titulares` nuevos en `CustomersController.cs` — 404 si el Customer no existe, devuelven `CustomerRelationshipResponseDto[]` (`CustomerId`, `FirstName`, `LastName`, `RelationshipType`).
+- `ICustomerService`/`CustomerService`: `GetDependentsOf`, `GetTitularesOf` (ambos con `Include` del lado correspondiente de `CustomerRelationship`), y `UpsertRelationship(titularCustomerId, dependentCustomerId, relationshipType)` — no duplica si ya existe (chequeo `AnyAsync` antes del `Add`, respeta el índice único).
+- `PoliciesController.AddDependent`: después de crear el `PolicyDependent`, llama a `_customers.UpsertRelationship(policy.CustomerId, dto.CustomerId, customer.RelacionConPrincipal)` con `Source = "Sistema"` (vs. `"Migración"` de la Fase 2, mismo campo `CustomerRelationship.Source` distingue el origen).
+- `PoliciesController.RemoveDependent`: sin cambios de comportamiento, solo un comentario explícito dejando constancia de que **no** se toca `CustomerRelationship` — decisión confirmada en §24.6.
+- `CustomerService.GetAll()`/`Search()`: nuevo parámetro opcional `role` (`"titular"` → `EXISTS` en `Policies`, `"dependiente"` → `EXISTS` en `CustomerRelationships.DependentCustomerId`, cualquier otro valor no filtra), aplicado también en `CustomersController.GetAll` vía `?role=`. Los dos roles no son excluyentes, tal como estaba documentado.
+- `DashboardSummaryDto.UniqueMembersCount` (nuevo, aditivo) + `DashboardService.UniqueMembersCount(titularIds)`: `COUNT(DISTINCT CustomerId)` sobre la unión de titulares del scope y sus dependientes vía `CustomerRelationship`. `MembersCount`/`GetByStatus`/`GetByType` sin cambios.
+
+**Verificado con curl contra la base local (con las 884 filas reales de la Fase 2), todo end-to-end antes de pasar al siguiente endpoint:**
+
+| Chequeo | Resultado |
+|---|---|
+| `GET /api/customers/20496/titulares` | 2 titulares reales (`Irma Castro Pastrana`, `Josue Maradiaga argenal`) — **no 1**, confirma el caso de doble titular |
+| `GET /api/customers/19264/dependents` | 3 dependientes (`Gisela`, `Montserrat`, `Cristina`), no 6 — confirma que el colapso de renovación de la Fase 2 se ve reflejado correctamente al leer |
+| `GET /api/customers/999999/dependents` | `404` (Customer inexistente) |
+| `GET /api/customers?role=titular` | 1181 — coincide exacto con `COUNT(DISTINCT CustomerId)` de `Policies` por SQL directo |
+| `GET /api/customers?role=dependiente` | 879 — coincide exacto con `COUNT(DISTINCT DependentCustomerId)` de `CustomerRelationships` por SQL directo |
+| `GET /api/customers` (sin filtro) | 2128, sin cambios |
+| `POST /api/policies/380997/dependents` (titular real 19613, Customer de prueba 21389) | Crea `PolicyDependent` **y** `CustomerRelationship(19613, 21389, Source="Sistema")` automáticamente |
+| `DELETE /api/policies/380997/dependents/21389` | Borra el `PolicyDependent`; la `CustomerRelationship` **sigue existiendo** (confirmado por SQL directo) — dato de prueba borrado a mano después de verificar, `CustomerRelationships` vuelve a 884 |
+| `GET /api/dashboard/summary` (vista global) | `policiesCount=1211`, `membersCount=2198`, `uniqueMembersCount=2058` — verificado por SQL cruzado: 1181 titulares + 879 dependientes − 2 de overlap (Customers que son titular y dependiente a la vez) = 2058 |
+| `GET /api/dashboard/summary?agentId=3013` (Ana Ayala Marin, scopeado) | `policiesCount=386`, `membersCount=798`, `uniqueMembersCount=760` — `agenciesCount`/`agentsCount` en `null` como corresponde a vista scopeada |
+
+**Build**: `dotnet build` limpio, 0 errores, mismos 17 warnings preexistentes de nullable en DTOs de `Users` (sin relación). Sin cambios de frontend en esta fase — no corresponde `npm run lint`.
 
 ---
 
@@ -1117,4 +1144,4 @@ Se propone **no tocar** `MembersCount`/`GetByStatus`/`GetByType` — miden cober
 44. ~~Deuda técnica — ESLint `react-hooks/set-state-in-effect`~~ ✅ Resuelto parcial (§20): 5 casos de fetching corregidos vía `queueMicrotask` (Dashboard/Customers/Agentes/InsuranceCompanies + un 6to caso silencioso en Policies no reportado por el linter, ver §20.1). Queda 1 caso distinto pendiente (§20.3): extraer la sección "Datos Life Insurance del titular" de Policies.jsx a subcomponente con `key={customerId}`.
 45. Dashboard "Additional statistics" — bug de normalización de mayúsculas en `Customer.City` — 🔶 Parcial: backfill de datos aplicado (336 filas corregidas con backup previo, 304→191 valores distintos, 0 duplicados de case restantes, ver §22.4). Falta el freno al `<input>` libre del frontend y los gráficos tipo torta/dona (top 9 + Otros) de la Parte 2, ninguno de los dos implementado todavía (§22.3)
 46. ~~Customers duplicados por bug de matching en la migración (Doris Maldonado, Mariana Salvador Cruz)~~ ✅ Hecho: los 2 casos confirmados fusionados con backup previo y verificación (§23.2); refuerzo del matching (`_customerByDob` + `CheckPossibleDuplicate`, solo reporta, nunca fusiona automáticamente) implementado y verificado (§23.3). Queda pendiente, aparte, revisar el `AgentId` en fallback Admin encontrado en la póliza de Mariana (§23.2, mismo gap que §7)
-47. Rediseño de la relación Customer ↔ Customer (titular/dependiente-aplicante) — 🔶 En progreso (§24): Fase 1 (modelo `CustomerRelationship`, configuration, migración `AddCustomerRelationship`) ✅ Hecho; Fase 2 (backfill de 884 filas desde `PolicyDependent`+`Policies`, con backup previo y verificación) ✅ Hecho (§24.6) — Clara (20643) y Elizabeth (20626) quedaron excluidas y documentadas para revisión manual aparte; quedan Fase 3 (endpoints backend) y Fase 4 (frontend).
+47. Rediseño de la relación Customer ↔ Customer (titular/dependiente-aplicante) — 🔶 En progreso (§24): Fase 1 (modelo `CustomerRelationship`, configuration, migración `AddCustomerRelationship`) ✅ Hecho; Fase 2 (backfill de 884 filas desde `PolicyDependent`+`Policies`, con backup previo y verificación) ✅ Hecho (§24.6) — Clara (20643) y Elizabeth (20626) quedaron excluidas y documentadas para revisión manual aparte; Fase 3 (2 GETs de relaciones, efecto colateral en `AddDependent`/`RemoveDependent`, filtro `?role=` en Customers, KPI `UniqueMembersCount` en el Dashboard) ✅ Hecho (§24.7), verificado end-to-end con curl; queda Fase 4 (frontend).
