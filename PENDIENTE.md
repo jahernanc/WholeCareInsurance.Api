@@ -993,7 +993,7 @@ Búsqueda exhaustiva en los 2,130 Customers (no solo los 35 con sufijo): agrupan
 
 ---
 
-## 24. Rediseño de la relación Customer ↔ Customer (titular/dependiente-aplicante) — ✅ Hecho (2026-07-30): las 4 fases (schema, backfill de 884 filas, endpoints backend, frontend) implementadas y verificadas end-to-end, más el backfill de los 75 dependientes de email real (§24.10). Quedan 2 puntos operativos sin bloquear nada — ver §24.9
+## 24. Rediseño de la relación Customer ↔ Customer (titular/dependiente-aplicante) — ✅ Hecho (2026-07-30): las 4 fases (schema, backfill de 884 filas, endpoints backend, frontend) implementadas y verificadas end-to-end, más el backfill de los 75 dependientes de email real (§24.10) y de Clara/Elizabeth (§24.11) — `CustomerRelationship` en 961 filas. Solo queda el backfill manual de emails placeholder, trabajo operativo — ver §24.9
 
 Motivado por la auditoría de §23 (deduplicación) y una auditoría aparte enfocada específicamente en esta relación (2026-07-30, solo SQL de lectura, sin tocar datos): **947 de 2,128 Customers (44.5%)** tienen email placeholder de migración (`noemail+P<referencia>@migracion.wholecare.local`). De esos, 881 están vinculados como dependientes vía `PolicyDependent` y 66 son titulares de su propia póliza con email real todavía no cargado — **el 100% de los 947 ya tiene algún vínculo formal a una póliza**, no hay huérfanos flotantes. El problema no es de vínculo faltante, es de **modelo**: hoy no existe ninguna forma de decir "este Customer es un dependiente, no un titular" fuera de inferirlo indirectamente a través de `PolicyDependent`, y esa tabla mezcla dos conceptos distintos (relación personal vs. cobertura de una póliza puntual). Detalle completo de la auditoría en el historial de conversación de esta sesión.
 
@@ -1133,9 +1133,9 @@ Se propone **no tocar** `MembersCount`/`GetByStatus`/`GetByType` — miden cober
 
 Diseño, backfill de datos, endpoints backend y frontend completos y verificados end-to-end (SQL directo + curl + navegador). Quedan 3 puntos de trabajo **aparte, sin bloquear nada** — ninguno requiere código nuevo, son revisión manual u operativa:
 
-1. **Clara Hasboun De Baptista (`20643`) y Elizabeth Gonzalez rea (`20626`)** — excluidas del backfill de la Fase 2 (§24.6) por falta de evidencia de que sean casos de doble titular real. Para incluirlas: confirmar con el responsable si tienen o no un segundo titular real (mismo chequeo que se hizo para los 5 casos confirmados) y, si no lo tienen, insertar la fila normal en `CustomerRelationship` a mano (`TitularCustomerId = 19504` para Clara, `19491` para Elizabeth).
+1. ~~Clara Hasboun De Baptista (`20643`) y Elizabeth Gonzalez rea (`20626`)~~ — ✅ Hecho (2026-07-30), ver §24.11.
 2. ~~Dependientes con email real (no placeholder) que quedaron fuera del alcance de la Fase 2~~ — ✅ Hecho (2026-07-30), ver §24.10. El Customer `Id 9` ("Carlos Mendez", `carlos.mendez@example.com`) sigue siendo el único caso sin ningún vínculo (ni `Policy`, ni `PolicyDependent`, ni `CustomerRelationship`) — parece dato de prueba/seed anterior a la migración real, no un Customer de negocio; no requiere acción.
-3. **Backfill manual de los ~947 emails placeholder** (punto #4 de las restricciones originales de §24) — trabajo operativo del responsable/agentes, no bloquea nada. El filtro `?role=titular` de Customers.jsx (§24.8) ya sirve como lista de candidatos: los titulares con email placeholder son exactamente los que necesitan revisión.
+3. **Backfill manual de los ~947 emails placeholder** (punto #4 de las restricciones originales de §24) — trabajo operativo del responsable/agentes, no bloquea nada. El filtro `?role=titular` de Customers.jsx (§24.8) ya sirve como lista de candidatos: los titulares con email placeholder son exactamente los que necesitan revisión. **Único punto operativo que queda de §24**, no es trabajo de desarrollo.
 
 ### 24.10 Backfill de los dependientes con email real — ✅ Hecho (2026-07-30)
 
@@ -1158,6 +1158,22 @@ Diseño, backfill de datos, endpoints backend y frontend completos y verificados
 Confirma que el modelo soporta sin fricción que la misma persona sea titular de una póliza y dependiente de otra a la vez — tal como estaba diseñado desde §24.1, ahora con un caso real de la base que lo ejercita.
 
 **Con esto, el hueco de cobertura de la Fase 2 queda cerrado.** Los únicos puntos que siguen pendientes, sin bloquear nada, son Clara/Elizabeth (punto 1 arriba) y el backfill manual de emails placeholder (punto 3 arriba).
+
+### 24.11 Revisión manual de Clara y Elizabeth — ✅ Hecho (2026-07-30)
+
+**Diagnóstico** (solo lectura, antes de tocar nada): ambas tienen exactamente **1 fila** en `PolicyDependent` — Clara con titular único `19504` (Luis Alfonso Baptista Zambrano, póliza `P23102025015943`, Cancelado), Elizabeth con titular único `19491` (Edder Andara palacios, póliza `P26032026018209`, Procesado). Ninguna de las dos es titular de su propia póliza, ninguna tenía ya una fila en `CustomerRelationship`.
+
+**Confirmado el motivo de la exclusión original**: fue puramente el agrupamiento por prefijo de email compartido de la Fase 2 (§24.6), no evidencia individual de ambigüedad. Clara comparte grupo (`noemail+P23102025015943`) con Jamal Baptista rivas (`20644`, uno de los 5 casos reales de doble titular); Elizabeth comparte grupo (`noemail+P26032026018209`) con Nohemi Dugarte (`20625`) y Jahdiel Andara dugarte (`20627`), que tenían 2 filas pero al **mismo** titular (renovación, ya incluidos en los 25 de la Fase 2). Ni Clara ni Elizabeth mostraban, a nivel individual, ninguna señal distinta de cualquiera de los 884+75 casos ya insertados — la exclusión fue por prudencia de grupo, no por un hallazgo propio.
+
+**Backup previo**: `D:\backups\WholeCareInsuranceDb_pre_customerrelationship_clara_elizabeth_20260730.bak`.
+
+**Ejecución**: 2 filas insertadas a mano en `CustomerRelationship` (`RelationshipType = "Otro"`, igual que su `Customer.RelacionConPrincipal`; `Source = "Migración"`, mismo criterio que el resto del backfill):
+- `TitularCustomerId=19504, DependentCustomerId=20643` (Clara)
+- `TitularCustomerId=19491, DependentCustomerId=20626` (Elizabeth)
+
+**Verificación**: `COUNT(*)` de `CustomerRelationships` pasó de **959 a 961** (exacto), ambas filas confirmadas con el titular correcto.
+
+**Con esto, §24 no tiene ningún punto operativo pendiente salvo el backfill manual de emails placeholder** (punto 3 de §24.9) — que es trabajo del responsable/agentes, no de desarrollo.
 
 ---
 
@@ -1209,4 +1225,4 @@ Confirma que el modelo soporta sin fricción que la misma persona sea titular de
 44. ~~Deuda técnica — ESLint `react-hooks/set-state-in-effect`~~ ✅ Resuelto parcial (§20): 5 casos de fetching corregidos vía `queueMicrotask` (Dashboard/Customers/Agentes/InsuranceCompanies + un 6to caso silencioso en Policies no reportado por el linter, ver §20.1). Queda 1 caso distinto pendiente (§20.3): extraer la sección "Datos Life Insurance del titular" de Policies.jsx a subcomponente con `key={customerId}`.
 45. ~~Dashboard "Additional statistics" — bug de normalización de mayúsculas en `Customer.City`~~ ✅ Hecho: backfill de datos (336 filas corregidas con backup previo, 304→191 valores distintos, §22.4) + freno al `<input>` libre (`<datalist>` de autocomplete + normalización a Title Case en el blur, §22.5 Parte A) + gráficos tipo torta/dona con top 9 + Otros para Aseguradora/Condado/Ciudad, reemplazando las 3 listas planas (§22.5 Parte B)
 46. ~~Customers duplicados por bug de matching en la migración (Doris Maldonado, Mariana Salvador Cruz)~~ ✅ Hecho: los 2 casos confirmados fusionados con backup previo y verificación (§23.2); refuerzo del matching (`_customerByDob` + `CheckPossibleDuplicate`, solo reporta, nunca fusiona automáticamente) implementado y verificado (§23.3). Queda pendiente, aparte, revisar el `AgentId` en fallback Admin encontrado en la póliza de Mariana (§23.2, mismo gap que §7)
-47. ~~Rediseño de la relación Customer ↔ Customer (titular/dependiente-aplicante)~~ ✅ Hecho (§24): Fase 1 (modelo `CustomerRelationship`, migración) + Fase 2 (backfill de 884 filas, §24.6) + Fase 3 (endpoints backend, filtro `?role=`, KPI `UniqueMembersCount`, §24.7) + Fase 4 (filtro de rol en Customers.jsx, tarjeta "Personas únicas" en el Dashboard, §24.8) + backfill de los 75 dependientes de email real que habían quedado fuera de la Fase 2 (§24.10, `CustomerRelationships` en 959 filas) — todo verificado end-to-end con SQL directo, curl y navegador. Quedan 2 puntos operativos sin bloquear nada (§24.9): revisión manual de Clara/Elizabeth, backfill manual de emails placeholder.
+47. ~~Rediseño de la relación Customer ↔ Customer (titular/dependiente-aplicante)~~ ✅ Hecho (§24): Fase 1 (modelo `CustomerRelationship`, migración) + Fase 2 (backfill de 884 filas, §24.6) + Fase 3 (endpoints backend, filtro `?role=`, KPI `UniqueMembersCount`, §24.7) + Fase 4 (filtro de rol en Customers.jsx, tarjeta "Personas únicas" en el Dashboard, §24.8) + backfill de los 75 dependientes de email real (§24.10) + Clara/Elizabeth revisadas e incluidas (§24.11) — `CustomerRelationships` en 961 filas, todo verificado end-to-end con SQL directo, curl y navegador. Solo queda el backfill manual de emails placeholder (§24.9), trabajo operativo, no de desarrollo.
