@@ -1177,7 +1177,7 @@ Confirma que el modelo soporta sin fricción que la misma persona sea titular de
 
 ---
 
-## 25. `Customer.Email` opcional — reemplaza el placeholder `noemail+P...` por `NULL` — 🔶 En progreso: Fase A (schema) ✅ Hecho (2026-07-30), Fase B (backfill) esperando confirmación del COUNT(*), Fase C (script de migración) pendiente
+## 25. `Customer.Email` opcional — reemplaza el placeholder `noemail+P...` por `NULL` — ✅ Hecho (2026-07-30): las 3 fases (schema, backfill, script de migración) completas y verificadas
 
 Decisión del responsable: en vez de mantener el placeholder sintético `noemail+P<referencia>@migracion.wholecare.local` para los Customers migrados sin email real (§24, auditoría original), se prefiere dejar el campo directamente vacío (igual que el legacy, que muestra "Empty") para que cada agente cargue el dato real con el tiempo. Diagnóstico técnico previo (mismo día, sin cambios de código) confirmó que es viable pero no trivial — el índice único existente solo tolera **una** fila con `NULL` en toda la tabla salvo que se pase a un índice filtrado.
 
@@ -1198,13 +1198,33 @@ Decisión del responsable: en vez de mantener el placeholder sintético `noemail
 - `dotnet build`/`npm run build`/`npm run lint` limpios (mismos warnings preexistentes de siempre, ninguno nuevo).
 - End-to-end con curl contra la API real (limpiando los datos de prueba después de cada verificación): crear 2 Customers reales con `email:null` → ambos `201`; editar uno con un email real → `200`; intentar poner ese mismo email real en el otro → rechazado (el índice sigue exigiendo unicidad entre emails reales — cae en un `500` genérico de `GlobalExceptionMiddleware`, gap preexistente sin relación a este cambio, ya señalado en el diagnóstico previo); volver a vaciar el email vía edición → `200`, confirma que el fix de `""→null` del frontend funciona en el flujo de edición también.
 
-### 25.2 Fase B — Backfill de los ~947 existentes — ⏸ Esperando confirmación del `COUNT(*)`, sin aplicar el `UPDATE`
+### 25.2 Fase B — Backfill de los ~947 existentes — ✅ Hecho (2026-07-30)
 
-No ejecutado todavía. Pendiente: backup previo, `SELECT COUNT(*) FROM Customers WHERE Email LIKE 'noemail+P%'` (puede haber cambiado desde la medición original de 947 — la Fase 2/2.10/2.11 de §24 no tocaron `Email`, así que no debería haber variado, pero se re-mide antes de aplicar nada), mostrar el número al responsable, y solo después correr el `UPDATE ... SET Email = NULL`.
+**Backup previo**: `D:\backups\WholeCareInsuranceDb_pre_email_null_backfill_20260730.bak` (11.3 MB).
 
-### 25.3 Fase C — Evitar nuevos placeholders en futuras re-importaciones — Pendiente
+**Re-medición antes de aplicar** (confirmada con el responsable antes de correr el `UPDATE`): `SELECT COUNT(*) FROM Customers WHERE Email LIKE 'noemail+P%'` → **947**, idéntico al número original de la auditoría de §24 — confirma que ninguna de las inserciones posteriores en `CustomerRelationship` (Fase 2, backfill de email real, Clara/Elizabeth) tocó `Customer.Email`.
 
-No ejecutado todavía. Cambio acotado a `EntityMatcher.cs` (`ResolveUniqueEmailAsync`): cuando no hay email real en el origen, devolver `null` en vez de generar `noemail+{sourceReference}@migracion.wholecare.local`. Solo afecta a una futura re-importación (el script ya corrido en §7 no se re-ejecuta).
+**Ejecución**: `UPDATE Customers SET Email = NULL WHERE Email LIKE 'noemail+P%'` (con `SET QUOTED_IDENTIFIER ON`, requerido por SQL Server para escribir en una tabla con índice filtrado) — **947 filas actualizadas**, exacto.
+
+**Verificación post-`UPDATE`**:
+
+| Chequeo | Resultado |
+|---|---|
+| Customers con `Email IS NULL` | **947** |
+| Total de Customers (no debía cambiar) | **2128**, sin cambios |
+| Placeholders `noemail+P%` residuales | **0** |
+| Customers con email real intacto | **1181** |
+| Suma de control (947 + 1181) | **2128**, cierra exacto |
+
+### 25.3 Fase C — Evitar nuevos placeholders en futuras re-importaciones — ✅ Hecho (2026-07-30)
+
+`EntityMatcher.cs`, `ResolveUniqueEmailAsync`: cuando no hay email real en el origen (`string.IsNullOrWhiteSpace(rawEmail)`), ahora devuelve `null` en vez de generar `noemail+{sourceReference}@migracion.wholecare.local` — la firma pasó de `Task<string>` a `Task<string?>`. La lógica de desambiguación por colisión (sufijo `+mig{sourceReference}`, §23.1) se mantiene intacta para cuando sí hay un email real que choca con el de otro Customer — ese caso no cambió. El chequeo de "email ya en uso" se ajustó a `c.Email != null && c.Email.ToLower() == candidate.ToLower()` para reflejar que `Customer.Email` ahora es nullable.
+
+Solo afecta a una futura re-importación o re-run del script — el script ya corrido en §7 no se re-ejecuta, así que no hay backfill retroactivo que hacer por este cambio (ya lo hizo §25.2 directamente sobre la base).
+
+**Verificado**: `dotnet build` sobre `WholeCareInsurance.Migration` — 0 errores; los únicos 2 warnings de nullable en el archivo (`FirstName`/`LastName` vía `Truncate`) son los mismos preexistentes ya documentados en §23.3, sin relación a este cambio — no se agregó ningún warning nuevo gracias al guard `c.Email != null`. No se corrió una migración real (no hay una re-importación pendiente) — mismo criterio que §23.3, queda listo para ejercitarse la próxima vez que se corra el script.
+
+**Con esto, §25 queda completo.** El único paso que sigue siendo trabajo operativo (no de desarrollo) es que los agentes carguen los emails reales de a poco, ahora sobre un campo que empieza en `NULL` en vez de un placeholder sintético.
 
 ---
 
@@ -1257,4 +1277,4 @@ No ejecutado todavía. Cambio acotado a `EntityMatcher.cs` (`ResolveUniqueEmailA
 45. ~~Dashboard "Additional statistics" — bug de normalización de mayúsculas en `Customer.City`~~ ✅ Hecho: backfill de datos (336 filas corregidas con backup previo, 304→191 valores distintos, §22.4) + freno al `<input>` libre (`<datalist>` de autocomplete + normalización a Title Case en el blur, §22.5 Parte A) + gráficos tipo torta/dona con top 9 + Otros para Aseguradora/Condado/Ciudad, reemplazando las 3 listas planas (§22.5 Parte B)
 46. ~~Customers duplicados por bug de matching en la migración (Doris Maldonado, Mariana Salvador Cruz)~~ ✅ Hecho: los 2 casos confirmados fusionados con backup previo y verificación (§23.2); refuerzo del matching (`_customerByDob` + `CheckPossibleDuplicate`, solo reporta, nunca fusiona automáticamente) implementado y verificado (§23.3). Queda pendiente, aparte, revisar el `AgentId` en fallback Admin encontrado en la póliza de Mariana (§23.2, mismo gap que §7)
 47. ~~Rediseño de la relación Customer ↔ Customer (titular/dependiente-aplicante)~~ ✅ Hecho (§24): Fase 1 (modelo `CustomerRelationship`, migración) + Fase 2 (backfill de 884 filas, §24.6) + Fase 3 (endpoints backend, filtro `?role=`, KPI `UniqueMembersCount`, §24.7) + Fase 4 (filtro de rol en Customers.jsx, tarjeta "Personas únicas" en el Dashboard, §24.8) + backfill de los 75 dependientes de email real (§24.10) + Clara/Elizabeth revisadas e incluidas (§24.11) — `CustomerRelationships` en 961 filas, todo verificado end-to-end con SQL directo, curl y navegador. Solo queda el backfill manual de emails placeholder (§24.9), trabajo operativo, no de desarrollo.
-48. `Customer.Email` opcional (reemplaza el placeholder `noemail+P...` por `NULL`) — 🔶 En progreso (§25): Fase A (schema + índice único filtrado, DTOs, fix de `""→null` en el frontend) ✅ Hecho, verificado end-to-end con SQL directo y curl; queda Fase B (backfill de los ~947 existentes, esperando confirmación del `COUNT(*)` antes del `UPDATE`) y Fase C (evitar nuevos placeholders en `EntityMatcher.cs` para futuras re-importaciones).
+48. ~~`Customer.Email` opcional (reemplaza el placeholder `noemail+P...` por `NULL`)~~ ✅ Hecho (§25): Fase A (schema + índice único filtrado, DTOs, fix de `""→null` en el frontend) + Fase B (backfill de los 947 existentes a `NULL`, backup previo, verificado 947/2128/0 residuales/1181 con email real) + Fase C (`EntityMatcher.ResolveUniqueEmailAsync` devuelve `null` en vez de generar placeholder, para futuras re-importaciones) — todo verificado con SQL directo, curl y build.

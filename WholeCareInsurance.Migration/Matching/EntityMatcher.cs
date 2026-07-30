@@ -249,13 +249,18 @@ namespace WholeCareInsurance.Migration.Matching
             return x.Contains(y) || y.Contains(x);
         }
 
-        private async Task<string> ResolveUniqueEmailAsync(string? rawEmail, string sourceReference)
+        // §25 (Fase C): sin email real en el origen, se deja NULL en vez de generar un
+        // placeholder sintético ("noemail+P..."). Customer.Email es nullable con índice
+        // único FILTRADO (WHERE Email IS NOT NULL, §25.1) — cualquier cantidad de
+        // Customers pueden tener Email = NULL a la vez, no hace falta un valor dummy
+        // para no violar el índice.
+        private async Task<string?> ResolveUniqueEmailAsync(string? rawEmail, string sourceReference)
         {
-            var candidate = string.IsNullOrWhiteSpace(rawEmail)
-                ? $"noemail+{sourceReference}@migracion.wholecare.local"
-                : rawEmail.Trim();
+            if (string.IsNullOrWhiteSpace(rawEmail)) return null;
 
-            var taken = await _db.Customers.AnyAsync(c => c.Email.ToLower() == candidate.ToLower());
+            var candidate = rawEmail.Trim();
+
+            var taken = await _db.Customers.AnyAsync(c => c.Email != null && c.Email.ToLower() == candidate.ToLower());
             if (!taken) return candidate;
 
             _report.MissingDataWarnings.Add(
