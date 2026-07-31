@@ -64,6 +64,32 @@ namespace WholeCareInsurance.Migration
                 return 0;
             }
 
+            if (options.ResetAgentPasswords)
+            {
+                var agentPasswordFile = FindFile(options.SourceDir, "agent");
+                if (agentPasswordFile == null)
+                {
+                    Console.Error.WriteLine("No se encontró el xlsx de agentes (marcador \"agent\") en el directorio de origen.");
+                    return 1;
+                }
+                var passwordResetReport = await AgentPasswordResetRunner.RunAsync(agentPasswordFile, db, options.Commit);
+
+                string? passwordsFilePath = null;
+                if (passwordResetReport.Updated.Count > 0)
+                {
+                    // Fuera del repo por completo (no solo gitignored) — mismo criterio que
+                    // los backups de BD (D:\backups\...): ni siquiera depende de .gitignore.
+                    var backupsDir = @"D:\backups";
+                    Directory.CreateDirectory(backupsDir);
+                    passwordsFilePath = Path.Combine(backupsDir,
+                        $"agent-temp-passwords-{DateTime.Now:yyyyMMdd-HHmmss}{(options.Commit ? "" : "-dryrun")}.txt");
+                    passwordResetReport.SavePasswordsFile(passwordsFilePath, options.Commit);
+                }
+
+                passwordResetReport.Print(options.Commit, passwordsFilePath);
+                return 0;
+            }
+
             // §15.2: importa agentes ANTES que pólizas, para que si algún día se corren
             // juntos en el mismo --commit, EntityMatcher.ResolveAgentAsync ya encuentre los
             // agentes reales por Nombre en vez de caer al fallback Admin en esa misma corrida.

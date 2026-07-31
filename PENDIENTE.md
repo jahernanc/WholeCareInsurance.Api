@@ -1403,6 +1403,32 @@ Con esto, §27 Parte 1 queda completa. Parte 2 (`.docx` vía `docx-preview` clie
 
 ---
 
+## 28. Corrección de contraseñas de agentes migrados + email de bienvenida — Paso (a) ✅ Hecho (2026-07-31), Paso (b) 📋 documentado
+
+Diagnóstico previo: el import original (§15.2) asignó **una sola contraseña temporal compartida** a los 41 agentes reales (`Program.cs` la generaba una vez y se la pasaba a `AgentImporter.RunAsync` para los 41). Nunca se envió ningún email — hoy `IEmailService` (`BrevoEmailService`/`ConsoleEmailService`, §10.3) solo está conectado al flujo de "olvidé mi contraseña", no al alta/import de agentes.
+
+### 28.1 Paso (a) — Contraseña individual por agente — ✅ Hecho
+`AgentPasswordResetRunner.cs` nuevo (mismo patrón que `AgentContactBackfillRunner`, §17.1: re-lee el xlsx de agentes y matchea por Email contra los `User` ya existentes, sin `ImportPipeline`/`EntityMatcher`). A diferencia de §15.2, genera una contraseña con `RandomNumberGenerator` **por fila**, no una compartida. `MustChangePassword` no se toca (ya estaba en `true` para los 41). Nuevo modo `--reset-agent-passwords` en `WholeCareInsurance.Migration`, combinable con `--dry-run`/`--commit --confirm` (mismo criterio que el resto de los runners).
+- **Backup previo**: `D:\backups\WholeCareInsuranceDb_pre_agent_password_reset_20260731.bak` (`BACKUP DATABASE` completo, mismo criterio que §22.4 y siguientes).
+- Las contraseñas generadas **no se persisten en el repo**: se guardan en `D:\backups\agent-temp-passwords-<timestamp>.txt` (fuera del repo por completo, no solo gitignored — mismo criterio que los `.bak`), además de mostrarse en consola.
+- **Caso Alexander Centeno** (`User.Id=3011`, Admin): el xlsx original trae `alexfinancial22@gmail.com`, pero su email real hoy es `info@wholecareinsurancellc.com` (cambio intencional hecho en una sesión anterior vía el autoservicio de `Profile.jsx`, §26 — no un dato desactualizado a ignorar). Resuelto con un override explícito en el runner (`KnownEmailDriftToUserId`, matchea por `User.Id` directo para este caso puntual, documentado en el código con el email viejo/nuevo).
+- **Mejora futura, no implementada** (evaluada, no es simple de hacer ahora): que el runner prefiera matchear por `User.Id` en general en vez de por Email del xlsx requeriría un mapeo persistido fila-del-xlsx → `User.Id` desde la corrida original de §15.2 — ese mapeo nunca existió (el reporte original solo se imprimió en consola, sin guardar Ids). Sin ese mapeo, Email es la única clave natural disponible; el caso de Centeno se resolvió con un override puntual en vez de un mecanismo genérico.
+- **`--dry-run` confirmado**: 41/41 agentes matcheados (40 por Email + 1 por el override de Id).
+- **`--commit --confirm` aplicado**. Verificado con SQL directo post-commit: `SELECT COUNT(*), COUNT(DISTINCT PasswordHash) FROM Users WHERE MustChangePassword = 1` → `41` y `41` (ninguna coincidencia); `SELECT PasswordHash, COUNT(*) FROM Users GROUP BY PasswordHash HAVING COUNT(*) > 1` → 0 filas en toda la tabla `Users`, no solo entre los 41 — confirma que no quedó ningún hash compartido en ningún lado.
+- Contraseñas reales de esta corrida guardadas en `D:\backups\agent-temp-passwords-20260731-161438.txt` (fuera del repo) — insumo para el paso (b) cuando corresponda.
+
+### 28.2 Paso (b) — Email de bienvenida con contraseña temporal — 📋 Documentado, sin implementar
+Bloqueado a propósito hasta que el VPS/Test esté desplegado y `Frontend__BaseUrl` (env var ya prevista en §8.1) apunte a la URL real — el patrón existente de `IEmailService` (`AuthService.ForgotPassword`, §10.3) arma el link con `_config["Frontend:BaseUrl"]` (default `http://localhost:5173`), así que generar y enviar el email de bienvenida desde local hoy produciría un link roto (`localhost`) para los agentes reales.
+
+**Requisitos confirmados para cuando se implemente:**
+- Runner/script de envío nuevo (mismo proyecto `WholeCareInsurance.Migration`, reusando `IEmailService`/`BrevoEmailService` del `api` o una llamada HTTP equivalente) que acepte un **filtro opcional** (lista de emails o de `User.Id`) para poder correr contra un subconjunto específico.
+- **Sin el filtro** (o con un flag explícito tipo `--all`): corre contra los 41 completos — pensado para el momento de Producción.
+- **Con el filtro**: corre solo contra los 2-3 agentes de prueba que el responsable elija (gente que él controle) — pensado para Test, para no mandar emails reales a agentes que todavía no deberían recibirlos.
+- Mismo criterio de `--dry-run` que el resto de los runners de este proyecto: mostrar a quién se le enviaría (con o sin filtro) antes de disparar cualquier envío real.
+- Precondición dura: `Brevo__ApiKey`/`Brevo__SenderEmail`/`Frontend__BaseUrl` reales seteados en el ambiente donde se corra (si no, cae a `ConsoleEmailService` y no sale ningún email real, ver §8.1).
+
+---
+
 ## 21. Orden sugerido de trabajo
 
 1. ~~Tipo en Policy~~ ✅ Hecho
@@ -1455,3 +1481,4 @@ Con esto, §27 Parte 1 queda completa. Parte 2 (`.docx` vía `docx-preview` clie
 48. ~~`Customer.Email` opcional (reemplaza el placeholder `noemail+P...` por `NULL`)~~ ✅ Hecho (§25): Fase A (schema + índice único filtrado, DTOs, fix de `""→null` en el frontend) + Fase B (backfill de los 947 existentes a `NULL`, backup previo, verificado 947/2128/0 residuales/1181 con email real) + Fase C (`EntityMatcher.ResolveUniqueEmailAsync` devuelve `null` en vez de generar placeholder, para futuras re-importaciones) — todo verificado con SQL directo, curl y build.
 49. ~~Rediseño de la sección "Profile" (ver/editar datos del perfil + cambio de contraseña)~~ ✅ Hecho (§26): `PUT /users/me` nuevo (extiende `UserMeDto` en vez de agregar endpoint aparte, §26.6) con `Agency` de solo lectura y confirmación de contraseña actual al cambiar `Email`, selector de sección con 2 botones toggle (no tabs) en `Profile.jsx`, incluye el fix de un bug encontrado de paso (`GET /users/me` resolvía por email en vez de por Id, rompía la reconciliación de `AppLayout.jsx` tras cambiar el propio email).
 50. ~~Preview de PolicyDocument en el navegador sin forzar descarga — Parte 1 (PDF/imagen)~~ ✅ Hecho (§27.1/§27.3): endpoint `DownloadDocument` acepta `inline=true` para tipos previsualizables (`application/pdf`, `image/jpeg`), botón "Ver" nuevo junto a "Descargar" en Policies.jsx. Parte 2 (`.docx` vía `docx-preview` u otra opción) sigue ⏸ sin implementar, punto abierto para el responsable (§27.2).
+51. ~~Corrección de la contraseña única compartida de los 41 agentes migrados (§15.2) por contraseñas individuales~~ ✅ Hecho (§28.1): 41/41 con `PasswordHash` distinto entre sí (verificado con SQL directo, 0 duplicados en toda la tabla `Users`), incluye el caso de Alexander Centeno (email cambiado post-import vía §26, resuelto con override manual por `User.Id`). Email de bienvenida con la contraseña (paso b, §28.2) documentado con filtro Test/Producción, bloqueado hasta el despliegue al VPS (`Frontend__BaseUrl` real).

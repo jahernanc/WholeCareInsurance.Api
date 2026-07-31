@@ -7,6 +7,7 @@ namespace WholeCareInsurance.Migration
         public bool ReassignAgents { get; private set; }
         public bool BackfillAgentContact { get; private set; }
         public bool BackfillRenewalStatus { get; private set; }
+        public bool ResetAgentPasswords { get; private set; }
         public string SourceDir { get; private set; } = default!;
         public int HistoryWindowDays { get; private set; } = 200;
         public string? ConnectionString { get; private set; }
@@ -26,6 +27,7 @@ namespace WholeCareInsurance.Migration
                     case "--reassign-agents": options.ReassignAgents = true; break;
                     case "--backfill-agent-contact": options.BackfillAgentContact = true; break;
                     case "--backfill-renewal-status": options.BackfillRenewalStatus = true; break;
+                    case "--reset-agent-passwords": options.ResetAgentPasswords = true; break;
                     case "--source": options.SourceDir = args[++i]; break;
                     case "--history-window-days": options.HistoryWindowDays = int.Parse(args[++i]); break;
                     case "--connection": options.ConnectionString = args[++i]; break;
@@ -72,6 +74,8 @@ namespace WholeCareInsurance.Migration
                   WholeCareInsurance.Migration --backfill-agent-contact --commit --confirm [--source <dir>] [--connection "<connstr>"]
                   WholeCareInsurance.Migration --backfill-renewal-status --dry-run [--source <dir>] [--connection "<connstr>"]
                   WholeCareInsurance.Migration --backfill-renewal-status --commit --confirm [--source <dir>] [--connection "<connstr>"]
+                  WholeCareInsurance.Migration --reset-agent-passwords --dry-run [--source <dir>] [--connection "<connstr>"]
+                  WholeCareInsurance.Migration --reset-agent-passwords --commit --confirm [--source <dir>] [--connection "<connstr>"]
 
                 --dry-run                 Simula todo el proceso, no escribe nada en la base, genera el reporte.
                 --commit --confirm        Ejecuta la migración real (requiere --confirm explícito).
@@ -83,6 +87,9 @@ namespace WholeCareInsurance.Migration
                 --backfill-renewal-status (§18.6 paso 2) En vez de migrar pólizas, completa Policy.RenewalStatus
                                           de las pólizas de Health/Obamacare ya migradas, re-leyendo ese xlsx —
                                           combinar con --dry-run o --commit --confirm.
+                --reset-agent-passwords   Reemplaza la contraseña ÚNICA compartida asignada por el import de
+                                          agentes (§15.2) por una contraseña individual por agente — combinar
+                                          con --dry-run o --commit --confirm.
                 --source <dir>            Carpeta con los .xlsx (default: ../migration-source).
                 --history-window-days N   Ventana de consolidación de historial en días (default: 200).
                 --connection "<connstr>"  Connection string explícita (default: la de WholeCareInsurance.api/appsettings*.json).
