@@ -24,6 +24,7 @@ const AUTO_PAYMENT_DAYS = Array.from({ length: 28 }, (_, i) => i + 1);
 const PLAN_TYPES = ["Catastrophic", "Bronze", "Silver", "Gold", "Platinum"];
 const ALLOWED_DOCUMENT_EXTENSIONS = [".pdf", ".docx", ".jpg", ".jpeg"];
 const MAX_DOCUMENT_SIZE_BYTES = 5 * 1024 * 1024;
+const PREVIEWABLE_DOCUMENT_TYPES = ["application/pdf", "image/jpeg"];
 
 const formatFileSize = (bytes) => `${(bytes / 1024).toFixed(2)} KB`;
 
@@ -377,6 +378,20 @@ function Policies() {
         } catch (error) {
             console.error(error);
             alert(t("documents.downloadError"));
+        }
+    };
+
+    const handleViewDocument = async (doc) => {
+        try {
+            const res = await apiFetch(`/api/policies/${viewingPolicy.id}/documents/${doc.id}?inline=true`);
+            if (!res.ok) throw new Error();
+
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            window.open(url, "_blank");
+        } catch (error) {
+            console.error(error);
+            alert(t("documents.viewError"));
         }
     };
 
@@ -2314,6 +2329,27 @@ function Policies() {
                                                             overflow: "hidden",
                                                         }}
                                                     >
+                                                        {PREVIEWABLE_DOCUMENT_TYPES.includes(doc.contentType) && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setOpenDocMenuId(null);
+                                                                    handleViewDocument(doc);
+                                                                }}
+                                                                style={{
+                                                                    display: "block",
+                                                                    width: "100%",
+                                                                    textAlign: "left",
+                                                                    background: "transparent",
+                                                                    border: "none",
+                                                                    padding: "8px 12px",
+                                                                    cursor: "pointer",
+                                                                    fontSize: 14,
+                                                                }}
+                                                            >
+                                                                {t("documents.view")}
+                                                            </button>
+                                                        )}
                                                         <button
                                                             type="button"
                                                             onClick={() => {

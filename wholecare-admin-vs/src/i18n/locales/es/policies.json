@@ -227,6 +227,7 @@
         "uploading": "Subiendo...",
         "empty": "No hay documentos",
         "optionsTitle": "Opciones",
+        "view": "Ver",
         "download": "Descargar",
         "delete": "Eliminar",
         "deleteConfirm": "¿Eliminar el documento \"{{name}}\"?",
@@ -234,6 +235,7 @@
         "tooLarge": "El archivo supera el tamaño máximo permitido (5 MB).",
         "uploadError": "Error al subir el documento",
         "downloadError": "Error al descargar el documento",
+        "viewError": "Error al ver el documento",
         "deleteError": "Error al eliminar el documento"
     }
 }

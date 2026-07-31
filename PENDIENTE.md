@@ -1314,7 +1314,7 @@ Evaluadas las opciones mencionadas en el pedido:
 
 ---
 
-## 27. Preview de PolicyDocument en el navegador (sin descargar) — ⏸ Diagnóstico y plan, sin implementar
+## 27. Preview de PolicyDocument en el navegador (sin descargar) — Parte 1 (PDF/imagen) ✅ Hecho (2026-07-31), Parte 2 (`.docx`) sigue ⏸ sin implementar
 
 Pedido: hoy los documentos cargados en el detalle de una póliza (`PolicyDocument`, §1.7) solo se pueden descargar — el cliente pidió poder **visualizarlos** en el navegador sin bajar el archivo primero.
 
@@ -1371,6 +1371,35 @@ Descartar A y B de entrada — no es solo una cuestión de límites de uso, es q
 Entre C y D, **la Opción D (`docx-preview` client-side) es la recomendada**: mismo nivel de seguridad que la Parte 1 (nunca sale del servidor/sesión autenticada), cero infraestructura nueva en el backend, y reutiliza el mismo patrón de fetch ya construido. El trade-off (fidelidad no pixel-perfect) es aceptable si el objetivo es "puedo ver rápido qué dice el documento sin descargarlo" y no "reemplazo de abrir el archivo en Word". La Opción C queda como alternativa si al probar D con documentos reales la fidelidad resulta insuficiente.
 
 **Punto abierto para el responsable**: decidir, con documentos `.docx` reales de la app en mano, si vale la complejidad de D (o C) — o si simplemente se mantiene "solo descargar" para `.docx` y el preview in-browser queda limitado a PDF/imagen (Parte 1), que ya cubre el único documento existente hoy en la base.
+
+### 27.3 Implementación de la Parte 1 (PDF/imagen) — ✅ Hecho (2026-07-31)
+
+Implementado exactamente según el plan de §27.1, resolviendo los 3 obstáculos identificados.
+
+**Backend (`Controllers/PoliciesController.cs`):**
+- `DownloadDocument` (`{id:int}/documents/{documentId:int}`) pasó a aceptar un query param opcional `[FromQuery] bool inline = false` — **un solo endpoint**, no uno nuevo separado, para no duplicar la resolución de `GetDocument`/verificación de archivo en disco y para que el botón "Descargar" existente siga golpeando la misma URL de siempre sin ningún cambio de contrato.
+- Sin el query param (o con `inline=false`), el comportamiento es **bit a bit idéntico al de antes**: mismo `return PhysicalFile(path, document.ContentType, document.OriginalFileName)`, mismo `Content-Disposition: attachment`. El botón "Descargar" no se tocó en el frontend y no necesitaba tocarse en el backend tampoco.
+- Con `inline=true` **y** `document.ContentType` en la whitelist `PreviewableContentTypes` (`application/pdf`, `image/jpeg`), se arma el header a mano con `Microsoft.Net.Http.Headers.ContentDispositionHeaderValue("inline")` + `SetHttpFileName(...)` (la misma clase que usa ASP.NET Core internamente para el caso `attachment`, así que el nombre de archivo con caracteres especiales/acentos se encodea correctamente vía RFC 5987 — verificado con el documento real, que tiene una tilde en el nombre, ver Verificación) y se devuelve `PhysicalFile(path, document.ContentType)` sin el 3er parámetro.
+- **Decisión explícita, coincide con la nota de compatibilidad del plan original**: si `inline=true` se pide para un tipo no previsualizable (`.docx`, o cualquier tipo futuro), el backend **ignora el pedido y sigue devolviendo `attachment`** — la decisión de qué es previsualizable vive en el backend, no se confía en que el frontend nunca mande el query param para un tipo incorrecto.
+
+**Frontend (`src/pages/Policies.jsx`):**
+- `PREVIEWABLE_DOCUMENT_TYPES` (`["application/pdf", "image/jpeg"]`) nueva, junto a las otras constantes de documentos (`ALLOWED_DOCUMENT_EXTENSIONS`, etc.).
+- `handleViewDocument(doc)` nueva, junto a `handleDownloadDocument` (sin tocarla): `apiFetch(".../documents/{id}?inline=true")` → `res.blob()` → `URL.createObjectURL(blob)` → `window.open(url, "_blank")` — **sin** crear ningún `<a>` ni setear `download`, a diferencia de `handleDownloadDocument`. Mismo mecanismo de auth que ya usa la descarga (`apiFetch` adjunta el Bearer token desde `localStorage`), así que sortea el obstáculo 2 del diagnóstico igual que ya lo hacía el flujo de descarga.
+- Botón "Ver" agregado al menú de opciones (⋮) de cada documento, **antes** de "Descargar" — condicionado a `PREVIEWABLE_DOCUMENT_TYPES.includes(doc.contentType)`: para `.docx` el botón directamente no se renderiza (se eligió ocultar en vez de deshabilitar+explicar, mismo criterio que ya usa la app para mostrar/ocultar el botón de WhatsApp condicional a que haya teléfono — no hay precedente de botón deshabilitado-con-tooltip en ningún lugar de esta app).
+- Claves i18n nuevas `documents.view`/`documents.viewError` (es/en), junto a las ya existentes de `download`/`downloadError`.
+
+**Nota técnica descubierta durante la verificación (no cambia nada de la implementación, solo aclara por qué funciona)**: el header `Content-Disposition` del backend no es, en rigor, lo que hace que "Ver" abra sin descargar — eso lo logra el propio flujo del frontend (`blob()` + `URL.createObjectURL` + `window.open`, que nunca deja que el navegador vea la respuesta HTTP cruda ni su `Content-Disposition`, un blob: URL no lleva headers). El cambio de backend sigue siendo correcto y necesario tal como está en el plan aprobado: dejar `inline` disponible en el endpoint es lo que documenta la intención real de cada tipo de contenido a nivel de API (útil para cualquier consumidor futuro que sí navegue directo a la URL, ej. Swagger/Postman con el token a mano) y es lo que se pidió implementar explícitamente.
+
+**Verificado:**
+- `dotnet build`: 0 errores, mismos warnings preexistentes de nulabilidad en DTOs de `Users` (sin relación).
+- `npm run build`/`npm run lint`: limpios, mismo warning preexistente de `exhaustive-deps` en `Agentes.jsx`.
+- Con `curl` contra la API real (login como `admin@wholecare.com`, documento real `RecetaMédica-Javier.pdf`, `application/pdf`, único documento cargado hoy en la base — Policy 381840, Maite Medina):
+  - `GET .../documents/2002?inline=true` → `200`, `Content-Disposition: inline; filename=RecetaM_dica-Javier.pdf; filename*=UTF-8''RecetaM%C3%A9dica-Javier.pdf`.
+  - `GET .../documents/2002` (sin query param) → `200`, `Content-Disposition: attachment; filename=...` — **idéntico al comportamiento de antes de este cambio**, confirma que "Descargar" no se rompió.
+- En el navegador real (Vite dev server + API local, login como Admin, Policy 381840 → modal de detalle → sección Documents): el menú de opciones del documento muestra **View / Download / Delete** (los 3, porque es un `.pdf`); click en "View" dispara `GET .../documents/2002?inline=true` (confirmado por Network, `200 OK`) sin errores de consola; click en "Download" dispara `GET .../documents/2002` sin el query param (confirmado por Network, `200 OK`), sin cambios respecto al comportamiento ya conocido.
+- No se pudo confirmar visualmente el render de la pestaña nueva del PDF en el navegador automatizado de esta sesión (limitación del tooling con `window.open`, no de la app) — la verificación de red + los headers reales por `curl` cubren el mecanismo completo end-to-end; el `.pdf` real usado en la prueba es el único documento existente en la base hoy, mismo que documenta §27.1.
+
+Con esto, §27 Parte 1 queda completa. Parte 2 (`.docx` vía `docx-preview` client-side u otra opción) sigue con el punto abierto de §27.2, sin implementar.
 
 ---
 

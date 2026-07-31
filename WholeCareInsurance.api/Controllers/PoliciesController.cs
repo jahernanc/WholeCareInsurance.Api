@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.StaticFiles;
+using Microsoft.Net.Http.Headers;
 using System.Security.Claims;
 using WholeCareInsurance.api.DTOs.Policies;
 using WholeCareInsurance.api.Models;
@@ -372,8 +373,10 @@ namespace WholeCareInsurance.api.Controllers
             return CreatedAtAction(nameof(GetDocuments), new { id }, ToDocumentResponse(created));
         }
 
+        private static readonly HashSet<string> PreviewableContentTypes = new() { "application/pdf", "image/jpeg" };
+
         [HttpGet("{id:int}/documents/{documentId:int}")]
-        public async Task<IActionResult> DownloadDocument(int id, int documentId)
+        public async Task<IActionResult> DownloadDocument(int id, int documentId, [FromQuery] bool inline = false)
         {
             var document = await _policies.GetDocument(id, documentId);
             if (document == null) return NotFound();
@@ -381,6 +384,17 @@ namespace WholeCareInsurance.api.Controllers
             var path = _documentStorage.GetPhysicalPath(id, document.StoredFileName);
             if (!System.IO.File.Exists(path))
                 return NotFound("El archivo ya no está disponible en el servidor.");
+
+            // ?inline=true pide preview en pestaña nueva (§27.1) — solo se concede para tipos que el
+            // navegador puede renderizar nativamente; .docx (o cualquier tipo futuro) sigue forzando
+            // attachment, decisión del backend, no del frontend.
+            if (inline && PreviewableContentTypes.Contains(document.ContentType))
+            {
+                var contentDisposition = new ContentDispositionHeaderValue("inline");
+                contentDisposition.SetHttpFileName(document.OriginalFileName);
+                Response.Headers[HeaderNames.ContentDisposition] = contentDisposition.ToString();
+                return PhysicalFile(path, document.ContentType);
+            }
 
             return PhysicalFile(path, document.ContentType, document.OriginalFileName);
         }
