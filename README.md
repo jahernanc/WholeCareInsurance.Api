@@ -143,6 +143,20 @@ VPS: Ubuntu 24.04, KVM2 (2 CPU, 8GB RAM, 100GB disco), con [EasyPanel](https://e
 
 **Seed del admin inicial** (`AdminUserSeeder`): si ninguna de las 4 variables `Admin__*` está configurada, se crea el admin default documentado en "Puesta en marcha" (`admin@wholecare.com` / `Admin123!`) y queda un `LogWarning` en los logs del contenedor avisando que se usó el fallback. Configurando las 4 se crea ese admin real en su lugar (con `MustChangePassword = true` igual que el default, así que la persona real cambia esa password inicial en su primer login). El seed es idempotente por email — si ese email ya existe no hace nada, así que es seguro dejar las variables seteadas en el servicio de forma permanente.
 
+### Brevo (envío de emails)
+
+Variables exactas para que `BrevoEmailService` se active en vez de caer a `ConsoleEmailService` (que solo loguea el email, usado hoy en dev local):
+
+| Env var | Mapea a | Obligatoria | Notas |
+|---|---|---|---|
+| `Brevo__ApiKey` | `Brevo:ApiKey` | **Sí** | Es el gate (`Program.cs`): sin esto, se registra `ConsoleEmailService` sin importar qué más esté seteado. |
+| `Brevo__SenderEmail` | `Brevo:SenderEmail` | **Sí** | Se usa tal cual como `sender.email` en el request a la API de Brevo, sin ninguna validación/transformación local. Tiene que estar **verificado como sender o dominio en el dashboard de Brevo** — si no, Brevo rechaza el envío (esto es un requisito de la cuenta de Brevo, no de nuestra config). |
+| `Brevo__SenderName` | `Brevo:SenderName` | No | Tiene default hardcodeado `"WholeCare Insurance"` (`appsettings.json` y fallback en código) — solo hace falta setearla para usar un nombre de remitente distinto. |
+
+Con `ApiKey` + `SenderEmail` alcanza — el código no usa ningún otro dato de Brevo (no hay `templateId`, ni webhooks, ni tracking; el payload es fijo: `sender`, `to`, `subject`, `htmlContent`).
+
+**Nunca en archivos versionados**: `appsettings.json` trae las 3 claves de `Brevo` vacías (excepto `SenderName`, que no es secreto). `docker-compose.yml` trae los mismos placeholders vacíos. Los valores reales van **solo** como variables de entorno del servicio en EasyPanel al momento del deploy — mismo criterio que `Admin__*`.
+
 **Volumen persistente:** `App_Data/PolicyDocuments` (dentro del contenedor, relativo al `WORKDIR /app`) necesita un volumen — sin él, los documentos de pólizas se pierden en cada redeploy.
 
 ## Estructura del repositorio
