@@ -151,6 +151,18 @@ function Customers() {
             assistantAgentId: form.assistantAgentId ? Number(form.assistantAgentId) : null,
             recordAgentId: form.recordAgentId ? Number(form.recordAgentId) : null,
             annualIncome: form.annualIncome === "" ? 0 : Number(form.annualIncome),
+            // Campos numéricos opcionales de Life Insurance (§12.3): esta pantalla nunca los
+            // muestra/edita (showLifeInsuranceFields=false, solo se tocan desde Policies.jsx),
+            // así que quedan siempre en "" — pero el backend espera int?/decimal? real, no
+            // string vacío, y rechaza "" con un error de deserialización de JSON.
+            age: form.age === "" ? null : Number(form.age),
+            netWorth: form.netWorth === "" ? null : Number(form.netWorth),
+            householdIncome: form.householdIncome === "" ? null : Number(form.householdIncome),
+            householdNetWorth: form.householdNetWorth === "" ? null : Number(form.householdNetWorth),
+            // currentlyEmployed es un <select> tri-state (""/"true"/"false", ver
+            // LifeInsuranceFields.jsx), no un booleano — mismo criterio de conversión que ya
+            // usan TitularLifeSection.jsx y Policies.jsx (newDependentForm) para este campo.
+            currentlyEmployed: form.currentlyEmployed === "" ? null : form.currentlyEmployed === "true",
         };
 
         try {

@@ -83,7 +83,16 @@ async function parseErrorMessage(res) {
         const contentType = res.headers.get("content-type") || "";
         if (contentType.includes("json")) {
             const body = await res.clone().json();
-            return typeof body === "string" ? body : body?.title;
+            if (typeof body === "string") return body;
+            // Los fallos automáticos de DataAnnotations ([Required]/[AllowedValues]/[Range])
+            // siempre traen el mismo .title genérico ("One or more validation errors
+            // occurred.") — el campo y mensaje real vienen en .errors (ValidationProblemDetails
+            // estándar de ASP.NET Core), que sin esto se perdía por completo.
+            if (body?.errors && typeof body.errors === "object") {
+                const messages = Object.values(body.errors).flat();
+                if (messages.length > 0) return messages.join(" ");
+            }
+            return body?.title;
         }
         const text = await res.clone().text();
         return text || undefined;
