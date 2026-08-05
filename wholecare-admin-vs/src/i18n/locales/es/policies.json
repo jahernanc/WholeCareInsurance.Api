@@ -231,7 +231,7 @@
         "download": "Descargar",
         "delete": "Eliminar",
         "deleteConfirm": "¿Eliminar el documento \"{{name}}\"?",
-        "invalidExtension": "Tipo de archivo no permitido. Se aceptan: .pdf, .docx, .jpg, .jpeg.",
+        "invalidExtension": "Tipo de archivo no permitido. Se aceptan: .pdf, .jpg, .jpeg, .png.",
         "tooLarge": "El archivo supera el tamaño máximo permitido (5 MB).",
         "uploadError": "Error al subir el documento",
         "downloadError": "Error al descargar el documento",

@@ -231,7 +231,7 @@
         "download": "Download",
         "delete": "Delete",
         "deleteConfirm": "Delete document \"{{name}}\"?",
-        "invalidExtension": "File type not allowed. Accepted: .pdf, .docx, .jpg, .jpeg.",
+        "invalidExtension": "File type not allowed. Accepted: .pdf, .jpg, .jpeg, .png.",
         "tooLarge": "File exceeds the maximum allowed size (5 MB).",
         "uploadError": "Error uploading document",
         "downloadError": "Error downloading document",

@@ -347,7 +347,7 @@ namespace WholeCareInsurance.api.Controllers
                 return BadRequest(new ProblemDetails { Title = "El archivo supera el tamaño máximo permitido (5 MB)." });
 
             if (!FileValidationHelper.HasAllowedExtension(file.FileName))
-                return BadRequest(new ProblemDetails { Title = "Tipo de archivo no permitido. Se aceptan: .pdf, .docx, .jpg, .jpeg." });
+                return BadRequest(new ProblemDetails { Title = "Tipo de archivo no permitido. Se aceptan: .pdf, .jpg, .jpeg, .png." });
 
             var extension = Path.GetExtension(file.FileName);
 
@@ -373,7 +373,7 @@ namespace WholeCareInsurance.api.Controllers
             return CreatedAtAction(nameof(GetDocuments), new { id }, ToDocumentResponse(created));
         }
 
-        private static readonly HashSet<string> PreviewableContentTypes = new() { "application/pdf", "image/jpeg" };
+        private static readonly HashSet<string> PreviewableContentTypes = new() { "application/pdf", "image/jpeg", "image/png" };
 
         [HttpGet("{id:int}/documents/{documentId:int}")]
         public async Task<IActionResult> DownloadDocument(int id, int documentId, [FromQuery] bool inline = false)
@@ -386,8 +386,8 @@ namespace WholeCareInsurance.api.Controllers
                 return NotFound("El archivo ya no está disponible en el servidor.");
 
             // ?inline=true pide preview en pestaña nueva (§27.1) — solo se concede para tipos que el
-            // navegador puede renderizar nativamente; .docx (o cualquier tipo futuro) sigue forzando
-            // attachment, decisión del backend, no del frontend.
+            // navegador puede renderizar nativamente; cualquier otro tipo sigue forzando attachment,
+            // decisión del backend, no del frontend.
             if (inline && PreviewableContentTypes.Contains(document.ContentType))
             {
                 var contentDisposition = new ContentDispositionHeaderValue("inline");

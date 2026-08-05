@@ -22,9 +22,9 @@ const POLICY_TYPES = ["Health Insurance (ACA)", "Medicare", "Life Insurance", "S
 const BANK_ACCOUNT_TYPES = ["Cheque", "Ahorros"];
 const AUTO_PAYMENT_DAYS = Array.from({ length: 28 }, (_, i) => i + 1);
 const PLAN_TYPES = ["Catastrophic", "Bronze", "Silver", "Gold", "Platinum"];
-const ALLOWED_DOCUMENT_EXTENSIONS = [".pdf", ".docx", ".jpg", ".jpeg"];
+const ALLOWED_DOCUMENT_EXTENSIONS = [".pdf", ".jpg", ".jpeg", ".png"];
 const MAX_DOCUMENT_SIZE_BYTES = 5 * 1024 * 1024;
-const PREVIEWABLE_DOCUMENT_TYPES = ["application/pdf", "image/jpeg"];
+const PREVIEWABLE_DOCUMENT_TYPES = ["application/pdf", "image/jpeg", "image/png"];
 
 const formatFileSize = (bytes) => `${(bytes / 1024).toFixed(2)} KB`;
 
