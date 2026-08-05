@@ -170,6 +170,17 @@ Ya se decidió usar Twilio para SMS + email en el flujo de firma de consentimien
 - Generación de credenciales: Account SID + API Key (recomendado usar API Key en vez de Auth Token por seguridad) desde el dashboard de Twilio.
 - Definir dónde se van a guardar esas credenciales en el proyecto. Verificado en el código: hoy `BrevoEmailService` sigue el patrón `appsettings.json` (sección `Brevo`, claves vacías en el repo) + variables de entorno `Brevo__ApiKey`/`Brevo__SenderEmail`/`Brevo__SenderName` seteadas solo en Test/Prod, nunca en archivos versionados (ver README, sección Brevo) — replicar el mismo patrón para Twilio/SendGrid.
 
+**Estado de la cuenta de Twilio (relevado 2026-08-05):** la cuenta actual del responsable está en modo Trial (29 días restantes al momento de la revisión), con límites de 50 SMS/día y 100 emails/día. Esto es suficiente para desarrollo y pruebas internas, pero NO alcanza para producción con clientes reales — en meses de renovación (1,000-2,000 pólizas/2 meses, ver §4.1) se necesitarían hasta ~65 SMS/día, superando el límite del trial. Además, cuentas trial solo permiten enviar a números verificados manualmente, lo cual bloquea el envío a clientes reales sin upgrade.
+
+**Criterio de avance definido:** no se le va a pedir al responsable el upgrade de la cuenta (pasar de Trial a plan pago) todavía. Se arranca la integración técnica base (§4.4, pasos 1-4) usando la cuenta trial actual, probando con números/emails verificados del equipo. El pedido de upgrade de cuenta se hace recién en la etapa previa a subir a producción — junto con la resolución del registro A2P 10DLC (ya documentado como prerrequisito más arriba en esta sección), ya que Twilio suele exigir ese registro como parte del proceso de habilitar envío de SMS a volumen real en EE.UU.
+
+**Checklist de pasos previos a producción (a confirmar con el responsable cuando el flujo esté validado en desarrollo):**
+1. Upgrade de la cuenta Twilio de Trial a plan pago.
+2. Completar el registro A2P 10DLC (ya documentado como prerrequisito).
+3. Verificación de dominio en SendGrid (SPF/DKIM) — ya documentado como prerrequisito, confirmar si ya se hizo.
+4. Validar que los límites del plan pago elegido cubran el pico estacional de hasta ~65 SMS/día y volumen equivalente de emails.
+5. Remover cualquier restricción de números verificados / prefijo de cuenta trial en los mensajes salientes.
+
 **Plan de implementación (pasos, a ejecutar una vez estén los prerrequisitos):**
 1. Crear una nueva implementación de `IEmailService` para SendGrid (ej: `SendGridEmailService`), siguiendo el mismo patrón que `BrevoEmailService`, sin reemplazarlo todavía (dejarlo coexistiendo, activable por configuración).
 2. Crear un nuevo servicio `ISmsService` (o similar) con implementación `TwilioSmsService` — verificado en el código que no existe ninguna abstracción de SMS en el proyecto actualmente, se crea desde cero.
