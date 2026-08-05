@@ -79,6 +79,22 @@ Verificado con curl (alta con los 5 campos, alta sin ellos con `null`, edición,
 
 ---
 
+### 1.12 Restringir formatos de archivo permitidos en upload de documentos — ⏸ Pendiente de implementación
+
+**Estado actual verificado en el código:** el upload ya tiene validación completa en ambos lados, no es una implementación desde cero. Frontend (`Policies.jsx:25`): `ALLOWED_DOCUMENT_EXTENSIONS = [".pdf", ".docx", ".jpg", ".jpeg"]`, usado en el `accept` del `<input type="file">` y en `handleUploadDocument` (rechaza antes de subir, mensaje `t("documents.invalidExtension")`). Backend (`Utils/FileValidationHelper.cs`): misma lista de extensiones + verificación de magic bytes por tipo (`MatchesContentAsync` — firma `%PDF`, firma JPEG `FF D8 FF`, o estructura ZIP/OOXML real para `.docx`), devuelve `BadRequest(ProblemDetails)` con mensaje explícito que ya llega al usuario sin caer en el error genérico (§5.3). **No hay `.png` soportado hoy en ningún lado** (ni upload ni preview).
+
+**Cambio a implementar:** achicar la lista permitida a PDF + imágenes (JPG, JPEG, PNG), sacando `.docx`:
+1. Backend `FileValidationHelper.cs`: quitar `.docx` de `AllowedExtensions` y su caso en `MatchesContentAsync`/`IsValidDocxAsync`; agregar `.png` con su firma (`89 50 4E 47 0D 0A 1A 0A`).
+2. Frontend `Policies.jsx`: quitar `.docx` y agregar `.png` a `ALLOWED_DOCUMENT_EXTENSIONS` (ajusta automáticamente `accept` y la validación de `handleUploadDocument`).
+3. Actualizar el mensaje de error del backend (`PoliciesController.cs:350`) y la traducción `documents.invalidExtension` (ES/EN) para reflejar la lista nueva.
+4. Relacionado, no estrictamente pedido: si se agrega `.png`, conviene sumarlo también a `PREVIEWABLE_DOCUMENT_TYPES` (hoy `["application/pdf", "image/jpeg"]`) para que sea previsualizable, no solo descargable — mismo criterio ya aplicado a PDF/JPEG.
+
+**Mensaje de error al usuario:** ya resuelto por el mecanismo existente (frontend rechaza antes de subir con mensaje traducido; backend devuelve `ProblemDetails` con título explícito, §5.3) — no hace falta construir nada nuevo, solo actualizar el texto de los mensajes a la nueva lista.
+
+**Relación con §27.2 (preview de `.docx`):** una vez implementada esta restricción, ya no se podrán subir nuevos `.docx` — el punto §27.2 queda sin sentido para uploads futuros. **No cierra §27.2 automáticamente**: falta confirmar si ya existen `.docx` subidos en la base que seguirían necesitando preview. Ver nota cruzada agregada en §27.2.
+
+---
+
 ## 2. Extensión del flujo de Dependientes — crear Customer nuevo desde Members — ✅ Hecho
 
 La sección Dependientes de Policies (§1.2) ahora tiene dos botones: "+ Add dependent" (buscar entre Customers existentes, como antes) y "+ Create new dependent" (nuevo). Al crear, se muestra el formulario completo de Customer inline; al enviarlo, el registro se crea vía `POST /api/customers` (Customer normal, sin ninguna tabla ni endpoint especial) y se vincula automáticamente a la póliza vía `POST /api/policies/{id}/dependents` (mismo endpoint que ya usaba el flujo de "buscar existente").
@@ -242,7 +258,7 @@ Se solicitó al responsable del proyecto el archivo de export **completo** (toda
 
 **✅ Hecho**: script implementado en `WholeCareInsurance.Migration/` (consola .NET, `ProjectReference` a `WholeCareInsurance.api`, EF Core directo sin pasar por la API HTTP). Modos `--dry-run` (simula todo, no persiste, genera reporte) y `--commit --confirm` (real, una transacción por Policy consolidada para poder reintentar sin reprocesar lo ya migrado). Corrido con éxito contra los 4 archivos reales el 2026-07-23: 1185 Health Insurance (ACA) + 7 Medicare + 2 Life Insurance + 16 Supplemental Plans, 0 filas no procesables. Backup previo en `D:\backups\WholeCareInsuranceDb_pre_migracion.bak`. Reporte completo (incluye nombre de Agente original por fila, para el pendiente de abajo) en `WholeCareInsurance.Migration/migration-report-20260723-132722.json`.
 
-**Pendiente no bloqueante**: 2490 filas migradas quedaron con `Customer.AgentId` apuntando al fallback (primer User con Rol=Admin) porque esta base todavía no tiene cargados los ~23 agentes reales del CSV como `User`. Cuando estén cargados, armar un script de reasignación que matchee `Customer.AgentId` por el nombre de agente original (ya está en el reporte JSON, campo `AgentFallbacks`) contra `User.Nombre` — no hace falta re-correr la migración completa para esto.
+**✅ Resuelto (2026-07-27, §15.3)**: las 2490 filas migradas que habían quedado con `Customer.AgentId` en el fallback (primer User con Rol=Admin) se reasignaron una vez cargados los 41 agentes reales como `User` (§15.2), matcheando por nombre contra el reporte JSON original (campo `AgentFallbacks`) — 1178/1179 pólizas reasignadas (99.92%). Queda 1 caso puntual sin resolver: la póliza 381835 de Mariana Salvador Cruz, con `AgentId` todavía en fallback (ver §23.2, ítem 46) — no bloqueante.
 
 **✅ Resuelto — formato del export**: confirmado por el responsable que la migración usará **4 archivos separados, uno por tipo de póliza** (Obamacare, Medicare, Life Insurance, Supplemental Plans), no un único archivo combinado con todos los tipos. El archivo ya analizado en §7.1 (1258 filas) es específicamente el de Health Insurance/Obamacare. Los otros 3 (Life, Medicare, Supplemental) ya fueron relevados por estructura de formulario + muestra chica de datos reales (§12), pero **todavía no se analizaron a fondo como el de Obamacare** (que tuvo el análisis completo de 1258 filas) — al diseñar el script, cada archivo probablemente necesite su propia lógica de mapeo/parseo dado que son exports independientes, no necesariamente con las mismas columnas entre sí.
 
@@ -1197,7 +1213,7 @@ Diseño, backfill de datos, endpoints backend y frontend completos y verificados
 
 1. ~~Clara Hasboun De Baptista (`20643`) y Elizabeth Gonzalez rea (`20626`)~~ — ✅ Hecho (2026-07-30), ver §24.11.
 2. ~~Dependientes con email real (no placeholder) que quedaron fuera del alcance de la Fase 2~~ — ✅ Hecho (2026-07-30), ver §24.10. El Customer `Id 9` ("Carlos Mendez", `carlos.mendez@example.com`) sigue siendo el único caso sin ningún vínculo (ni `Policy`, ni `PolicyDependent`, ni `CustomerRelationship`) — parece dato de prueba/seed anterior a la migración real, no un Customer de negocio; no requiere acción.
-3. **Backfill manual de los ~947 emails placeholder** (punto #4 de las restricciones originales de §24) — trabajo operativo del responsable/agentes, no bloquea nada. El filtro `?role=titular` de Customers.jsx (§24.8) ya sirve como lista de candidatos: los titulares con email placeholder son exactamente los que necesitan revisión. **Único punto operativo que queda de §24**, no es trabajo de desarrollo.
+3. **Backfill manual de los ~947 Customers con `Email = NULL`** (originalmente placeholders `noemail+P...`, convertidos a `NULL` por §25 el mismo día) — trabajo operativo del responsable/agentes, no bloquea nada. El filtro `?role=titular` de Customers.jsx (§24.8) ya sirve como lista de candidatos: los titulares sin email son exactamente los que necesitan revisión. **Único punto operativo que queda de §24**, no es trabajo de desarrollo.
 
 ### 24.10 Backfill de los dependientes con email real — ✅ Hecho (2026-07-30)
 
@@ -1430,6 +1446,8 @@ Entre C y D, **la Opción D (`docx-preview` client-side) es la recomendada**: mi
 
 **Punto abierto para el responsable**: decidir, con documentos `.docx` reales de la app en mano, si vale la complejidad de D (o C) — o si simplemente se mantiene "solo descargar" para `.docx` y el preview in-browser queda limitado a PDF/imagen (Parte 1), que ya cubre el único documento existente hoy en la base.
 
+**Nota cruzada (2026-08-05):** se documentó un nuevo pendiente (§1.12) para restringir el upload de documentos a solo PDF + imágenes, sacando `.docx` de los formatos permitidos. Si se implementa, ya no se podrán subir nuevos `.docx` — este punto queda sin sentido para archivos futuros, aunque no se cierra automáticamente hasta confirmar si hay `.docx` ya subidos que sigan necesitando preview. No cerrar §27.2 hasta que §1.12 esté efectivamente implementado y se confirme ese punto.
+
 ### 27.3 Implementación de la Parte 1 (PDF/imagen) — ✅ Hecho (2026-07-31)
 
 Implementado exactamente según el plan de §27.1, resolviendo los 3 obstáculos identificados.
@@ -1510,7 +1528,7 @@ Bloqueado a propósito hasta que el VPS/Test esté desplegado y `Frontend__BaseU
 19. Firma digital de consentimiento — sigue pendiente de que el responsable elija entre DocuSign y Dropbox Sign (y quién lo paga); notificación ya definida (email + SMS vía Twilio) y cuenta de Twilio ya creada (modo Trial, apta para desarrollo — §4.1/§4.4). Evaluación de SendGrid para email transaccional de agentes (§4.3) y plan de implementación técnica de Twilio (§4.4) documentados, no iniciados.
 20. ~~Infraestructura de hosting (VPS) — Dockerfiles/compose/README~~ ✅ Hecho (§8.1); falta el despliegue real al VPS
 21. ~~Campos de plan (ACA) y financieros en Policy~~ ✅ Hecho (§1.11)
-22. ~~Migración de datos del sistema anterior~~ ✅ Hecho (§7): script implementado y corrido con `--commit`; queda pendiente no bloqueante reasignar `Customer.AgentId` de las filas con fallback cuando los agentes reales estén cargados (ver §7)
+22. ~~Migración de datos del sistema anterior~~ ✅ Hecho (§7): script implementado y corrido con `--commit`. La reasignación de `Customer.AgentId` en filas con fallback se cerró en el ítem 37 (§15.3) — 1178/1179 pólizas (99.92%); queda 1 caso puntual sin resolver, ver ítem 46 (§23.2).
 23. ~~Mensajes de error del backend no llegaban al usuario~~ ✅ Hecho (§5.3, encontrado verificando InsuranceCompanies en el navegador)
 24. ~~Middleware global de excepciones no controladas~~ ✅ Hecho (§5.4)
 25. ~~AdminUserSeeder generalizado (admin real por ambiente vía env vars)~~ ✅ Hecho (§10.5)
