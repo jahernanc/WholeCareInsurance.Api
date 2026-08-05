@@ -123,14 +123,32 @@ Verificado con curl+sqlcmd (round-trip completo, rechazo de `AnnualIncome` negat
 ## 4. Consentimiento firmado y comunicación con clientes
 
 ### 4.1 Firma digital de consentimiento de póliza — ⏸ Pendiente de decisión del responsable
-Sin cambios desde la última revisión — confirmado que sigue sin implementar (no hay ninguna referencia a SignWell/DocuSign/HelloSign/Documenso en el código, solo en este documento).
+Investigación de proveedores completada (2026-08-05). Sigue sin implementar (no hay ninguna referencia a DocuSign/HelloSign en el código, solo en este documento). Lo único que falta decidir ahora es el proveedor final y quién lo paga — el canal de notificación ya quedó definido (ver abajo).
 
-**Opciones de proveedor:** SignWell, Dropbox Sign (HelloSign), Documenso (self-host), DocuSign — ver comparación completa más abajo en el historial de este documento si hace falta retomarla. **Notificación:** email solo, o email + SMS (Twilio). **Flujo:** generar PDF al crear la póliza → proveedor notifica al cliente → cliente firma en hosted signing page → webhook nuestro descarga el PDF firmado y lo asocia a la `Policy` (nuevo campo de estado de consentimiento + ubicación del PDF).
+**Opciones de proveedor (finalistas tras la investigación):** DocuSign y Dropbox Sign (HelloSign).
+- **DocuSign**: mayor reconocimiento y compliance en la industria de seguros en EE.UU., mejor para auditorías/regulación. Más caro — plan Business Pro ~$40-45/user/mes, con riesgo de overage si se excede el límite de envelopes.
+- **Dropbox Sign**: más económico — plan Standard ~$25/user/mes (mínimo 2 seats), firmas ilimitadas sin cargos extra, integración de API más rápida de implementar. Menos estándar en el sector seguros, pero legalmente igual de válido.
+- **Elección final depende de:** volumen mensual esperado de pólizas, y si hay requisitos de compliance/regulación estatal que empujen específicamente hacia DocuSign.
 
-Implementación pausada hasta que el responsable elija proveedor (y quién lo paga).
+**Descartadas en la etapa de investigación:** SignWell y Documenso (self-host) quedaron fuera de las opciones activas — no es la recomendación actual, pero no está bloqueado retomarlas si el responsable lo pide explícitamente.
+
+**Notificación (decidido, 2026-08-05):** email + SMS vía Twilio, ambos canales (no uno u otro). Ya no es parte de la decisión pendiente.
+
+**Flujo:** generar PDF al crear la póliza → proveedor notifica al cliente → cliente firma en hosted signing page → webhook nuestro descarga el PDF firmado y lo asocia a la `Policy` (nuevo campo de estado de consentimiento + ubicación del PDF).
+
+Implementación pausada hasta que el responsable elija entre DocuSign y Dropbox Sign (y quién lo paga).
 
 ### 4.2 Botón de WhatsApp para agentes — ✅ Hecho
 Click-to-chat: botón 💬 en cada fila de la tabla de Policies, abre `https://wa.me/<telefono>?text=...` con el `Phone` del Customer titular.
+
+---
+
+### 4.3 Evaluar Twilio (SendGrid) para email transaccional de agentes — ⏸ Pendiente de investigación/decisión
+Ya se decidió usar Twilio para SMS + email en el flujo de firma de consentimiento (§4.1). Falta evaluar si conviene usar también el servicio de email de Twilio (SendGrid) para otros flujos transaccionales del sistema, puntualmente el envío de emails a agentes para cambio/recuperación de contraseña, en vez de mantener un proveedor de email separado. Verificado en el código: hoy ese flujo usa `BrevoEmailService` (Brevo) en producción y `ConsoleEmailService` en desarrollo, vía la interfaz `IEmailService` (`Program.cs:31,33`).
+
+**Acción propuesta:** confirmar con el responsable si hay razones para migrar de Brevo a SendGrid, y evaluar dos caminos posibles: consolidar todo el email transaccional (consentimiento + password reset + otras notificaciones futuras) bajo SendGrid en un solo proveedor, o mantener Brevo para lo existente y sumar SendGrid solo para el flujo nuevo de consentimiento. La decisión entre migración completa o coexistencia de ambos proveedores queda a criterio del responsable.
+
+**Bloqueo:** ninguno técnico, es una decisión de arquitectura/costos a confirmar.
 
 ---
 
