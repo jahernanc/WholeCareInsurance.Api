@@ -125,6 +125,8 @@ Verificado con curl+sqlcmd (round-trip completo, rechazo de `AnnualIncome` negat
 ### 4.1 Firma digital de consentimiento de póliza — ⏸ Pendiente de decisión del responsable
 Investigación de proveedores completada (2026-08-05). Sigue sin implementar (no hay ninguna referencia a DocuSign/HelloSign en el código, solo en este documento). Lo único que falta decidir ahora es el proveedor final y quién lo paga — el canal de notificación ya quedó definido (ver abajo).
 
+**Estado de infraestructura (2026-08-05):** cuenta de Twilio ya creada por el responsable (dominio wholecareinsurancellc.com) — infraestructura lista para empezar integración técnica en paralelo a la decisión de proveedor de firma.
+
 **Opciones de proveedor (finalistas tras la investigación):** DocuSign y Dropbox Sign (HelloSign).
 - **DocuSign**: mayor reconocimiento y compliance en la industria de seguros en EE.UU., mejor para auditorías/regulación. Más caro — plan Business Pro ~$40-45/user/mes, con riesgo de overage si se excede el límite de envelopes.
 - **Dropbox Sign**: más económico — plan Standard ~$25/user/mes (mínimo 2 seats), firmas ilimitadas sin cargos extra, integración de API más rápida de implementar. Menos estándar en el sector seguros, pero legalmente igual de válido.
@@ -146,9 +148,30 @@ Click-to-chat: botón 💬 en cada fila de la tabla de Policies, abre `https://w
 ### 4.3 Evaluar Twilio (SendGrid) para email transaccional de agentes — ⏸ Pendiente de investigación/decisión
 Ya se decidió usar Twilio para SMS + email en el flujo de firma de consentimiento (§4.1). Falta evaluar si conviene usar también el servicio de email de Twilio (SendGrid) para otros flujos transaccionales del sistema, puntualmente el envío de emails a agentes para cambio/recuperación de contraseña, en vez de mantener un proveedor de email separado. Verificado en el código: hoy ese flujo usa `BrevoEmailService` (Brevo) en producción y `ConsoleEmailService` en desarrollo, vía la interfaz `IEmailService` (`Program.cs:31,33`).
 
+**Estado de infraestructura (2026-08-05):** cuenta de Twilio ya creada por el responsable (dominio wholecareinsurancellc.com) — infraestructura lista para empezar integración técnica en paralelo a la decisión de proveedor de firma.
+
 **Acción propuesta:** confirmar con el responsable si hay razones para migrar de Brevo a SendGrid, y evaluar dos caminos posibles: consolidar todo el email transaccional (consentimiento + password reset + otras notificaciones futuras) bajo SendGrid en un solo proveedor, o mantener Brevo para lo existente y sumar SendGrid solo para el flujo nuevo de consentimiento. La decisión entre migración completa o coexistencia de ambos proveedores queda a criterio del responsable.
 
 **Bloqueo:** ninguno técnico, es una decisión de arquitectura/costos a confirmar.
+
+---
+
+### 4.4 Plan de implementación — Integración Twilio (SMS + SendGrid) — 📋 Documentado, no iniciado
+
+**Prerrequisitos a confirmar con el responsable antes de empezar a codear:**
+- Registro A2P 10DLC (obligatorio en EE.UU. para envío de SMS transaccional/aplicación-a-persona) — confirmar si ya se inició este proceso en la cuenta de Twilio.
+- Verificación de dominio en SendGrid (registros DNS: SPF y DKIM) para `wholecareinsurancellc.com`, necesario para buena entregabilidad de emails.
+- Generación de credenciales: Account SID + API Key (recomendado usar API Key en vez de Auth Token por seguridad) desde el dashboard de Twilio.
+- Definir dónde se van a guardar esas credenciales en el proyecto. Verificado en el código: hoy `BrevoEmailService` sigue el patrón `appsettings.json` (sección `Brevo`, claves vacías en el repo) + variables de entorno `Brevo__ApiKey`/`Brevo__SenderEmail`/`Brevo__SenderName` seteadas solo en Test/Prod, nunca en archivos versionados (ver README, sección Brevo) — replicar el mismo patrón para Twilio/SendGrid.
+
+**Plan de implementación (pasos, a ejecutar una vez estén los prerrequisitos):**
+1. Crear una nueva implementación de `IEmailService` para SendGrid (ej: `SendGridEmailService`), siguiendo el mismo patrón que `BrevoEmailService`, sin reemplazarlo todavía (dejarlo coexistiendo, activable por configuración).
+2. Crear un nuevo servicio `ISmsService` (o similar) con implementación `TwilioSmsService` — verificado en el código que no existe ninguna abstracción de SMS en el proyecto actualmente, se crea desde cero.
+3. Agregar configuración en `appsettings.json` (Account SID, API Key, número de origen de Twilio) siguiendo el mismo patrón ya usado para Brevo (sección propia + `Twilio__...` como env vars en Test/Prod).
+4. Crear un endpoint o servicio de prueba (ej: enviar SMS/email de test) para validar que las credenciales y el envío funcionan antes de integrarlo al flujo real de consentimiento.
+5. Recién en este punto, una vez validada la integración base, conectar con el flujo real de §4.1 — esto queda bloqueado hasta que se resuelva DocuSign vs Dropbox Sign, ya que el disparo de la notificación depende de la respuesta del proveedor de firma.
+
+**Aclaración:** este plan es solo de documentación/planificación en esta iteración. No se implementó código todavía — el objetivo fue dejar el plan por escrito para poder ejecutarlo paso a paso en próximas iteraciones, empezando por confirmar los prerrequisitos con el responsable.
 
 ---
 
