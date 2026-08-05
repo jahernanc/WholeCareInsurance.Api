@@ -1507,7 +1507,7 @@ Bloqueado a propósito hasta que el VPS/Test esté desplegado y `Frontend__BaseU
 16. ~~Crear Customer nuevo desde Members/Dependientes de la póliza~~ ✅ Hecho (§2)
 17. ~~Gestión de contraseñas (cambio forzado, cambio desde perfil, recuperación por email)~~ ✅ Hecho (§10)
 18. ~~Campos nuevos de Agente~~ ✅ Hecho (§11)
-19. Firma digital de consentimiento — bloqueado hasta que el responsable elija proveedor (§4.1)
+19. Firma digital de consentimiento — sigue pendiente de que el responsable elija entre DocuSign y Dropbox Sign (y quién lo paga); notificación ya definida (email + SMS vía Twilio) y cuenta de Twilio ya creada (modo Trial, apta para desarrollo — §4.1/§4.4). Evaluación de SendGrid para email transaccional de agentes (§4.3) y plan de implementación técnica de Twilio (§4.4) documentados, no iniciados.
 20. ~~Infraestructura de hosting (VPS) — Dockerfiles/compose/README~~ ✅ Hecho (§8.1); falta el despliegue real al VPS
 21. ~~Campos de plan (ACA) y financieros en Policy~~ ✅ Hecho (§1.11)
 22. ~~Migración de datos del sistema anterior~~ ✅ Hecho (§7): script implementado y corrido con `--commit`; queda pendiente no bloqueante reasignar `Customer.AgentId` de las filas con fallback cuando los agentes reales estén cargados (ver §7)
