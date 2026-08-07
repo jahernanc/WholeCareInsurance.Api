@@ -138,19 +138,19 @@ Verificado con curl+sqlcmd (round-trip completo, rechazo de `AnnualIncome` negat
 
 ## 4. Consentimiento firmado y comunicación con clientes
 
-### 4.1 Firma digital de consentimiento de póliza — ⏸ Pendiente de decisión del responsable
-Investigación de proveedores completada (2026-08-05). Sigue sin implementar (no hay ninguna referencia a DocuSign/HelloSign en el código, solo en este documento). Lo único que falta decidir ahora es el proveedor final y quién lo paga — el canal de notificación ya quedó definido (ver abajo).
+### 4.1 Firma digital de consentimiento de póliza — 📋 Proveedor definido (Dropbox Sign) — implementación técnica no iniciada
+Investigación de proveedores completada (2026-08-05). **Proveedor elegido por el responsable (2026-08-05): Dropbox Sign (HelloSign)** — ver detalle abajo. Sigue sin implementar (no hay ninguna referencia a Dropbox Sign en el código, solo en este documento). El canal de notificación ya estaba definido (ver abajo); el costo de la suscripción también está confirmado — lo asume el responsable directamente.
 
 **Estado de infraestructura (2026-08-05):** cuenta de Twilio ya creada por el responsable (dominio wholecareinsurancellc.com) — infraestructura lista para empezar integración técnica en paralelo a la decisión de proveedor de firma.
 
-**Opciones de proveedor (finalistas tras la investigación):** DocuSign y Dropbox Sign (HelloSign).
-- **DocuSign**: mayor reconocimiento y compliance en la industria de seguros en EE.UU., mejor para auditorías/regulación. Más caro — plan Business Pro ~$40-45/user/mes, con riesgo de overage si se excede el límite de envelopes.
-- **Dropbox Sign**: más económico — plan Standard ~$25/user/mes (mínimo 2 seats), firmas ilimitadas sin cargos extra, integración de API más rápida de implementar. Menos estándar en el sector seguros, pero legalmente igual de válido.
-- **Elección final depende de:** volumen mensual esperado de pólizas, y si hay requisitos de compliance/regulación estatal que empujen específicamente hacia DocuSign.
+**Opciones de proveedor (finalistas tras la investigación) — DECISIÓN FINAL (2026-08-05): Dropbox Sign (HelloSign).** DocuSign queda descartado. Comparación completa dejada documentada a continuación:
+- **DocuSign — ❌ Descartado**: mayor reconocimiento y compliance en la industria de seguros en EE.UU., mejor para auditorías/regulación. Más caro — plan Business Pro ~$40-45/user/mes, con riesgo de overage si se excede el límite de envelopes.
+- **Dropbox Sign — ✅ Elegido**: más económico — plan Standard ~$25/user/mes (mínimo 2 seats), firmas ilimitadas sin cargos extra, integración de API más rápida de implementar. Menos estándar en el sector seguros, pero legalmente igual de válido.
+- **Criterio decisivo:** volumen mensual esperado de pólizas (confirmado por el responsable, ver abajo). No surgieron requisitos de compliance/regulación estatal que empujaran específicamente hacia DocuSign.
 - **Volumen de pólizas confirmado por el responsable (2026-08-05):** ~100 pólizas/mes en promedio, con picos de 1,000 a 2,000 pólizas en 2 meses seguidos (temporada de renovación).
   - **Con DocuSign:** en meses pico, si el plan no cubre ese volumen, el overage ($3-8/envelope excedido) podría representar entre ~$4,200 y $11,200 extra en un solo mes de 1,500 firmas. Evitarlo requeriría negociar un plan enterprise con cupo alto, lo que probablemente sube el costo base todo el año, no solo en los meses pico.
   - **Con Dropbox Sign:** al ser firmas ilimitadas en el plan Standard, el costo se mantiene estable todo el año (~$50/mes con 2 seats) sin importar el pico estacional.
-  - **Conclusión preliminar (no definitiva, la decisión sigue siendo del responsable):** el patrón de picos estacionales de este negocio favorece a Dropbox Sign en términos de costo, salvo que haya un requisito de compliance que obligue específicamente a usar DocuSign.
+  - **Conclusión — decisión final confirmada por el responsable (2026-08-05):** el patrón de picos estacionales de este negocio favorece a Dropbox Sign en términos de costo; no surgió ningún requisito de compliance que obligara a usar DocuSign. Dropbox Sign es el proveedor elegido.
 
 **Descartadas en la etapa de investigación:** SignWell y Documenso (self-host) quedaron fuera de las opciones activas — no es la recomendación actual, pero no está bloqueado retomarlas si el responsable lo pide explícitamente.
 
@@ -160,7 +160,7 @@ Investigación de proveedores completada (2026-08-05). Sigue sin implementar (no
 
 **Flujo:** generar PDF al crear la póliza → proveedor notifica al cliente → cliente firma en hosted signing page → webhook nuestro descarga el PDF firmado y lo asocia a la `Policy` (nuevo campo de estado de consentimiento + ubicación del PDF).
 
-Implementación pausada hasta que el responsable elija entre DocuSign y Dropbox Sign (y quién lo paga).
+Proveedor ya definido (Dropbox Sign) — implementación técnica no iniciada todavía. Costo de la suscripción confirmado: lo asume el responsable directamente. No queda ningún punto de decisión pendiente sobre proveedor/pago — solo falta la implementación técnica.
 
 ### 4.2 Botón de WhatsApp para agentes — ✅ Hecho
 Click-to-chat: botón 💬 en cada fila de la tabla de Policies, abre `https://wa.me/<telefono>?text=...` con el `Phone` del Customer titular.
@@ -202,7 +202,7 @@ Ya se decidió usar Twilio para SMS + email en el flujo de firma de consentimien
 2. Crear un nuevo servicio `ISmsService` (o similar) con implementación `TwilioSmsService` — verificado en el código que no existe ninguna abstracción de SMS en el proyecto actualmente, se crea desde cero.
 3. Agregar configuración en `appsettings.json` (Account SID, API Key, número de origen de Twilio) siguiendo el mismo patrón ya usado para Brevo (sección propia + `Twilio__...` como env vars en Test/Prod).
 4. Crear un endpoint o servicio de prueba (ej: enviar SMS/email de test) para validar que las credenciales y el envío funcionan antes de integrarlo al flujo real de consentimiento.
-5. Recién en este punto, una vez validada la integración base, conectar con el flujo real de §4.1 — esto queda bloqueado hasta que se resuelva DocuSign vs Dropbox Sign, ya que el disparo de la notificación depende de la respuesta del proveedor de firma.
+5. Recién en este punto, una vez validada la integración base (pasos 1-4), conectar con el flujo real de consentimiento de §4.1 — ya no bloqueado por elección de proveedor (Dropbox Sign confirmado, 2026-08-05, ver §4.1); el disparo de la notificación puede implementarse contra la API de Dropbox Sign en cuanto la integración base de Twilio esté validada.
 
 **Aclaración:** este plan es solo de documentación/planificación en esta iteración. No se implementó código todavía — el objetivo fue dejar el plan por escrito para poder ejecutarlo paso a paso en próximas iteraciones, empezando por confirmar los prerrequisitos con el responsable.
 
@@ -1525,7 +1525,7 @@ Bloqueado a propósito hasta que el VPS/Test esté desplegado y `Frontend__BaseU
 16. ~~Crear Customer nuevo desde Members/Dependientes de la póliza~~ ✅ Hecho (§2)
 17. ~~Gestión de contraseñas (cambio forzado, cambio desde perfil, recuperación por email)~~ ✅ Hecho (§10)
 18. ~~Campos nuevos de Agente~~ ✅ Hecho (§11)
-19. Firma digital de consentimiento — sigue pendiente de que el responsable elija entre DocuSign y Dropbox Sign (y quién lo paga); notificación ya definida (email + SMS vía Twilio) y cuenta de Twilio ya creada (modo Trial, apta para desarrollo — §4.1/§4.4). Evaluación de SendGrid para email transaccional de agentes (§4.3) y plan de implementación técnica de Twilio (§4.4) documentados, no iniciados.
+19. Firma digital de consentimiento — proveedor definido por el responsable (2026-08-05): Dropbox Sign (HelloSign), ver §4.1; costo de la suscripción confirmado (lo asume el responsable directamente); implementación técnica todavía no iniciada. Notificación ya definida (email + SMS vía Twilio) y cuenta de Twilio ya creada (modo Trial, apta para desarrollo — §4.1/§4.4). Evaluación de SendGrid para email transaccional de agentes (§4.3) y plan de implementación técnica de Twilio (§4.4) documentados, no iniciados.
 20. ~~Infraestructura de hosting (VPS) — Dockerfiles/compose/README~~ ✅ Hecho (§8.1); falta el despliegue real al VPS
 21. ~~Campos de plan (ACA) y financieros en Policy~~ ✅ Hecho (§1.11)
 22. ~~Migración de datos del sistema anterior~~ ✅ Hecho (§7): script implementado y corrido con `--commit`. La reasignación de `Customer.AgentId` en filas con fallback se cerró en el ítem 37 (§15.3) — 1178/1179 pólizas (99.92%); queda 1 caso puntual sin resolver, ver ítem 46 (§23.2).
